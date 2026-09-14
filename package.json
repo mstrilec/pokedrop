@@ -12,10 +12,33 @@
     "dev": "pnpm -r --parallel run dev",
     "build": "pnpm -r run build",
     "typecheck": "pnpm -r run typecheck",
-    "lint": "pnpm -r run lint",
-    "clean": "pnpm -r run clean"
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "clean": "pnpm -r run clean",
+    "prepare": "husky"
   },
   "devDependencies": {
-    "typescript": "5.9.3"
+    "@commitlint/cli": "^21.2.2",
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "16.3.5",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.12.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.5.1",
+    "prettier": "^3.9.6",
+    "typescript": "5.9.3",
+    "typescript-eslint": "^8.70.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,mjs,cjs,js,jsx}": [
+      "eslint --fix --max-warnings=0",
+      "prettier --write"
+    ],
+    "*.{json,yml,yaml,css}": [
+      "prettier --write"
+    ]
   }
 }
