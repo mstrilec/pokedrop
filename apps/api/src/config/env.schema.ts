@@ -20,6 +20,14 @@ export const EnvSchema = z
 
     DATABASE_URL: z.string().min(1),
 
+    // Off by default. Hunting N+1 queries is something you switch on
+    // deliberately; logging every statement all through development just
+    // trains you to ignore the output.
+    DB_QUERY_LOGGING: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((value) => value === 'true'),
+
     REDIS_URL: z.string().min(1),
     REDIS_CACHE_DB: z.coerce.number().int().min(0).max(15).default(0),
     REDIS_QUEUE_DB: z.coerce.number().int().min(0).max(15).default(1),
