@@ -1,0 +1,14 @@
+node_modules
+dist
+.next
+coverage
+pnpm-lock.yaml
+*.tsbuildinfo
+
+# Generated design mockups. Reformatting them would produce thousands of lines
+# of diff and they are not hand-edited.
+design
+
+# Hand-written prose with deliberately laid-out tables and ASCII diagrams that
+# Prettier would reflow.
+*.md
