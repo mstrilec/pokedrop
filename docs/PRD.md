@@ -43,7 +43,7 @@ The system uses a **local catalog-mirror architecture**: card metadata and price
 - Enable **safe, atomic peer-to-peer trading** with clear offer/accept/counter flows and no item duplication or loss.
 - Enforce **role-based access control** (Admin/Member) across API and UI.
 - Keep the app **resilient to external API downtime** by serving from a local mirror + cache.
-- Ship a codebase that is **simple, typed end-to-end, tested, linted, and documented** (Swagger).
+- Ship a codebase that is **simple, typed end-to-end, linted, and documented** (Swagger). Automated tests are deliberately deferred during v1 — see §20.
 
 ## 3. Non-Goals
 
@@ -225,7 +225,7 @@ src/
 **Provider adapter pattern (important):** all external sources implement a common `CardSourceProvider` interface (`fetchSets`, `fetchCards`, `fetchPrices`). `pokemontcg.io` is the default provider; TCGdex is a fallback the sync layer can switch to on repeated failures. This keeps the rest of the app source-agnostic and makes the Scrydex upgrade a one-file swap.
 
 **Recommended backend libraries (beyond your list):**
-`@nestjs/config`, `nestjs-zod` (Zod DTOs + Swagger), `@nestjs/throttler` (rate limiting), `helmet`, `nestjs-pino` + `pino-http` (structured logs), `@nestjs/terminus` (health), `@nestjs/bullmq`, `cache-manager` + `cache-manager-ioredis-yet`, `@nestjs/schedule` (cron triggers). Testing: **Jest** (unit), **Supertest** (e2e), **Testcontainers** (real Postgres/Redis in integration tests), `@faker-js/faker`. Quality: **ESLint** + `typescript-eslint`, **Prettier**, **Husky** + **lint-staged**, **commitlint**.
+`@nestjs/config`, `nestjs-zod` (Zod DTOs + Swagger), `@nestjs/throttler` (rate limiting), `helmet`, `nestjs-pino` + `pino-http` (structured logs), `@nestjs/terminus` (health), `@nestjs/bullmq`, `cache-manager` + `cache-manager-ioredis-yet`, `@nestjs/schedule` (cron triggers). Testing: **deferred, see §20** — no test tooling is installed during v1. Quality: **ESLint** + `typescript-eslint`, **Prettier**, **Husky** + **lint-staged**, **commitlint**.
 
 ---
 
@@ -256,7 +256,7 @@ lib/
 
 **Rendering strategy:** Server Components for read-heavy pages (card detail, public profiles, set lists) for fast first paint + SEO; Client Components for interactive surfaces (deck builder, pack reveal, trade composer). **TanStack Query** owns server state; **Zustand** owns ephemeral client state (deck draft, reveal sequence, modals). Forms via **React Hook Form + Zod**. Toasts via **Sonner**. Theming via **next-themes**. Animations via **Motion**. Drag-and-drop via **dnd-kit**. Dense tables via **TanStack Table**. Charts via **Recharts** (or **Tremor** for admin dashboards). Instant client filtering via **Fuse.js** over already-fetched pages.
 
-**Recommended frontend additions:** `@tanstack/react-query-devtools`, `react-error-boundary`, a small typed fetch layer (native `fetch` wrapper or `ky`). Testing: **Vitest** + **React Testing Library** (unit/component), **Playwright** (e2e), **MSW** (mock API). Quality: **ESLint** (`eslint-config-next`), **Prettier**, **Husky** + **lint-staged**.
+**Recommended frontend additions:** `@tanstack/react-query-devtools`, `react-error-boundary`, a small typed fetch layer (native `fetch` wrapper or `ky`). Testing: **deferred, see §20** — no test tooling is installed during v1. Quality: **ESLint** (`eslint-config-next`), **Prettier**, **Husky** + **lint-staged**.
 
 ---
 
@@ -490,6 +490,13 @@ Principles: **cache read-heavy, low-volatility catalog data aggressively**; keep
 
 ## 20. Testing Strategy
 
+> **Decision — 2026-09-14: no automated tests are written during v1 development.**
+>
+> Tests are deliberately deferred until the product is built. Do not add test
+> files, test runners, test dependencies, or a `test` step to CI as part of any
+> ticket. The strategy below is kept as the plan for when testing resumes, not
+> as work to schedule now.
+
 **Backend**
 - **Unit (Jest):** pack rarity distribution (statistical assertions over many draws), trade settlement invariants, deck validation, price-write logic, guards.
 - **Integration (Testcontainers):** real Postgres + Redis — transactional correctness of pack-open and trade accept (no dupe/loss), idempotency, cache invalidation.
@@ -512,7 +519,7 @@ Principles: **cache read-heavy, low-volatility catalog data aggressively**; keep
 - **Managed services:** managed Postgres (with backups/PITR) and managed Redis in production.
 - **Migrations:** `prisma migrate deploy` as a release step; never auto-migrate at runtime.
 - **Config:** env vars validated at boot; secrets from the platform secret store; Pokémon API keys server-side only.
-- **CI/CD:** on PR → install, typecheck, lint, test, build; on merge to main → build+push images, run migrations, deploy api + worker + frontend; smoke test `/health/ready`.
+- **CI/CD:** on PR → install, typecheck, lint, build (no test step during v1, see §20); on merge to main → build+push images, run migrations, deploy api + worker + frontend; smoke test `/health/ready`.
 - **Observability:** structured logs (pino) shipped to a log sink; health checks (`@nestjs/terminus`); basic metrics/dashboards for sync freshness, queue depth, error rate; alerting on failed syncs and rising 429s.
 - **Backups & DR:** automated DB backups + periodic restore drills; the catalog is re-syncable from source, so the irreplaceable data is users/inventory/decks/trades.
 

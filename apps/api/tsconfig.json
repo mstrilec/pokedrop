@@ -11,6 +11,6 @@
     "removeComments": true,
     "incremental": true,
     "outDir": "./dist",
-    "types": ["vitest/globals", "node"]
+    "types": ["node"]
   }
 }
