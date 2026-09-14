@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:#07080b;}
+  i[data-lucide]{width:1em;height:1em;display:inline-block;vertical-align:-0.125em;stroke-width:2;}
+  ::-webkit-scrollbar{width:10px;height:10px;}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:99px;border:2px solid transparent;background-clip:padding-box;}
+  a{color:inherit;text-decoration:none;}
+</style>
+</helmet>
+
+<div style="--bg:#0a0b0e;--surface:#14161c;--surface2:#1b1e26;--elev:#22262f;--bd:rgba(255,255,255,.08);--bd2:rgba(255,255,255,.13);--tx:#eef0f4;--mut:#969cab;--faint:#636876;--pri:#4c8dff;--pri-dim:rgba(76,141,255,.14);--gold:#f2b23c;--gold-dim:rgba(242,178,60,.14);--grn:#34d399;--red:#ef4444; min-height:100vh; background:radial-gradient(1000px 500px at 85% -10%, rgba(76,141,255,.05), transparent 60%), var(--bg); color:var(--tx); font-family:'Geist',system-ui,sans-serif; -webkit-font-smoothing:antialiased;">
+
+  <div style="display:flex;max-width:1320px;margin:0 auto;">
+
+    <!-- TOC -->
+    <aside style="width:220px;flex-shrink:0;position:sticky;top:0;height:100vh;padding:34px 16px;border-right:1px solid var(--bd);display:flex;flex-direction:column;gap:2px;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px;padding:0 8px;">
+        <div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--pri),#7db0ff);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(76,141,255,.4);"><i data-lucide="component" style="color:#fff;font-size:15px;"></i></div>
+        <div style="font-weight:700;font-size:14px;letter-spacing:-.02em;">Component Specs</div>
+      </div>
+      <div style="font-size:11px;color:var(--faint);padding:0 9px 14px;line-height:1.5;">{{ totalCount }} components · 6 groups</div>
+      <sc-for list="{{ groups }}" as="g" hint-placeholder-count="6">
+        <a href="{{ g.href }}" style="display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:8px;font-size:12.5px;color:var(--mut);"><i data-lucide="{{ g.icon }}" style="font-size:14px;color:var(--faint);"></i><span style="flex:1;">{{ g.name }}</span><span style="font-family:'Geist Mono';font-size:10.5px;color:var(--faint);">{{ g.count }}</span></a>
+      </sc-for>
+      <div style="margin-top:auto;padding:14px 9px 0;font-size:11px;color:var(--faint);font-family:'Geist Mono';border-top:1px solid var(--bd);">v1.0 · PokéDex TCG</div>
+    </aside>
+
+    <!-- CONTENT -->
+    <main style="flex:1;min-width:0;padding:46px clamp(24px,4vw,52px) 100px;">
+      <header style="margin-bottom:44px;">
+        <div style="font:600 12px 'Geist Mono';letter-spacing:.18em;text-transform:uppercase;color:var(--pri);margin-bottom:14px;">Engineering reference</div>
+        <h1 style="font-size:clamp(30px,4vw,44px);font-weight:800;letter-spacing:-.03em;line-height:1.04;margin:0 0 14px;">Reusable component specifications</h1>
+        <p style="font-size:16px;line-height:1.6;color:var(--mut);max-width:640px;margin:0;">The contract for every UI primitive and composite in the app. Each entry defines its purpose, props API, variants, interaction states, and accessibility requirements. Props map 1:1 to the React/DC implementation.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:20px;">
+          <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--mut);background:var(--surface);border:1px solid var(--bd);border-radius:8px;padding:6px 11px;"><span style="width:8px;height:8px;border-radius:3px;background:var(--pri);"></span>Primitive — atomic, style-only</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--mut);background:var(--surface);border:1px solid var(--bd);border-radius:8px;padding:6px 11px;"><span style="width:8px;height:8px;border-radius:3px;background:var(--gold);"></span>Composite — composes primitives + data</span>
+        </div>
+      </header>
+
+      <sc-for list="{{ groups }}" as="g" hint-placeholder-count="6">
+      <section id="{{ g.id }}" style="margin-bottom:24px;scroll-margin-top:24px;">
+        <div style="display:flex;align-items:center;gap:12px;margin:36px 0 18px;">
+          <i data-lucide="{{ g.icon }}" style="font-size:17px;color:var(--pri);"></i>
+          <h2 style="font-size:14px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx);margin:0;">{{ g.name }}</h2>
+          <span style="flex:1;height:1px;background:var(--bd);"></span>
+          <span style="font-family:'Geist Mono';font-size:11px;color:var(--faint);">{{ g.count }} components</span>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <sc-for list="{{ g.items }}" as="c" hint-placeholder-count="4">
+          <div style="background:var(--surface);border:1px solid var(--bd);border-radius:16px;overflow:hidden;">
+            <!-- header -->
+            <div style="display:flex;align-items:flex-start;gap:14px;padding:20px 22px;border-bottom:1px solid var(--bd);">
+              <div style="width:40px;height:40px;border-radius:11px;background:{{ c.tint }};display:flex;align-items:center;justify-content:center;color:{{ c.iconColor }};flex-shrink:0;"><i data-lucide="{{ c.icon }}" style="font-size:19px;"></i></div>
+              <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                  <span style="font-family:'Geist Mono';font-size:16px;font-weight:600;letter-spacing:-.01em;">{{ c.name }}</span>
+                  <span style="font-size:10.5px;font-weight:600;color:{{ c.tagColor }};background:{{ c.tagTint }};border-radius:6px;padding:2px 8px;text-transform:uppercase;letter-spacing:.04em;">{{ c.tag }}</span>
+                </div>
+                <p style="font-size:13.5px;color:var(--mut);line-height:1.5;margin:6px 0 0;">{{ c.purpose }}</p>
+              </div>
+            </div>
+            <!-- props -->
+            <div style="padding:18px 22px;border-bottom:1px solid var(--bd);">
+              <div style="font-size:11px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px;display:flex;align-items:center;gap:7px;"><i data-lucide="braces" style="font-size:13px;"></i>Props</div>
+              <div style="border:1px solid var(--bd);border-radius:10px;overflow:hidden;">
+                <div style="display:grid;grid-template-columns:1.1fr 1.2fr .8fr 2.2fr;gap:12px;padding:9px 14px;background:var(--bg);font-size:10.5px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;"><span>Prop</span><span>Type</span><span>Default</span><span>Description</span></div>
+                <sc-for list="{{ c.props }}" as="p" hint-placeholder-count="3">
+                <div style="display:grid;grid-template-columns:1.1fr 1.2fr .8fr 2.2fr;gap:12px;padding:10px 14px;border-top:1px solid var(--bd);font-size:12.5px;align-items:baseline;">
+                  <span style="font-family:'Geist Mono';font-weight:600;color:var(--tx);">{{ p.0 }}<sc-if value="{{ p.4 }}" hint-placeholder-val="{{ false }}"><span style="color:var(--red);">*</span></sc-if></span>
+                  <span style="font-family:'Geist Mono';font-size:11.5px;color:var(--pri);">{{ p.1 }}</span>
+                  <span style="font-family:'Geist Mono';font-size:11.5px;color:var(--faint);">{{ p.2 }}</span>
+                  <span style="color:var(--mut);line-height:1.45;">{{ p.3 }}</span>
+                </div>
+                </sc-for>
+              </div>
+            </div>
+            <!-- variants / states / a11y -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:0;">
+              <div style="padding:18px 22px;border-right:1px solid var(--bd);">
+                <div style="font-size:11px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.07em;margin-bottom:11px;display:flex;align-items:center;gap:7px;"><i data-lucide="layers-2" style="font-size:13px;"></i>Variants</div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                  <sc-for list="{{ c.variants }}" as="v" hint-placeholder-count="3"><span style="font-size:11.5px;font-weight:500;color:var(--tx);background:var(--surface2);border:1px solid var(--bd);border-radius:7px;padding:4px 9px;">{{ v }}</span></sc-for>
+                </div>
+              </div>
+              <div style="padding:18px 22px;border-right:1px solid var(--bd);">
+                <div style="font-size:11px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.07em;margin-bottom:11px;display:flex;align-items:center;gap:7px;"><i data-lucide="toggle-right" style="font-size:13px;"></i>States</div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                  <sc-for list="{{ c.states }}" as="st" hint-placeholder-count="3"><span style="font-size:11.5px;font-weight:500;color:var(--mut);background:var(--bg);border:1px solid var(--bd);border-radius:7px;padding:4px 9px;">{{ st }}</span></sc-for>
+                </div>
+              </div>
+              <div style="padding:18px 22px;">
+                <div style="font-size:11px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.07em;margin-bottom:11px;display:flex;align-items:center;gap:7px;"><i data-lucide="accessibility" style="font-size:13px;"></i>Accessibility</div>
+                <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px;">
+                  <sc-for list="{{ c.a11y }}" as="a" hint-placeholder-count="3"><li style="font-size:12px;color:var(--mut);line-height:1.45;display:flex;gap:7px;"><i data-lucide="check" style="font-size:13px;color:var(--grn);flex-shrink:0;margin-top:2px;"></i><span>{{ a }}</span></li></sc-for>
+                </ul>
+              </div>
+            </div>
+          </div>
+          </sc-for>
+        </div>
+      </section>
+      </sc-for>
+
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1320,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  componentDidMount(){ this._i(); }
+  componentDidUpdate(){ this._i(); }
+  _i(){ try{ requestAnimationFrame(()=>window.lucide&&window.lucide.createIcons()); }catch(e){} }
+
+  renderVals(){
+    const PRIM = { tag:'Primitive', tagColor:'#7db0ff', tagTint:'rgba(76,141,255,.14)' };
+    const COMP = { tag:'Composite', tagColor:'#f2b23c', tagTint:'rgba(242,178,60,.14)' };
+    const TINT_P = { tint:'var(--pri-dim)', iconColor:'var(--pri)' };
+    const TINT_G = { tint:'var(--gold-dim)', iconColor:'var(--gold)' };
+    // prop tuple: [name, type, default, description, required?]
+    const c = (name, base, icon, purpose, props, variants, states, a11y) => ({
+      name, ...base, ...(base.tag==='Primitive'?TINT_P:TINT_G), icon, purpose, props, variants, states, a11y
+    });
+
+    const primitives = [
+      c('Button', PRIM, 'square-mouse-pointer', 'The core action trigger. Text label with optional leading icon; carries visual weight proportional to intent.',
+        [['variant','"primary" | "secondary" | "ghost" | "confirm" | "destructive" | "economy"','"primary"','Visual intent and color treatment.'],
+         ['size','"sm" | "md" | "lg"','"md"','Padding and font-size scale (13 / 14 / 16px).'],
+         ['icon','LucideName','—','Optional leading glyph, sized to match label.'],
+         ['disabled','boolean','false','Dims to 40% and blocks pointer events.'],
+         ['onClick','() => void','—','Activation handler.',true]],
+        ['primary','secondary','ghost','confirm','destructive','economy'],
+        ['default','hover','active','focus-visible','disabled','loading'],
+        ['Native <button>; Enter/Space activate.','Visible 2px focus ring at 3:1 contrast.','disabled sets aria-disabled + removes from tab order.','Label text ≥ 4.5:1 on its fill; icon-only variants require aria-label.']),
+      c('IconButton', PRIM, 'circle-dot', 'A square 40px control for a single icon action (bell, overflow, close) where a text label would crowd the layout.',
+        [['icon','LucideName','—','The glyph to render (17px).',true],
+         ['label','string','—','Accessible name announced to AT.',true],
+         ['badge','boolean | number','false','Optional unread dot or count.'],
+         ['onClick','() => void','—','Activation handler.',true]],
+        ['ghost','surface','with-badge'],
+        ['default','hover','active','focus-visible'],
+        ['aria-label is mandatory (no visible text).','44px min touch target on coarse pointers.','Badge count exposed via aria-label suffix, not color alone.']),
+      c('Badge / Chip', PRIM, 'badge-check', 'A compact status or category marker. Tinted background at ~14% of the hue with matching text and an optional leading dot.',
+        [['tone','"rarity" | "status" | "utility" | "role"','"status"','Semantic family selecting the palette.'],
+         ['label','string','—','Text content.',true],
+         ['dot','boolean','true','Show the leading indicator dot.'],
+         ['icon','LucideName','—','Optional glyph in place of the dot.']],
+        ['Common → Secret ramp','Pending/Accepted/Declined/Countered','Legal/Issues','IN/OUT','Admin'],
+        ['static (non-interactive)'],
+        ['Decorative only; never the sole carrier of meaning — paired with text.','Color contrast ≥ 3:1 for the dot, ≥ 4.5:1 for text.','role="status" when used to announce live changes.']),
+      c('CurrencyPill', PRIM, 'coins', 'Displays the user\u2019s coin balance in gold, using Geist Mono for the numeral. Doubles as a link to the wallet.',
+        [['amount','number','—','Balance to format with thousands separators.',true],
+         ['size','"sm" | "md"','"md"','Compact vs standard.'],
+         ['interactive','boolean','true','Renders as a link/button to the wallet.']],
+        ['static','interactive'],
+        ['default','hover'],
+        ['Numeral read as "1,250 coins" via aria-label.','Gold-on-tint contrast verified ≥ 4.5:1.']),
+      c('Avatar', PRIM, 'circle-user-round', 'A user\u2019s visual identity — a gradient tile with the initial, or an uploaded image.',
+        [['name','string','—','Used for the initial + accessible name.',true],
+         ['src','string','—','Optional image URL; falls back to initial.'],
+         ['size','number','34','Square dimension in px.'],
+         ['gradient','[string,string]','brand','Fallback tile gradient.']],
+        ['initial','image','sizes 28–88'],
+        ['default'],
+        ['alt / aria-label derived from name.','Decorative gradient hidden from AT.']),
+      c('CompletionMeter', PRIM, 'circle-gauge', 'A thin horizontal progress bar for set completion and deck/energy balance.',
+        [['value','number','—','Current amount.',true],
+         ['max','number','—','Total for 100%.',true],
+         ['color','string','var(--pri)','Fill color (often set-themed).'],
+         ['height','number','7','Track thickness in px.']],
+        ['default','set-themed'],
+        ['empty','partial','complete'],
+        ['role="progressbar" with aria-valuenow/min/max.','Percentage also shown as text, not color alone.']),
+      c('Skeleton', PRIM, 'loader', 'A shimmering placeholder that mirrors the shape of loading content to prevent layout shift.',
+        [['shape','"line" | "block" | "circle"','"line"','Geometry preset.'],
+         ['width','string','"100%"','CSS width.'],
+         ['height','string','—','CSS height.']],
+        ['line','block','circle'],
+        ['animating'],
+        ['aria-hidden — the container exposes aria-busy="true".','Respects prefers-reduced-motion (freezes shimmer).']),
+      c('Spinner', PRIM, 'loader-circle', 'An indeterminate circular loader for waits with no measurable progress (pack opening, sync).',
+        [['size','number','34','Diameter in px.'],
+         ['label','string','"Loading"','Accessible status text.']],
+        ['sm','md','inline'],
+        ['spinning'],
+        ['role="status" + visually-hidden or visible label.','Honors prefers-reduced-motion.']),
+    ];
+
+    const inputs = [
+      c('Input / FormField', PRIM, 'text-cursor-input', 'A labelled text field with inline validation — the atom of every auth and settings form (RHF + Zod).',
+        [['label','string','—','Field label above the control.',true],
+         ['type','"text" | "email" | "password" | "number"','"text"','Native input type.'],
+         ['placeholder','string','—','Ghost hint text.'],
+         ['error','string','—','Validation message; flips border to danger.'],
+         ['value','string','—','Controlled value.']],
+        ['default','with-error','password (masked)','mono (numeric)'],
+        ['default','focus','filled','error','disabled'],
+        ['<label for> tied to the input id.','aria-invalid + aria-describedby link the error text.','Focus ring never removed; error not conveyed by color alone.']),
+      c('Toggle (Switch)', PRIM, 'toggle-right', 'A binary on/off control for privacy and preference settings.',
+        [['checked','boolean','false','On/off state.',true],
+         ['onChange','(v:boolean) => void','—','Change handler.',true],
+         ['label','string','—','Associated description.'],
+         ['disabled','boolean','false','Non-interactive state.']],
+        ['on','off'],
+        ['default','hover','focus-visible','disabled'],
+        ['role="switch" with aria-checked.','Space toggles; label is clickable.','State conveyed by knob position + color, not color only.']),
+      c('SearchInput', COMP, 'search', 'A search field with a leading icon; drives instant client filtering (Fuse.js) plus server queries.',
+        [['placeholder','string','"Search…"','Hint text.'],
+         ['value','string','—','Query string.'],
+         ['onSearch','(q:string) => void','—','Debounced query callback.'],
+         ['scope','"catalog" | "inventory"','"inventory"','Which dataset to query.']],
+        ['topbar (global)','inline (filter bar)'],
+        ['default','focus','has-query','empty-results'],
+        ['role="searchbox"; Escape clears.','Result count announced via aria-live region.']),
+      c('FilterBar / FilterChip', COMP, 'sliders-horizontal', 'A row of dropdown filters (set, rarity, type, sort) plus a view toggle, sitting above card grids.',
+        [['filters','Filter[]','[]','Filter definitions with active values.',true],
+         ['view','"grid" | "list"','"grid"','Current layout toggle.'],
+         ['onChange','(f) => void','—','Emits updated filter state.']],
+        ['catalog','inventory','with view-toggle'],
+        ['default','open','active-filter'],
+        ['Each chip is a labelled menu button (aria-haspopup).','Active filters announced; clearable via keyboard.']),
+    ];
+
+    const dataDisplay = [
+      c('CardTile', COMP, 'square-stack', 'The signature primitive — an abstract, rarity-tinted card face with HP, type glyph, owned count and price. Glows on Ultra/Secret.',
+        [['card','Card','—','Card record: name, type, rarity, hp, price, owned, setCode, number.',true],
+         ['onOpen','() => void','—','Navigates to the card detail screen.'],
+         ['size','string','auto','Grid-driven; aspect locked to 5:7.']],
+        ['owned','unowned (locked/greyed)','high-rarity (glow)'],
+        ['default','hover (lift + border)','focus-visible','locked'],
+        ['Focusable card acts as a link (role/tabindex).','Rarity + ownership stated in text, not color alone.','Type glyph paired with the type name in detail view.']),
+      c('StatCard', COMP, 'square-activity', 'A single KPI tile — label, tinted icon, large mono value, and a trend delta.',
+        [['label','string','—','Metric name.',true],
+         ['value','string','—','Formatted value (mono).',true],
+         ['icon','LucideName','—','Tinted glyph.'],
+         ['trend','string','—','Delta text.'],
+         ['trendTone','"up" | "down" | "flat"','"up"','Colors the trend line.']],
+        ['dashboard','inventory (compact)','admin metric'],
+        ['default'],
+        ['Value + label form a labelled group.','Trend direction stated in text, arrow icon reinforces.']),
+      c('DataTable / TableRow', COMP, 'table', 'A CSS-grid table inside a surface card — uppercase header, hairline dividers, mono numeric columns, row hover.',
+        [['columns','Column[]','—','Header defs with grid template.',true],
+         ['rows','Row[]','[]','Row data.',true],
+         ['onRowClick','(row) => void','—','Optional row activation.'],
+         ['dense','boolean','false','Tighter row padding.']],
+        ['static','clickable rows','with row actions'],
+        ['default','row-hover','empty','loading (skeleton rows)'],
+        ['Semantic roles: table/row/cell (or native table).','Sortable headers are buttons with aria-sort.','Row actions reachable by keyboard, not hover-only.']),
+      c('PackTemplateCard', COMP, 'package', 'A purchasable pack — type-gradient art, name, card count, guarantee, and a cost button.',
+        [['template','PackTemplate','—','name, cost, count, guarantee, art.',true],
+         ['onOpen','() => void','—','Opens the confirm-cost dialog.',true],
+         ['tag','string','—','Optional ribbon (Latest / Premium).']],
+        ['standard','premium','tagged'],
+        ['default','hover (lift)','focus-visible'],
+        ['Cost announced as "150 coins" in the button name.','Ribbon is decorative; not sole signal.']),
+      c('RevealCard', COMP, 'sparkles', 'A pack-opening card that flips in with a stagger; rare pulls get an animated glow burst.',
+        [['card','Card','—','The pulled card.',true],
+         ['index','number','0','Drives the flip-in stagger delay.'],
+         ['highlight','boolean','false','Rare-pull glow emphasis.']],
+        ['common','rare-pull (glow)'],
+        ['face-down','flipping','revealed'],
+        ['Skippable — a "Skip animation" control renders results instantly.','Honors prefers-reduced-motion (no flip).','Result also listed as text for AT.']),
+      c('NotificationRow', COMP, 'bell', 'A single notification — tinted event icon, rich text, timestamp, and an unread dot; deep-links to its subject.',
+        [['notification','Notification','—','icon, text, time, unread, target.',true],
+         ['onClick','() => void','—','Navigates to the related entity.']],
+        ['read','unread (accent bg + dot)'],
+        ['default','hover','unread'],
+        ['Unread state exposed via text, not dot color alone.','Whole row is one activatable link.']),
+    ];
+
+    const navigation = [
+      c('Sidebar / NavItem', COMP, 'panel-left', 'The 236px persistent rail. Each NavItem is an icon + label; the active route uses the primary tint. Admin group is role-gated.',
+        [['items','NavItem[]','—','Icon, label, route, optional badge.',true],
+         ['active','string','—','Current route id.',true],
+         ['role','"member" | "admin"','"member"','Gates the Admin section.'],
+         ['badge','number','—','Per-item count (e.g. pending trades).']],
+        ['member','admin (extra group)','active item'],
+        ['default','hover','active','focus-visible'],
+        ['<nav> landmark with aria-current="page" on active.','Role-gated links removed from DOM, not just hidden.','Full keyboard traversal; badges labelled.']),
+      c('Topbar', COMP, 'panel-top', 'The 60px sticky, translucent header — global search left; currency pill, notification bell and primary CTA right.',
+        [['balance','number','—','Passed to the CurrencyPill.',true],
+         ['unread','number','0','Bell badge count.'],
+         ['onSearch','(q) => void','—','Search callback.']],
+        ['default'],
+        ['default','scrolled (blur)'],
+        ['<header> + <search> landmarks.','Bell has an aria-label with unread count.','Sticky bar keeps a visible focus path.']),
+      c('Tabs', PRIM, 'rows-2', 'A segmented control for filtering a view — used on the trades inbox (All / Incoming / Sent / Completed).',
+        [['tabs','Tab[]','—','Label + value list.',true],
+         ['active','string','—','Selected value.',true],
+         ['onChange','(v) => void','—','Selection handler.',true]],
+        ['2–4 segments'],
+        ['default','active','hover','focus-visible'],
+        ['role="tablist"/"tab" with aria-selected.','Arrow keys move between tabs; Home/End jump.']),
+      c('Breadcrumbs', PRIM, 'chevron-right', 'A trail showing hierarchy on detail screens (Collection › Set › Card).',
+        [['trail','Crumb[]','—','Ordered label + link list.',true]],
+        ['default'],
+        ['default','hover'],
+        ['nav[aria-label="Breadcrumb"]; last crumb aria-current.','Separators are decorative (aria-hidden).']),
+    ];
+
+    const overlays = [
+      c('Dialog / Modal', COMP, 'square-dashed', 'A centered dialog on a blurred scrim — confirm cost, destructive actions, trade confirmation, grant currency, etc.',
+        [['title','string','—','Heading.',true],
+         ['icon','LucideName','—','Badge glyph reflecting intent.'],
+         ['tone','"default" | "danger" | "success"','"default"','Icon badge + confirm-button color.'],
+         ['children','ReactNode','—','Body content / form.'],
+         ['onClose','() => void','—','Dismiss handler.',true],
+         ['actions','Action[]','—','Footer buttons (cancel + confirm).']],
+        ['confirm','destructive','form','summary'],
+        ['open','closing','confirming'],
+        ['role="dialog" aria-modal; focus trapped within.','Focus returns to the trigger on close.','Escape and scrim click dismiss; labelled by title id.']),
+      c('Toast', COMP, 'message-square-dot', 'A transient, non-blocking confirmation (Sonner-style) for async outcomes — trade sent, coins granted, pack opened.',
+        [['tone','"success" | "error" | "info"','"info"','Accent + icon.'],
+         ['message','string','—','Body text.',true],
+         ['duration','number','4000','Auto-dismiss ms.'],
+         ['action','Action','—','Optional inline action.']],
+        ['success','error','info'],
+        ['enter','visible','exit'],
+        ['role="status" (polite) / "alert" (error).','Never the only feedback for critical outcomes.','Pauses auto-dismiss on hover/focus.']),
+      c('EmptyState', COMP, 'inbox', 'A first-run placeholder — soft icon badge, warm one-line prompt, and a single primary action. Never a dead end.',
+        [['icon','LucideName','—','Illustrative glyph.',true],
+         ['title','string','—','Short headline.',true],
+         ['body','string','—','One-line guidance.',true],
+         ['cta','{label,onClick}','—','Primary next step.']],
+        ['collection','trades','decks','search (no results)'],
+        ['default'],
+        ['Icon is decorative (aria-hidden); title carries meaning.','CTA is a real focusable button, first in tab order.']),
+      c('TradeStatusTimeline', COMP, 'git-commit-vertical', 'A vertical stepper tracking a trade\u2019s lifecycle — proposed → notified → awaiting → settled.',
+        [['steps','Step[]','—','Label, time, done/active flags.',true]],
+        ['default'],
+        ['done','active','pending'],
+        ['Ordered list semantics; current step aria-current.','Status stated in text, not dot color alone.']),
+    ];
+
+    const domain = [
+      c('DeckSlot / CopyCountStepper', COMP, 'layers', 'A decklist row with a −/count/+ stepper enforcing the 4-copy legality limit; a drop target in the builder.',
+        [['card','Card','—','The card in this slot.',true],
+         ['count','number','1','Copies in the deck (0–4).',true],
+         ['onChange','(n) => void','—','Increment/decrement handler.',true],
+         ['locked','boolean','false','Card locked in a pending trade.']],
+        ['default','max (4)','locked'],
+        ['default','hover','dragging','drop-target','locked'],
+        ['Stepper buttons labelled "add/remove copy".','Count is an aria-live value; +/- disabled at bounds.','Touch fallback: tap-to-add (no drag required).']),
+      c('TradeOfferPanel', COMP, 'arrow-left-right', 'The give/get composer — two columns of CardTiles plus a coin input, used in propose and trade detail.',
+        [['offered','Card[]','[]','Cards you give.',true],
+         ['requested','Card[]','[]','Cards you request.',true],
+         ['coins','{give,get}','{0,0}','Currency on each side.'],
+         ['editable','boolean','true','Compose vs read-only view.']],
+        ['editable (propose)','read-only (detail)'],
+        ['default','empty-slot','escrow-locked'],
+        ['Give/get sides are labelled regions.','Add-card slots are labelled buttons.','Escrow-locked cards announce their locked status.']),
+      c('DeckValidationBanner', COMP, 'clipboard-check', 'The live legality panel — a checklist of format rules with pass/fail rows and detail counts.',
+        [['results','Rule[]','—','Each rule: text, ok flag, detail.',true]],
+        ['all-pass','has-errors'],
+        ['valid','invalid'],
+        ['Pass/fail conveyed by icon + text, not color alone.','role="status" announces newly failing rules.']),
+      c('CurrencyInput', COMP, 'hand-coins', 'A coin amount field with the gold coin affix, used in trade composition and admin grants.',
+        [['value','number','0','Coin amount.',true],
+         ['onChange','(n) => void','—','Change handler.',true],
+         ['max','number','—','Optional balance cap.']],
+        ['offer','request','admin-grant'],
+        ['default','focus','over-balance (error)'],
+        ['Labelled numeric spinbutton.','Over-balance error via aria-invalid + text.']),
+    ];
+
+    const groups = [
+      { id:'primitives', name:'Primitives', icon:'atom', items:primitives },
+      { id:'inputs', name:'Inputs & forms', icon:'text-cursor-input', items:inputs },
+      { id:'data', name:'Data display', icon:'layout-grid', items:dataDisplay },
+      { id:'nav', name:'Navigation', icon:'compass', items:navigation },
+      { id:'overlays', name:'Overlays & feedback', icon:'layers-2', items:overlays },
+      { id:'domain', name:'TCG domain', icon:'swords', items:domain },
+    ].map(g=>({ ...g, href:'#'+g.id, count:g.items.length }));
+
+    const totalCount = groups.reduce((n,g)=>n+g.items.length, 0);
+    return { groups, totalCount };
+  }
+}
+</script>
+</body>
+</html>

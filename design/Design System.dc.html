@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:#07080b;}
+  i[data-lucide]{width:1em;height:1em;display:inline-block;vertical-align:-0.125em;stroke-width:2;}
+  ::-webkit-scrollbar{width:10px;height:10px;}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:99px;border:2px solid transparent;background-clip:padding-box;}
+  @keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  @keyframes pulseDot{0%,100%{opacity:.4;}50%{opacity:1;}}
+  .skel{background:linear-gradient(90deg,#191c24 25%,#262a34 50%,#191c24 75%);background-size:200% 100%;animation:shimmer 1.5s ease-in-out infinite;border-radius:6px;}
+  .spinner{border-radius:50%;border:2.5px solid rgba(255,255,255,.12);border-top-color:var(--pri);animation:spin .8s linear infinite;}
+  a{color:inherit;}
+</style>
+</helmet>
+
+<div style="--bg:#0a0b0e;--surface:#14161c;--surface2:#1b1e26;--elev:#22262f;--bd:rgba(255,255,255,.08);--bd2:rgba(255,255,255,.13);--tx:#eef0f4;--mut:#969cab;--faint:#636876;--pri:#4c8dff;--pri-dim:rgba(76,141,255,.14);--gold:#f2b23c;--gold-dim:rgba(242,178,60,.14);--grn:#34d399;--red:#ef4444;--red-dim:rgba(239,68,68,.14);--c-com:#9aa1ad;--c-unc:#4fc98a;--c-rare:#4c8dff;--c-ultra:#b06bf0;--c-secret:#f2b23c; min-height:100vh; background:radial-gradient(1000px 500px at 85% -10%, rgba(76,141,255,.05), transparent 60%), var(--bg); color:var(--tx); font-family:'Geist',system-ui,sans-serif; -webkit-font-smoothing:antialiased;">
+
+  <div style="display:flex;max-width:1280px;margin:0 auto;">
+
+    <!-- TOC -->
+    <aside style="width:214px;flex-shrink:0;position:sticky;top:0;height:100vh;padding:34px 16px;border-right:1px solid var(--bd);display:flex;flex-direction:column;gap:2px;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:22px;padding:0 8px;">
+        <div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--pri),#7db0ff);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(76,141,255,.4);"><i data-lucide="zap" style="color:#fff;font-size:15px;"></i></div>
+        <div style="font-weight:700;font-size:14px;letter-spacing:-.02em;">Design System</div>
+      </div>
+      <sc-for list="{{ toc }}" as="t" hint-placeholder-count="16">
+        <a href="{{ t.href }}" style="display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:8px;font-size:13px;color:var(--mut);text-decoration:none;"><i data-lucide="{{ t.icon }}" style="font-size:14px;color:var(--faint);"></i>{{ t.label }}</a>
+      </sc-for>
+      <div style="margin-top:auto;padding:14px 9px 0;font-size:11px;color:var(--faint);font-family:'Geist Mono';border-top:1px solid var(--bd);">v1.0 · PokéDex TCG</div>
+    </aside>
+
+    <!-- CONTENT -->
+    <main style="flex:1;min-width:0;padding:48px clamp(24px,4vw,56px) 100px;">
+
+      <!-- HERO -->
+      <header style="margin-bottom:56px;">
+        <div style="font:600 12px 'Geist Mono';letter-spacing:.18em;text-transform:uppercase;color:var(--pri);margin-bottom:14px;">Foundations &amp; Components</div>
+        <h1 style="font-size:clamp(34px,5vw,52px);font-weight:800;letter-spacing:-.03em;line-height:1.02;margin:0 0 16px;">The PokéDex TCG<br>design language</h1>
+        <p style="font-size:17px;line-height:1.6;color:var(--mut);max-width:600px;margin:0;">A dark-first, desktop-first system for a premium collectible-card experience. Electric-blue accents, gold economy cues, and a full rarity spectrum — built on Geist with a strict 4px rhythm.</p>
+      </header>
+
+      <!-- ============ COLORS ============ -->
+      <section id="colors" style="margin-bottom:64px;scroll-margin-top:24px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;"><h2 style="font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0;">01 — Colors</h2><span style="flex:1;height:1px;background:var(--bd);"></span></div>
+        <p style="font-size:14.5px;color:var(--mut);margin:0 0 24px;max-width:620px;">Accessible on the near-black canvas. Text sits at AA+ contrast; accents are reserved for action, economy, and rarity.</p>
+
+        <div style="font-size:12px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">Surfaces &amp; text</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:26px;">
+          <sc-for list="{{ neutralSwatches }}" as="s" hint-placeholder-count="7">
+          <div style="border:1px solid var(--bd);border-radius:12px;overflow:hidden;background:var(--surface);">
+            <div style="height:64px;background:{{ s.hex }};border-bottom:1px solid var(--bd);"></div>
+            <div style="padding:10px 12px;"><div style="font-size:12.5px;font-weight:600;">{{ s.name }}</div><div style="font-family:'Geist Mono';font-size:11px;color:var(--faint);margin-top:2px;">{{ s.hex }}</div></div>
+          </div>
+          </sc-for>
+        </div>
+
+        <div style="font-size:12px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">Accent &amp; semantic</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:26px;">
+          <sc-for list="{{ accentSwatches }}" as="s" hint-placeholder-count="5">
+          <div style="border:1px solid var(--bd);border-radius:12px;overflow:hidden;background:var(--surface);">
+            <div style="height:64px;background:{{ s.hex }};display:flex;align-items:flex-end;padding:8px;"><span style="font-size:11px;font-weight:600;color:{{ s.on }};">{{ s.role }}</span></div>
+            <div style="padding:10px 12px;"><div style="font-size:12.5px;font-weight:600;">{{ s.name }}</div><div style="font-family:'Geist Mono';font-size:11px;color:var(--faint);margin-top:2px;">{{ s.hex }}</div></div>
+          </div>
+          </sc-for>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">Rarity ramp</div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <sc-for list="{{ raritySwatches }}" as="r" hint-placeholder-count="5">
+              <div style="display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;">
+                <span style="width:28px;height:28px;border-radius:7px;background:{{ r.hex }};box-shadow:0 0 14px {{ r.glow }};"></span>
+                <span style="flex:1;font-size:13.5px;font-weight:600;">{{ r.name }}</span>
+                <span style="font-family:'Geist Mono';font-size:11.5px;color:var(--faint);">{{ r.hex }}</span>
+              </div>
+              </sc-for>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">Energy types</div>
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
+              <sc-for list="{{ energySwatches }}" as="e" hint-placeholder-count="11">
+              <div style="display:flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--bd);border-radius:9px;padding:8px 10px;">
+                <span style="width:26px;height:26px;border-radius:7px;background:{{ e.hex }};display:flex;align-items:center;justify-content:center;"><i data-lucide="{{ e.icon }}" style="font-size:14px;color:#fff;"></i></span>
+                <span style="font-size:12.5px;font-weight:500;">{{ e.name }}</span>
+              </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ TYPOGRAPHY ============ -->
+      <section id="type" style="margin-bottom:64px;scroll-margin-top:24px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;"><h2 style="font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0;">02 — Typography</h2><span style="flex:1;height:1px;background:var(--bd);"></span></div>
+        <p style="font-size:14.5px;color:var(--mut);margin:0 0 24px;max-width:620px;"><b style="color:var(--tx);">Geist</b> for everything, <b style="color:var(--tx);">Geist Mono</b> for numbers, prices, IDs and counts. Display sizes carry −0.02em tracking; body stays at 0.</p>
+        <div style="background:var(--surface);border:1px solid var(--bd);border-radius:16px;overflow:hidden;">
+          <sc-for list="{{ typeScale }}" as="t" hint-placeholder-count="7">
+          <div style="display:flex;align-items:baseline;gap:24px;padding:18px 22px;border-bottom:1px solid var(--bd);">
+            <div style="width:130px;flex-shrink:0;font-family:'Geist Mono';font-size:11.5px;color:var(--faint);line-height:1.5;">{{ t.spec }}</div>
+            <div style="{{ t.style }} flex:1;min-width:0;">{{ t.sample }}</div>
+          </div>
+          </sc-for>
+          <div style="display:flex;align-items:baseline;gap:24px;padding:18px 22px;">
+            <div style="width:130px;flex-shrink:0;font-family:'Geist Mono';font-size:11.5px;color:var(--faint);line-height:1.5;">Mono · 14 / 600</div>
+            <div style="font-family:'Geist Mono';font-size:14px;font-weight:600;flex:1;">$84.20 · 1,250 · AE 004/172 · ×6</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SPACING ============ -->
+      <section id="spacing" style="margin-bottom:64px;scroll-margin-top:24px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;"><h2 style="font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0;">03 — Spacing</h2><span style="flex:1;height:1px;background:var(--bd);"></span></div>
+        <p style="font-size:14.5px;color:var(--mut);margin:0 0 24px;max-width:620px;">A 4px base unit. Gaps of 8 / 12 / 16 within components; 20 / 24 between sections; 34+ for page padding.</p>
+        <div style="background:var(--surface);border:1px solid var(--bd);border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:12px;">
+          <sc-for list="{{ spacingScale }}" as="s" hint-placeholder-count="7">
+          <div style="display:flex;align-items:center;gap:16px;">
+            <span style="width:70px;font-family:'Geist Mono';font-size:12px;color:var(--mut);">{{ s.token }}</span>
+            <span style="width:52px;font-family:'Geist Mono';font-size:12px;color:var(--faint);">{{ s.px }}</span>
+            <div style="height:16px;width:{{ s.px }};background:var(--pri-dim);border:1px solid rgba(76,141,255,.4);border-radius:4px;"></div>
+          </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <!-- ============ RADIUS + SHADOW + ICONS row ============ -->
+      <section id="radius" style="margin-bottom:64px;scroll-margin-top:24px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;"><h2 style="font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0;">04 — Radius · Shadow · Icons</h2><span style="flex:1;height:1px;background:var(--bd);"></span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;">
+          <!-- radius -->
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">Radius</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <sc-for list="{{ radii }}" as="r" hint-placeholder-count="6">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <div style="width:44px;height:44px;background:var(--surface2);border:1px solid var(--bd2);border-radius:{{ r.px }};flex-shrink:0;"></div>
+                <div><div style="font-size:13px;font-weight:600;">{{ r.name }}</div><div style="font-family:'Geist Mono';font-size:11px;color:var(--faint);">{{ r.px }}</div></div>
+              </div>
+              </sc-for>
+            </div>
+          </div>
+          <!-- shadow -->
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">Elevation &amp; glow</div>
+            <div style="display:flex;flex-direction:column;gap:16px;">
+              <sc-for list="{{ shadows }}" as="s" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <div style="width:44px;height:44px;background:var(--surface2);border:1px solid var(--bd);border-radius:11px;box-shadow:{{ s.css }};flex-shrink:0;"></div>
+                <div><div style="font-size:13px;font-weight:600;">{{ s.name }}</div><div style="font-size:11px;color:var(--faint);">{{ s.use }}</div></div>
+              </div>
+              </sc-for>
+            </div>
+          </div>
+          <!-- icons -->
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">Icon sizes · Lucide</div>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+              <sc-for list="{{ iconSizes }}" as="i" hint-placeholder-count="5">
+              <div style="display:flex;align-items:center;gap:14px;">
+                <span style="width:44px;display:flex;justify-content:center;color:var(--tx);"><i data-lucide="{{ i.glyph }}" style="font-size:{{ i.px }};"></i></span>
+                <div><div style="font-size:13px;font-weight:600;">{{ i.name }}</div><div style="font-family:'Geist Mono';font-size:11px;color:var(--faint);">{{ i.px }} · {{ i.use }}</div></div>
+              </div>
+              </sc-for>
+              <div style="font-size:11.5px;color:var(--faint);line-height:1.5;margin-top:4px;">2px stroke · currentColor · optical alignment via vertical-align.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ BUTTONS ============ -->
+      <section id="buttons" style="margin-bottom:64px;scroll-margin-top:24px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;"><h2 style="font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0;">05 — Buttons</h2><span style="flex:1;height:1px;background:var(--bd);"></span></div>
+        <p style="font-size:14.5px;color:var(--mut);margin:0 0 24px;max-width:620px;">Radius 10px, 600 weight. Primary carries a soft blue glow. Hover to see the interaction — primary brightens, surface lifts its border.</p>
+        <div style="background:var(--surface);border:1px solid var(--bd);border-radius:16px;padding:26px;display:flex;flex-direction:column;gap:22px;">
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+            <button style="background:var(--pri);border:none;color:#fff;font-weight:600;font-size:14px;padding:11px 18px;border-radius:10px;cursor:pointer;box-shadow:0 4px 14px rgba(76,141,255,.35);transition:.16s;" style-hover="background:#5d99ff;box-shadow:0 6px 20px rgba(76,141,255,.5);">Primary</button>
+            <button style="background:var(--surface2);border:1px solid var(--bd2);color:var(--tx);font-weight:600;font-size:14px;padding:11px 18px;border-radius:10px;cursor:pointer;transition:.16s;" style-hover="border-color:var(--mut);background:var(--elev);">Secondary</button>
+            <button style="background:none;border:none;color:var(--mut);font-weight:500;font-size:14px;padding:11px 14px;border-radius:10px;cursor:pointer;transition:.16s;" style-hover="color:var(--tx);background:var(--surface2);">Ghost</button>
+            <button style="background:var(--grn);border:none;color:#04120b;font-weight:700;font-size:14px;padding:11px 18px;border-radius:10px;cursor:pointer;transition:.16s;" style-hover="filter:brightness(1.08);">Confirm</button>
+            <button style="background:var(--red-dim);border:1px solid rgba(239,68,68,.3);color:var(--red);font-weight:600;font-size:14px;padding:11px 18px;border-radius:10px;cursor:pointer;transition:.16s;" style-hover="background:rgba(239,68,68,.2);">Destructive</button>
+            <button style="background:var(--gold);border:none;color:#1a1204;font-weight:700;font-size:14px;padding:11px 18px;border-radius:10px;cursor:pointer;transition:.16s;" style-hover="filter:brightness(1.06);">Economy</button>
+          </div>
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+            <button style="background:var(--pri);border:none;color:#fff;font-weight:600;font-size:13px;padding:8px 13px;border-radius:9px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;">Small</button>
+            <button style="background:var(--pri);border:none;color:#fff;font-weight:600;font-size:14px;padding:11px 18px;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;"><i data-lucide="package-open" style="font-size:16px;"></i>With icon</button>
+            <button style="background:var(--pri);border:none;color:#fff;font-weight:700;font-size:16px;padding:14px 26px;border-radius:11px;cursor:pointer;box-shadow:0 8px 24px rgba(76,141,255,.4);">Large CTA</button>
+            <button style="width:40px;height:40px;background:var(--surface2);border:1px solid var(--bd);color:var(--tx);border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;" style-hover="border-color:var(--bd2);"><i data-lucide="bell" style="font-size:17px;"></i></button>
+            <button disabled style="background:var(--pri);border:none;color:#fff;font-weight:600;font-size:14px;padding:11px 18px;border-radius:10px;opacity:.4;cursor:not-allowed;">Disabled</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ CARDS ============ -->
+      <section id="cards" style="margin-bottom:64px;scroll-margin-top:24px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;"><h2 style="font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0;">06 — Cards</h2><span style="flex:1;height:1px;background:var(--bd);"></span></div>
+        <p style="font-size:14.5px;color:var(--mut);margin:0 0 24px;max-width:620px;">Surface #14161c, 1px hairline border, 14–16px radius. The <b style="color:var(--tx);">CardTile</b> is the signature primitive — rarity-tinted face, glow on Ultra/Secret.</p>
+        <div style="display:grid;grid-template-columns:1.2fr 1fr 170px;gap:16px;align-items:start;">
+          <!-- surface card -->
+          <div style="background:var(--surface);border:1px solid var(--bd);border-radius:16px;padding:20px;">
+            <div style="font-size:12px;color:var(--faint);margin-bottom:8px;">Surface card</div>
+            <div style="font-size:16px;font-weight:600;margin-bottom:6px;">Container primitive</div>
+            <p style="font-size:13.5px;color:var(--mut);line-height:1.55;margin:0;">The default panel for grouping content — used for stats, forms, tables and lists across the app.</p>
+          </div>
+          <!-- stat card -->
+          <div style="background:var(--surface);border:1px solid var(--bd);border-radius:15px;padding:18px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;"><span style="font-size:13px;color:var(--mut);">Collection value</span><div style="width:32px;height:32px;border-radius:9px;background:rgba(52,211,153,.14);display:flex;align-items:center;justify-content:center;color:var(--grn);"><i data-lucide="trending-up" style="font-size:16px;"></i></div></div>
+            <div style="font-size:26px;font-weight:700;font-family:'Geist Mono';letter-spacing:-.02em;">$2,480</div>
+            <div style="font-size:12.5px;color:var(--grn);margin-top:4px;display:flex;align-items:center;gap:4px;"><i data-lucide="trending-up" style="font-size:13px;"></i>+3.2% (7d)</div>
+          </div>
+          <!-- CardTile -->
+          <dc-import name="CardTile" card="{{ demoCard }}" on-open="{{ noop }}" hint-size="170px,258px"></dc-import>
+        </div>
+      </section>
+
+      <!-- ============ TABLES ============ -->
+      <section id="tables" style="margin-bottom:64px;scroll-margin-top:24px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;"><h2 style="font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0;">07 — Tables</h2><span style="flex:1;height:1px;background:var(--bd);"></span></div>
+        <p style="font-size:14.5px;color:var(--mut);margin:0 0 24px;max-width:620px;">CSS-grid rows inside a surface card. Uppercase 12px header, hairline dividers, mono for numeric columns, row hover tint.</p>
+        <div style="background:var(--surface);border:1px solid var(--bd);border-radius:16px;overflow:hidden;">
+          <div style="display:grid;grid-template-columns:1.6fr 1fr .8fr .8fr;gap:12px;padding:13px 20px;border-bottom:1px solid var(--bd);font-size:12px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;"><span>User</span><span>Role</span><span>Coins</span><span>Status</span></div>
+          <sc-for list="{{ tableRows }}" as="r" hint-placeholder-count="3">
+          <div style="{{ r.style }}" style-hover="background:var(--surface2);">
+            <div style="display:flex;align-items:center;gap:11px;"><div style="width:32px;height:32px;border-radius:9px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;">{{ r.initial }}</div><span style="font-size:13.5px;font-weight:600;">{{ r.name }}</span></div>
+            <span style="font-size:13px;color:var(--mut);">{{ r.role }}</span>
+            <span style="font-family:'Geist Mono';font-size:13px;color:var(--gold);">{{ r.coins }}</span>
+            <span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;color:{{ r.statusColor }};"><span style="width:7px;height:7px;border-radius:99px;background:{{ r.statusColor }};"></span>{{ r.status }}</span>
+          </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <!-- ============ BADGES ============ -->
+      <section id="badges" style="margin-bottom:64px;scroll-margin-top:24px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;"><h2 style="font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0;">08 — Badges &amp; chips</h2><span style="flex:1;height:1px;background:var(--bd);"></span></div>
+        <p style="font-size:14.5px;color:var(--mut);margin:0 0 24px;max-width:620px;">Pill radius, 11–12.5px semibold. Tinted background at ~14% of the hue, matching-color text and dot.</p>
+        <div style="background:var(--surface);border:1px solid var(--bd);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:20px;">
+          <div>
+            <div style="font-size:12px;color:var(--faint);margin-bottom:11px;">Rarity chips</div>
+            <div style="display:flex;gap:9px;flex-wrap:wrap;">
+              <sc-for list="{{ raritySwatches }}" as="r" hint-placeholder-count="5">
+              <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:{{ r.hex }};background:{{ r.tint }};border:1px solid {{ r.border }};border-radius:99px;padding:5px 11px;"><span style="width:7px;height:7px;border-radius:99px;background:{{ r.hex }};"></span>{{ r.name }}</span>
+              </sc-for>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:12px;color:var(--faint);margin-bottom:11px;">Status</div>
+            <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center;">
+              <sc-for list="{{ statusBadges }}" as="b" hint-placeholder-count="4">
+              <span style="font-size:12px;font-weight:600;color:{{ b.color }};background:{{ b.tint }};border-radius:99px;padding:5px 11px;">{{ b.label }}</span>
+              </sc-for>
+              <span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--grn);background:rgba(52,211,153,.12);border-radius:99px;padding:4px 10px;"><i data-lucide="check" style="font-size:13px;"></i>Legal</span>
+              <span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--gold);background:var(--gold-dim);border-radius:99px;padding:4px 10px;"><i data-lucide="triangle-alert" style="font-size:13px;"></i>Issues</span>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:12px;color:var(--faint);margin-bottom:11px;">Utility</div>
+            <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center;">
+              <span style="font-family:'Geist Mono';font-size:10px;font-weight:600;background:rgba(0,0,0,.5);color:#fff;border-radius:6px;padding:2px 6px;">×6</span>
+              <span style="font-size:10px;font-weight:600;color:var(--pri);background:var(--pri-dim);border-radius:5px;padding:2px 6px;">IN</span>
+              <span style="font-size:10px;font-weight:600;color:var(--mut);background:var(--bg);border-radius:5px;padding:2px 6px;">OUT</span>
+              <span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:var(--red);background:var(--red-dim);border:1px solid rgba(239,68,68,.3);border-radius:99px;padding:4px 11px;"><i data-lucide="shield" style="font-size:12px;"></i>Admin</span>
+              <span style="font-family:'Geist Mono';font-size:11px;font-weight:600;background:var(--red);color:#fff;border-radius:99px;padding:1px 7px;">3</span>
+              <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--mut);background:var(--gold-dim);border:1px solid rgba(242,178,60,.3);border-radius:10px;padding:6px 11px;"><i data-lucide="coins" style="font-size:14px;color:var(--gold);"></i><span style="font-family:'Geist Mono';font-weight:600;color:var(--gold);">1,250</span></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ DIALOGS ============ -->
+      <section id="dialogs" style="margin-bottom:64px;scroll-margin-top:24px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;"><h2 style="font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0;">09 — Dialogs</h2><span style="flex:1;height:1px;background:var(--bd);"></span></div>
+        <p style="font-size:14.5px;color:var(--mut);margin:0 0 24px;max-width:620px;">Centered on a blurred scrim (rgba(6,7,10,.72) + 6px blur). 440px max, 18px radius, deep drop shadow. Icon badge → title → body → action row.</p>
+        <div style="background:repeating-linear-gradient(45deg,#0c0d11,#0c0d11 12px,#0e0f14 12px,#0e0f14 24px);border:1px solid var(--bd);border-radius:16px;padding:40px;display:flex;justify-content:center;">
+          <div style="width:100%;max-width:400px;background:var(--surface);border:1px solid var(--bd2);border-radius:18px;box-shadow:0 40px 90px rgba(0,0,0,.6);padding:26px;">
+            <div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(150deg,#4c8dff,#1e2a52);display:flex;align-items:center;justify-content:center;margin-bottom:18px;"><i data-lucide="package-open" style="font-size:24px;color:#fff;"></i></div>
+            <h3 style="font-size:19px;font-weight:700;margin:0 0 6px;">Open Astral Eclipse pack?</h3>
+            <p style="font-size:14px;color:var(--mut);margin:0 0 20px;line-height:1.5;">You'll receive 10 cards with at least 1 Rare. This action can't be undone.</p>
+            <div style="display:flex;gap:10px;"><button style="flex:1;background:var(--surface2);border:1px solid var(--bd2);color:var(--tx);font-weight:600;font-size:14px;padding:12px;border-radius:11px;cursor:pointer;">Cancel</button><button style="flex:1;background:var(--pri);border:none;color:#fff;font-weight:600;font-size:14px;padding:12px;border-radius:11px;cursor:pointer;">Open pack</button></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ NAVBAR ============ -->
+      <section id="navbar" style="margin-bottom:64px;scroll-margin-top:24px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;"><h2 style="font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0;">10 — Navbar</h2><span style="flex:1;height:1px;background:var(--bd);"></span></div>
+        <p style="font-size:14.5px;color:var(--mut);margin:0 0 24px;max-width:620px;">60px sticky top bar, translucent + blur. Search left; currency pill, notification bell (dot for unread) and primary CTA right.</p>
+        <div style="border:1px solid var(--bd);border-radius:16px;overflow:hidden;">
+          <div style="height:60px;display:flex;align-items:center;gap:14px;padding:0 20px;background:rgba(10,11,14,.8);backdrop-filter:blur(12px);border-bottom:1px solid var(--bd);">
+            <div style="position:relative;flex:1;max-width:360px;"><i data-lucide="search" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--faint);"></i><input placeholder="Search cards, sets, players…" style="width:100%;background:var(--surface);border:1px solid var(--bd);border-radius:10px;padding:10px 12px 10px 38px;color:var(--tx);font-size:13.5px;"></div>
+            <div style="flex:1;"></div>
+            <div style="display:flex;align-items:center;gap:8px;background:var(--gold-dim);border:1px solid rgba(242,178,60,.3);border-radius:10px;padding:8px 13px;"><i data-lucide="coins" style="color:var(--gold);font-size:16px;"></i><span style="font-family:'Geist Mono';font-weight:600;font-size:14px;color:var(--gold);">1,250</span></div>
+            <button style="position:relative;width:40px;height:40px;border-radius:10px;background:var(--surface);border:1px solid var(--bd);color:var(--tx);cursor:pointer;display:flex;align-items:center;justify-content:center;"><i data-lucide="bell" style="font-size:17px;"></i><span style="position:absolute;top:7px;right:8px;width:8px;height:8px;border-radius:99px;background:var(--red);border:2px solid var(--bg);"></span></button>
+            <button style="background:var(--pri);border:none;color:#fff;font-weight:600;font-size:13.5px;padding:9px 15px;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:7px;box-shadow:0 4px 14px rgba(76,141,255,.3);"><i data-lucide="package-open" style="font-size:16px;"></i>Open packs</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SIDEBAR ============ -->
+      <section id="sidebar" style="margin-bottom:64px;scroll-margin-top:24px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;"><h2 style="font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0;">11 — Sidebar</h2><span style="flex:1;height:1px;background:var(--bd);"></span></div>
+        <p style="font-size:14.5px;color:var(--mut);margin:0 0 24px;max-width:620px;">236px persistent rail. Active item uses the primary tint; sections split by hairline + uppercase label. Role-gated Admin group appears only for admins. Account card pinned to the base.</p>
+        <div style="display:flex;">
+          <div style="width:236px;border:1px solid var(--bd);border-radius:16px;background:rgba(16,18,23,.6);padding:14px 12px;display:flex;flex-direction:column;gap:2px;">
+            <div style="display:flex;align-items:center;gap:10px;padding:4px 8px 12px;"><div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--pri),#7db0ff);display:flex;align-items:center;justify-content:center;"><i data-lucide="zap" style="color:#fff;font-size:15px;"></i></div><span style="font-weight:700;font-size:14.5px;letter-spacing:-.02em;">PokéDex<span style="color:var(--pri);">TCG</span></span></div>
+            <sc-for list="{{ sidebarItems }}" as="n" hint-placeholder-count="5">
+            <div style="{{ n.style }}"><i data-lucide="{{ n.icon }}" style="font-size:17px;"></i><span style="flex:1;">{{ n.label }}</span><sc-if value="{{ n.badge }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Geist Mono';font-size:11px;font-weight:600;background:var(--red);color:#fff;border-radius:99px;padding:1px 6px;">{{ n.badge }}</span></sc-if></div>
+            </sc-for>
+            <div style="height:1px;background:var(--bd);margin:10px 8px;"></div>
+            <div style="font-size:11px;font-weight:600;color:var(--red);text-transform:uppercase;letter-spacing:.08em;padding:6px 12px 4px;display:flex;align-items:center;gap:6px;"><i data-lucide="shield" style="font-size:12px;"></i>Admin</div>
+            <div style="display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:10px;color:var(--mut);font-size:14px;font-weight:500;"><i data-lucide="gauge" style="font-size:17px;"></i><span>Overview</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ HOVER ============ -->
+      <section id="hover" style="margin-bottom:64px;scroll-margin-top:24px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;"><h2 style="font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0;">12 — Hover states</h2><span style="flex:1;height:1px;background:var(--bd);"></span></div>
+        <p style="font-size:14.5px;color:var(--mut);margin:0 0 24px;max-width:620px;">Interactive surfaces respond with a 160–180ms ease. Hover each tile below.</p>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+          <div style="background:var(--surface);border:1px solid var(--bd);border-radius:14px;padding:22px;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;" style-hover="transform:translateY(-4px);border-color:var(--pri);box-shadow:0 16px 34px rgba(0,0,0,.45);">
+            <i data-lucide="mouse-pointer-2" style="font-size:20px;color:var(--pri);"></i>
+            <div style="font-size:14px;font-weight:600;margin-top:12px;">Lift + glow</div>
+            <div style="font-size:12.5px;color:var(--mut);margin-top:3px;">Cards &amp; tiles — translateY(−4) + border accent</div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--bd);border-radius:14px;padding:22px;cursor:pointer;transition:background .18s ease;" style-hover="background:var(--surface2);">
+            <i data-lucide="rows-3" style="font-size:20px;color:var(--pri);"></i>
+            <div style="font-size:14px;font-weight:600;margin-top:12px;">Row tint</div>
+            <div style="font-size:12.5px;color:var(--mut);margin-top:3px;">List &amp; table rows — background to surface-2</div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--bd);border-radius:14px;padding:22px;cursor:pointer;transition:color .18s ease;color:var(--mut);" style-hover="color:var(--pri);">
+            <i data-lucide="type" style="font-size:20px;"></i>
+            <div style="font-size:14px;font-weight:600;margin-top:12px;">Link / icon</div>
+            <div style="font-size:12.5px;margin-top:3px;">Text buttons &amp; nav — color to primary</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ LOADING ============ -->
+      <section id="loading" style="margin-bottom:64px;scroll-margin-top:24px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;"><h2 style="font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0;">13 — Loading states</h2><span style="flex:1;height:1px;background:var(--bd);"></span></div>
+        <p style="font-size:14.5px;color:var(--mut);margin:0 0 24px;max-width:620px;">Shimmering skeletons mirror final layout; a blue spinner covers indeterminate waits.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;align-items:start;">
+          <!-- skeleton card -->
+          <div style="background:var(--surface);border:1px solid var(--bd);border-radius:14px;overflow:hidden;">
+            <div class="skel" style="height:150px;border-radius:0;"></div>
+            <div style="padding:12px;display:flex;flex-direction:column;gap:8px;"><div class="skel" style="height:12px;width:70%;"></div><div class="skel" style="height:12px;width:40%;"></div></div>
+          </div>
+          <!-- skeleton list -->
+          <div style="background:var(--surface);border:1px solid var(--bd);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:14px;">
+            <div style="display:flex;align-items:center;gap:12px;"><div class="skel" style="width:38px;height:38px;border-radius:10px;"></div><div style="flex:1;display:flex;flex-direction:column;gap:7px;"><div class="skel" style="height:11px;width:60%;"></div><div class="skel" style="height:11px;width:35%;"></div></div></div>
+            <div style="display:flex;align-items:center;gap:12px;"><div class="skel" style="width:38px;height:38px;border-radius:10px;"></div><div style="flex:1;display:flex;flex-direction:column;gap:7px;"><div class="skel" style="height:11px;width:75%;"></div><div class="skel" style="height:11px;width:45%;"></div></div></div>
+            <div style="display:flex;align-items:center;gap:12px;"><div class="skel" style="width:38px;height:38px;border-radius:10px;"></div><div style="flex:1;display:flex;flex-direction:column;gap:7px;"><div class="skel" style="height:11px;width:50%;"></div><div class="skel" style="height:11px;width:30%;"></div></div></div>
+          </div>
+          <!-- spinner -->
+          <div style="background:var(--surface);border:1px solid var(--bd);border-radius:14px;padding:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;min-height:150px;">
+            <div class="spinner" style="width:34px;height:34px;"></div>
+            <div style="font-size:13px;color:var(--mut);">Opening pack…</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ EMPTY ============ -->
+      <section id="empty" style="scroll-margin-top:24px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;"><h2 style="font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0;">14 — Empty states</h2><span style="flex:1;height:1px;background:var(--bd);"></span></div>
+        <p style="font-size:14.5px;color:var(--mut);margin:0 0 24px;max-width:620px;">First-run screens are first-class. A soft icon badge, a warm one-line prompt, and a single primary action — never a dead end.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <sc-for list="{{ emptyStates }}" as="e" hint-placeholder-count="2">
+          <div style="background:var(--surface);border:1px solid var(--bd);border-radius:16px;padding:40px 28px;display:flex;flex-direction:column;align-items:center;text-align:center;">
+            <div style="width:60px;height:60px;border-radius:16px;background:{{ e.tint }};display:flex;align-items:center;justify-content:center;color:{{ e.color }};margin-bottom:18px;"><i data-lucide="{{ e.icon }}" style="font-size:26px;"></i></div>
+            <div style="font-size:17px;font-weight:600;margin-bottom:6px;">{{ e.title }}</div>
+            <p style="font-size:13.5px;color:var(--mut);line-height:1.55;margin:0 0 20px;max-width:280px;">{{ e.body }}</p>
+            <button style="background:var(--pri);border:none;color:#fff;font-weight:600;font-size:13.5px;padding:10px 18px;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:0 4px 14px rgba(76,141,255,.3);"><i data-lucide="{{ e.ctaIcon }}" style="font-size:15px;"></i>{{ e.cta }}</button>
+          </div>
+          </sc-for>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  componentDidMount(){ this._i(); }
+  componentDidUpdate(){ this._i(); }
+  _i(){ try{ requestAnimationFrame(()=>window.lucide&&window.lucide.createIcons()); }catch(e){} }
+  renderVals(){
+    const toc = [
+      {label:'Colors', href:'#colors', icon:'palette'},
+      {label:'Typography', href:'#type', icon:'type'},
+      {label:'Spacing', href:'#spacing', icon:'ruler'},
+      {label:'Radius · Shadow · Icons', href:'#radius', icon:'square'},
+      {label:'Buttons', href:'#buttons', icon:'square-mouse-pointer'},
+      {label:'Cards', href:'#cards', icon:'square-stack'},
+      {label:'Tables', href:'#tables', icon:'table'},
+      {label:'Badges', href:'#badges', icon:'badge-check'},
+      {label:'Dialogs', href:'#dialogs', icon:'square-dashed'},
+      {label:'Navbar', href:'#navbar', icon:'panel-top'},
+      {label:'Sidebar', href:'#sidebar', icon:'panel-left'},
+      {label:'Hover states', href:'#hover', icon:'mouse-pointer-2'},
+      {label:'Loading states', href:'#loading', icon:'loader'},
+      {label:'Empty states', href:'#empty', icon:'inbox'},
+    ];
+    const neutralSwatches = [
+      {name:'Canvas', hex:'#0a0b0e'}, {name:'Surface', hex:'#14161c'}, {name:'Surface 2', hex:'#1b1e26'},
+      {name:'Elevated', hex:'#22262f'}, {name:'Text', hex:'#eef0f4'}, {name:'Muted', hex:'#969cab'}, {name:'Faint', hex:'#636876'},
+    ];
+    const accentSwatches = [
+      {name:'Primary', hex:'#4c8dff', role:'Action', on:'#fff'},
+      {name:'Gold', hex:'#f2b23c', role:'Economy', on:'#1a1204'},
+      {name:'Success', hex:'#34d399', role:'Confirm', on:'#04120b'},
+      {name:'Danger', hex:'#ef4444', role:'Destroy', on:'#fff'},
+      {name:'Ultra', hex:'#b06bf0', role:'Rare pull', on:'#fff'},
+    ];
+    const raritySwatches = [
+      {name:'Common', hex:'#9aa1ad', glow:'rgba(154,161,173,.3)', tint:'rgba(154,161,173,.14)', border:'rgba(154,161,173,.3)'},
+      {name:'Uncommon', hex:'#4fc98a', glow:'rgba(79,201,138,.4)', tint:'rgba(79,201,138,.14)', border:'rgba(79,201,138,.3)'},
+      {name:'Rare', hex:'#4c8dff', glow:'rgba(76,141,255,.45)', tint:'rgba(76,141,255,.14)', border:'rgba(76,141,255,.3)'},
+      {name:'Ultra Rare', hex:'#b06bf0', glow:'rgba(176,107,240,.45)', tint:'rgba(176,107,240,.14)', border:'rgba(176,107,240,.3)'},
+      {name:'Secret Rare', hex:'#f2b23c', glow:'rgba(242,178,60,.5)', tint:'rgba(242,178,60,.14)', border:'rgba(242,178,60,.3)'},
+    ];
+    const energySwatches = [
+      {name:'Fire', hex:'#ef6a43', icon:'flame'}, {name:'Water', hex:'#4aa6ef', icon:'droplet'},
+      {name:'Grass', hex:'#5ec269', icon:'leaf'}, {name:'Lightning', hex:'#f4c73a', icon:'zap'},
+      {name:'Psychic', hex:'#b06bcf', icon:'eye'}, {name:'Fighting', hex:'#c26a3a', icon:'hand-fist'},
+      {name:'Darkness', hex:'#4a4f5d', icon:'moon'}, {name:'Metal', hex:'#8f9aad', icon:'cog'},
+      {name:'Dragon', hex:'#cf9b2e', icon:'flame-kindling'}, {name:'Fairy', hex:'#e987bd', icon:'sparkles'},
+      {name:'Colorless', hex:'#b9bec9', icon:'circle'},
+    ];
+    const typeScale = [
+      {spec:'Display · 52 / 800', style:'font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1;', sample:'Open. Collect. Trade.'},
+      {spec:'H1 · 28 / 700', style:'font-size:28px;font-weight:700;letter-spacing:-.02em;', sample:'Your collection'},
+      {spec:'H2 · 20 / 600', style:'font-size:20px;font-weight:600;', sample:'Featured packs'},
+      {spec:'H3 · 16 / 600', style:'font-size:16px;font-weight:600;', sample:'Set completion'},
+      {spec:'Body · 14 / 400', style:'font-size:14px;color:var(--mut);', sample:'Weighted odds are published per set and land in your collection instantly.'},
+      {spec:'Small · 13 / 500', style:'font-size:13px;font-weight:500;color:var(--mut);', sample:'Updated 2 hours ago'},
+      {spec:'Caption · 12 / 600', style:'font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);', sample:'Legality'},
+    ];
+    const spacingScale = [
+      {token:'space-1', px:'4px'}, {token:'space-2', px:'8px'}, {token:'space-3', px:'12px'},
+      {token:'space-4', px:'16px'}, {token:'space-5', px:'20px'}, {token:'space-6', px:'24px'}, {token:'space-8', px:'34px'},
+    ];
+    const radii = [
+      {name:'Chip / pill', px:'999px'}, {name:'Small', px:'6px'}, {name:'Input / button', px:'10px'},
+      {name:'Tile', px:'13px'}, {name:'Card', px:'16px'}, {name:'Modal', px:'18px'},
+    ];
+    const shadows = [
+      {name:'sm', css:'0 4px 14px rgba(0,0,0,.35)', use:'Buttons, chips'},
+      {name:'md', css:'0 16px 34px rgba(0,0,0,.45)', use:'Hovered cards'},
+      {name:'lg', css:'0 40px 90px rgba(0,0,0,.6)', use:'Dialogs'},
+      {name:'glow', css:'0 8px 24px rgba(76,141,255,.4)', use:'Primary CTA'},
+    ];
+    const iconSizes = [
+      {name:'xs', px:'12px', glyph:'star', use:'inline chips'},
+      {name:'sm', px:'14px', glyph:'search', use:'dense rows'},
+      {name:'md', px:'16px', glyph:'coins', use:'buttons'},
+      {name:'lg', px:'20px', glyph:'swords', use:'stat tiles'},
+      {name:'xl', px:'26px', glyph:'package-open', use:'empty states'},
+    ];
+    const rowBase = 'display:grid;grid-template-columns:1.6fr 1fr .8fr .8fr;gap:12px;padding:14px 20px;align-items:center;transition:background .16s;';
+    const tableRows = [
+      {name:'AshKetchum', initial:'A', role:'Member', coins:'1,250', status:'Active', statusColor:'#34d399', style:rowBase+'border-bottom:1px solid var(--bd);'},
+      {name:'GaryO', initial:'G', role:'Admin', coins:'9,999', status:'Active', statusColor:'#34d399', style:rowBase+'border-bottom:1px solid var(--bd);'},
+      {name:'TeamRocketJ', initial:'T', role:'Member', coins:'40', status:'Suspended', statusColor:'#f2b23c', style:rowBase},
+    ];
+    const statusBadges = [
+      {label:'Pending', color:'#f2b23c', tint:'rgba(242,178,60,.14)'},
+      {label:'Accepted', color:'#34d399', tint:'rgba(52,211,153,.14)'},
+      {label:'Countered', color:'#b06bf0', tint:'rgba(176,107,240,.14)'},
+      {label:'Declined', color:'#ef4444', tint:'rgba(239,68,68,.14)'},
+    ];
+    const siNav = (label,icon,active,badge)=>({label,icon,badge,
+      style:'display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:10px;font-size:14px;font-weight:500;'+(active?'background:var(--pri-dim);color:var(--pri);':'color:var(--mut);')});
+    const sidebarItems = [ siNav('Dashboard','layout-dashboard',true), siNav('Packs','package-open',false), siNav('Inventory','layers',false), siNav('Decks','swords',false), siNav('Trades','arrow-left-right',false,'3') ];
+    const emptyStates = [
+      {icon:'layers', tint:'var(--pri-dim)', color:'var(--pri)', title:'Your collection is empty', body:'Open your first pack to start building a collection worth showing off.', cta:'Open a pack', ctaIcon:'package-open'},
+      {icon:'arrow-left-right', tint:'var(--gold-dim)', color:'var(--gold)', title:'No trades yet', body:'Find a collector on their public profile and propose your first safe, escrow-backed trade.', cta:'Propose a trade', ctaIcon:'plus'},
+    ];
+    const demoCard = {name:'Charizard ex', type:'fire', rarity:'Ultra Rare', hp:'330', price:'$84.20', owned:1, setCode:'AE', number:'004/172'};
+    return { toc, neutralSwatches, accentSwatches, raritySwatches, energySwatches, typeScale, spacingScale, radii, shadows, iconSizes, tableRows, statusBadges, sidebarItems, emptyStates, demoCard, noop:()=>{} };
+  }
+}
+</script>
+</body>
+</html>
