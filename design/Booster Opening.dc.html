@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;overflow:hidden;}
+  body{background:#050609;}
+  i[data-lucide]{width:1em;height:1em;display:inline-block;vertical-align:-0.125em;stroke-width:2;}
+  @keyframes floatPack{0%,100%{transform:translateY(0) rotate(-1.5deg);}50%{transform:translateY(-18px) rotate(1.5deg);}}
+  @keyframes sweep{0%{transform:translateX(-140%) skewX(-18deg);}100%{transform:translateX(240%) skewX(-18deg);}}
+  @keyframes glowPulse{0%,100%{opacity:.45;transform:scale(.92);}50%{opacity:.9;transform:scale(1.05);}}
+  @keyframes shake{0%,100%{transform:translate(0,0) rotate(0);}10%,30%,50%,70%,90%{transform:translate(-5px,3px) rotate(-2deg);}20%,40%,60%,80%{transform:translate(5px,-3px) rotate(2deg);}}
+  @keyframes flashOut{0%{transform:scale(0);opacity:0;}35%{opacity:1;}100%{transform:scale(3.4);opacity:0;}}
+  @keyframes riseUp{0%{transform:translateY(14px) scale(.96);opacity:0;}100%{transform:translateY(0) scale(1);opacity:1;}}
+  @keyframes cardInA{0%{transform:translateY(40px) scale(.9) rotate(-4deg);opacity:0;}100%{transform:translateY(0) scale(1) rotate(0);opacity:1;}}
+  @keyframes cardInB{0%{transform:translateY(40px) scale(.9) rotate(4deg);opacity:0;}100%{transform:translateY(0) scale(1) rotate(0);opacity:1;}}
+  @keyframes raySpin{to{transform:rotate(360deg);}}
+  @keyframes burst{0%{transform:scale(.3);opacity:0;}30%{opacity:.9;}100%{transform:scale(2.2);opacity:0;}}
+  @keyframes floatUp{0%{transform:translateY(0);opacity:0;}20%{opacity:1;}100%{transform:translateY(-120px);opacity:0;}}
+  @keyframes shimmer{0%{background-position:-160% 0;}100%{background-position:260% 0;}}
+  @keyframes barGrow{from{width:68%;}to{width:71%;}}
+  @keyframes tickPop{0%{transform:scale(0);}60%{transform:scale(1.15);}100%{transform:scale(1);}}
+  @keyframes fadeUp{from{transform:translateY(12px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+</style>
+</helmet>
+
+<div style="--bg:#0a0b0e;--surface:#14161c;--surface2:#1b1e26;--bd:rgba(255,255,255,.08);--bd2:rgba(255,255,255,.13);--tx:#eef0f4;--mut:#969cab;--faint:#636876;--pri:#4c8dff;--gold:#f2b23c;--grn:#34d399; position:relative;width:100vw;height:100vh;overflow:hidden;background:radial-gradient(900px 700px at 50% 42%, rgba(76,141,255,.12), transparent 62%), #070810; color:var(--tx); font-family:'Geist',system-ui,sans-serif; -webkit-font-smoothing:antialiased; transition:background .6s ease;">
+
+  <!-- top HUD -->
+  <div style="position:absolute;top:0;left:0;right:0;height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;z-index:40;">
+    <div style="display:flex;align-items:center;gap:9px;">
+      <div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--pri),#7db0ff);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(76,141,255,.4);"><i data-lucide="zap" style="color:#fff;font-size:15px;"></i></div>
+      <span style="font-weight:700;font-size:14px;letter-spacing:-.02em;">PokéDex<span style="color:var(--pri);">TCG</span></span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="display:flex;align-items:center;gap:7px;background:rgba(242,178,60,.12);border:1px solid rgba(242,178,60,.28);border-radius:10px;padding:7px 12px;"><i data-lucide="coins" style="color:var(--gold);font-size:15px;"></i><span style="font-family:'Geist Mono';font-weight:600;font-size:13px;color:var(--gold);">{{ coinDisplay }}</span></div>
+      <sc-if value="{{ showSkip }}" hint-placeholder-val="{{ false }}"><button style="background:var(--surface);border:1px solid var(--bd2);color:var(--mut);font-size:12.5px;font-weight:500;padding:7px 13px;border-radius:9px;cursor:pointer;" onClick="{{ skip }}">Skip all →</button></sc-if>
+    </div>
+  </div>
+
+  <!-- ===================== SEALED ===================== -->
+  <sc-if value="{{ stageSealed }}" hint-placeholder-val="{{ true }}">
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;" onClick="{{ openPack }}">
+    <sc-for list="{{ ambientParticles }}" as="p" hint-placeholder-count="8"><span style="position:absolute;left:{{ p.x }};top:{{ p.y }};width:{{ p.s }};height:{{ p.s }};border-radius:99px;background:{{ p.c }};animation:floatUp {{ p.dur }} ease-in infinite;animation-delay:{{ p.delay }};"></span></sc-for>
+    <div style="position:relative;width:300px;height:410px;animation:floatPack 5.5s ease-in-out infinite;">
+      <div style="position:absolute;inset:-70px;border-radius:50%;background:radial-gradient(circle,rgba(76,141,255,.4),transparent 68%);animation:glowPulse 3.5s ease-in-out infinite;"></div>
+      <!-- pack body -->
+      <div style="position:relative;width:100%;height:100%;border-radius:20px;overflow:hidden;background:linear-gradient(160deg,#5b9bff 0%,#3168d6 42%,#1c2f66 100%);border:1px solid rgba(255,255,255,.22);box-shadow:0 40px 90px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.3);">
+        <div style="position:absolute;top:0;bottom:0;width:70px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);animation:sweep 4.5s ease-in-out infinite;"></div>
+        <div style="position:absolute;top:22px;left:0;right:0;text-align:center;font-size:12px;font-weight:700;letter-spacing:.34em;color:rgba(255,255,255,.85);">POKÉDEX TCG</div>
+        <div style="position:absolute;top:46%;left:50%;transform:translate(-50%,-50%);text-align:center;">
+          <i data-lucide="moon" style="font-size:96px;color:rgba(255,255,255,.95);filter:drop-shadow(0 6px 18px rgba(0,0,0,.45));"></i>
+        </div>
+        <div style="position:absolute;bottom:30px;left:0;right:0;text-align:center;"><div style="font-size:22px;font-weight:800;letter-spacing:.02em;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.4);">ASTRAL ECLIPSE</div><div style="font-size:11px;font-weight:600;letter-spacing:.2em;color:rgba(255,255,255,.7);margin-top:4px;">10 CARD BOOSTER</div></div>
+        <div style="position:absolute;top:12px;left:12px;right:12px;bottom:12px;border:1px solid rgba(255,255,255,.18);border-radius:14px;pointer-events:none;"></div>
+      </div>
+    </div>
+    <div style="margin-top:44px;text-align:center;animation:riseUp .6s both;">
+      <button style="background:var(--pri);border:none;color:#fff;font-weight:700;font-size:16px;padding:15px 40px;border-radius:13px;cursor:pointer;box-shadow:0 12px 34px rgba(76,141,255,.5);display:inline-flex;align-items:center;gap:9px;" onClick="{{ openPack }}"><i data-lucide="sparkles" style="font-size:18px;"></i>Tap to open</button>
+      <div style="margin-top:14px;font-size:13px;color:var(--faint);display:flex;align-items:center;gap:7px;justify-content:center;"><i data-lucide="coins" style="font-size:14px;color:var(--gold);"></i>150 coins · guaranteed 1 Rare or better</div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ===================== OPENING ===================== -->
+  <sc-if value="{{ stageOpening }}" hint-placeholder-val="{{ false }}">
+  <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+    <div style="position:relative;width:300px;height:410px;animation:shake .6s ease-in-out .1s 2;">
+      <div style="position:absolute;inset:-70px;border-radius:50%;background:radial-gradient(circle,rgba(120,170,255,.6),transparent 66%);animation:glowPulse 1s ease-in-out infinite;"></div>
+      <div style="position:relative;width:100%;height:100%;border-radius:20px;overflow:hidden;background:linear-gradient(160deg,#5b9bff,#1c2f66);border:1px solid rgba(255,255,255,.25);box-shadow:0 40px 90px rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;">
+        <i data-lucide="moon" style="font-size:96px;color:rgba(255,255,255,.95);"></i>
+      </div>
+    </div>
+    <!-- light burst -->
+    <div style="position:absolute;left:50%;top:50%;width:300px;height:300px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,#eaf2ff,rgba(120,170,255,.6) 40%,transparent 70%);animation:flashOut 1.5s ease-out .5s forwards;"></div>
+    <div style="position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;font-size:15px;font-weight:600;color:rgba(255,255,255,.85);letter-spacing:.05em;">Opening…</div>
+  </div>
+  </sc-if>
+
+  <!-- ===================== REVEAL ===================== -->
+  <sc-if value="{{ stageReveal }}" hint-placeholder-val="{{ false }}">
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;" onClick="{{ tap }}">
+    <!-- rare backdrop -->
+    <sc-if value="{{ rareActive }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:50%;top:46%;width:900px;height:900px;transform:translate(-50%,-50%);background:conic-gradient(from 0deg, transparent 0deg, {{ rareRayColor }} 12deg, transparent 24deg, transparent 36deg, {{ rareRayColor }} 48deg, transparent 60deg, transparent 72deg, {{ rareRayColor }} 84deg, transparent 96deg, transparent 108deg, {{ rareRayColor }} 120deg, transparent 132deg);opacity:.16;animation:raySpin 14s linear infinite;pointer-events:none;"></div>
+      <div style="position:absolute;left:50%;top:46%;width:520px;height:520px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,{{ rareGlow }},transparent 66%);animation:burst 1.1s ease-out forwards;pointer-events:none;"></div>
+      <sc-for list="{{ rareParticles }}" as="p" hint-placeholder-count="10"><span style="position:absolute;left:{{ p.x }};top:{{ p.y }};width:{{ p.s }};height:{{ p.s }};border-radius:99px;background:{{ rareRayColor }};box-shadow:0 0 8px {{ rareRayColor }};animation:floatUp {{ p.dur }} ease-in infinite;animation-delay:{{ p.delay }};pointer-events:none;"></span></sc-for>
+    </sc-if>
+
+    <!-- rarity announce -->
+    <div style="height:34px;margin-bottom:16px;text-align:center;">
+      <sc-if value="{{ flipped }}" hint-placeholder-val="{{ false }}">
+        <span style="display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:{{ curRarityColor }};animation:fadeUp .4s both;">{{ rareTitle }}</span>
+      </sc-if>
+    </div>
+
+    <!-- the card -->
+    <div style="perspective:1600px;{{ entranceStyle }}">
+      <div style="position:relative;width:290px;height:406px;transform-style:preserve-3d;transition:transform .65s cubic-bezier(.2,.85,.25,1);{{ flipStyle }}">
+        <!-- BACK -->
+        <div style="position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:18px;overflow:hidden;background:linear-gradient(160deg,#233056,#12172a);border:1px solid rgba(255,255,255,.16);box-shadow:0 30px 70px rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;">
+          <div style="position:absolute;inset:12px;border:1px solid rgba(255,255,255,.12);border-radius:12px;"></div>
+          <div style="width:118px;height:118px;border-radius:50%;background:linear-gradient(135deg,var(--pri),#7db0ff);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 26px rgba(76,141,255,.5);"><i data-lucide="zap" style="font-size:56px;color:#fff;"></i></div>
+        </div>
+        <!-- FRONT -->
+        <div style="position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;transform:rotateY(180deg);border-radius:18px;overflow:hidden;background:{{ curFace }};border:2px solid {{ curRarityColor }};box-shadow:0 30px 70px rgba(0,0,0,.6),0 0 34px {{ curGlow }};">
+          <div style="position:absolute;inset:0;background:radial-gradient(220px 200px at 50% 30%,rgba(255,255,255,.22),transparent 70%);"></div>
+          <sc-if value="{{ curHolo }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.35) 46%,rgba(255,255,255,.1) 54%,transparent 70%);background-size:220% 100%;animation:shimmer 2.4s linear infinite;mix-blend-mode:overlay;"></div></sc-if>
+          <div style="position:absolute;top:16px;left:16px;right:16px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:19px;font-weight:800;color:#fff;text-shadow:0 2px 5px rgba(0,0,0,.45);">{{ curName }}</span>
+            <span style="font-family:'Geist Mono';font-size:14px;font-weight:600;color:#fff;">HP {{ curHp }}</span>
+          </div>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;"><i data-lucide="{{ curIcon }}" style="font-size:120px;color:rgba(255,255,255,.94);filter:drop-shadow(0 5px 16px rgba(0,0,0,.4));"></i></div>
+          <div style="position:absolute;bottom:16px;left:16px;right:16px;display:flex;justify-content:space-between;align-items:flex-end;">
+            <span style="font-family:'Geist Mono';font-size:11px;color:rgba(255,255,255,.8);">AE {{ curNumber }}</span>
+            <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:#fff;background:rgba(0,0,0,.4);border-radius:99px;padding:4px 10px;backdrop-filter:blur(4px);"><span style="width:7px;height:7px;border-radius:99px;background:{{ curRarityColor }};"></span>{{ curRarity }}</span>
+          </div>
+          <!-- duplicate ribbon -->
+          <sc-if value="{{ curDup }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;top:52px;left:0;background:rgba(242,178,60,.95);color:#1a1204;font-size:11px;font-weight:700;letter-spacing:.04em;padding:5px 14px 5px 12px;border-radius:0 8px 8px 0;box-shadow:0 4px 12px rgba(0,0,0,.3);display:flex;align-items:center;gap:6px;"><i data-lucide="copy" style="font-size:13px;"></i>DUPLICATE · +{{ curDupCoins }}</div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+
+    <!-- progress + hint -->
+    <div style="margin-top:26px;display:flex;flex-direction:column;align-items:center;gap:16px;">
+      <div style="display:flex;gap:7px;">
+        <sc-for list="{{ dots }}" as="d" hint-placeholder-count="10"><span style="width:{{ d.w }};height:7px;border-radius:99px;background:{{ d.bg }};transition:.3s;"></span></sc-for>
+      </div>
+      <div style="font-size:13.5px;color:var(--mut);display:flex;align-items:center;gap:8px;font-weight:500;">
+        <span style="font-family:'Geist Mono';color:var(--faint);">{{ counter }}</span>
+        <span style="width:3px;height:3px;border-radius:99px;background:var(--faint);"></span>
+        <span>{{ hint }}</span>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ===================== SUMMARY / INVENTORY UPDATE ===================== -->
+  <sc-if value="{{ stageSummary }}" hint-placeholder-val="{{ false }}">
+  <div style="position:absolute;inset:0;overflow-y:auto;padding:78px 20px 40px;">
+    <div style="max-width:760px;margin:0 auto;">
+      <div style="text-align:center;margin-bottom:24px;animation:fadeUp .5s both;">
+        <div style="display:inline-flex;align-items:center;justify-content:center;width:60px;height:60px;border-radius:50%;background:rgba(52,211,153,.14);border:1px solid rgba(52,211,153,.3);margin-bottom:14px;animation:tickPop .5s .1s both;"><i data-lucide="check" style="font-size:30px;color:var(--grn);"></i></div>
+        <h1 style="font-size:28px;font-weight:800;letter-spacing:-.02em;margin:0 0 6px;">Added to your collection</h1>
+        <p style="font-size:14.5px;color:var(--mut);margin:0;">Astral Eclipse · 10 cards · <span style="color:var(--c-ultra,#b06bf0);font-weight:600;">1 Secret Rare pulled</span></p>
+      </div>
+
+      <!-- stat strip -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px;animation:fadeUp .5s .08s both;">
+        <sc-for list="{{ summaryStats }}" as="s" hint-placeholder-count="4">
+        <div style="background:var(--surface);border:1px solid var(--bd);border-radius:14px;padding:16px;text-align:center;">
+          <div style="width:34px;height:34px;border-radius:9px;background:{{ s.tint }};display:flex;align-items:center;justify-content:center;color:{{ s.color }};margin:0 auto 10px;"><i data-lucide="{{ s.icon }}" style="font-size:16px;"></i></div>
+          <div style="font-size:22px;font-weight:700;font-family:'Geist Mono';letter-spacing:-.02em;">{{ s.value }}</div>
+          <div style="font-size:12px;color:var(--faint);margin-top:2px;">{{ s.label }}</div>
+        </div>
+        </sc-for>
+      </div>
+
+      <!-- inventory / completion update -->
+      <div style="background:var(--surface);border:1px solid var(--bd);border-radius:16px;padding:18px 20px;margin-bottom:22px;animation:fadeUp .5s .12s both;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px;">
+          <span style="font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:8px;"><i data-lucide="trending-up" style="font-size:16px;color:var(--grn);"></i>Astral Eclipse completion</span>
+          <span style="font-family:'Geist Mono';font-size:13px;color:var(--mut);">120 / 172 · <span style="color:var(--grn);">+3</span></span>
+        </div>
+        <div style="height:9px;border-radius:99px;background:var(--bg);overflow:hidden;position:relative;">
+          <div style="height:100%;border-radius:99px;background:linear-gradient(90deg,var(--pri),#7db0ff);animation:barGrow 1.1s .3s cubic-bezier(.2,.8,.2,1) both;width:71%;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:7px;font-size:11.5px;color:var(--faint);"><span>68% before</span><span style="color:var(--pri);">71% now</span></div>
+      </div>
+
+      <!-- pulled grid -->
+      <div style="font-size:12px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;animation:fadeUp .5s .16s both;">Your pulls</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:28px;">
+        <sc-for list="{{ pulledView }}" as="c" hint-placeholder-count="10">
+        <div style="animation:fadeUp .4s both;animation-delay:{{ c.delay }};position:relative;border-radius:11px;overflow:hidden;border:1.5px solid {{ c.border }};box-shadow:0 0 16px {{ c.softGlow }};aspect-ratio:5/7;background:{{ c.face }};display:flex;align-items:center;justify-content:center;{{ c.dupStyle }}">
+          <i data-lucide="{{ c.icon }}" style="font-size:34px;color:rgba(255,255,255,.9);"></i>
+          <span style="position:absolute;top:6px;left:6px;right:6px;font-size:9.5px;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ c.name }}</span>
+          <span style="position:absolute;bottom:6px;left:6px;width:8px;height:8px;border-radius:99px;background:{{ c.rarityColor }};box-shadow:0 0 6px {{ c.rarityColor }};"></span>
+          <sc-if value="{{ c.dup }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;bottom:5px;right:5px;font-family:'Geist Mono';font-size:9px;font-weight:700;color:var(--gold);background:rgba(0,0,0,.55);border-radius:5px;padding:1px 5px;">+{{ c.dupCoins }}</span></sc-if>
+        </div>
+        </sc-for>
+      </div>
+
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;animation:fadeUp .5s .2s both;">
+        <button style="background:var(--surface);border:1px solid var(--bd2);color:var(--tx);font-weight:600;font-size:14px;padding:13px 22px;border-radius:12px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;" onClick="{{ openAnother }}"><i data-lucide="layers" style="font-size:16px;"></i>View collection</button>
+        <button style="background:var(--pri);border:none;color:#fff;font-weight:700;font-size:14px;padding:13px 24px;border-radius:12px;cursor:pointer;box-shadow:0 10px 28px rgba(76,141,255,.45);display:inline-flex;align-items:center;gap:8px;" onClick="{{ openAnother }}"><i data-lucide="package-open" style="font-size:16px;"></i>Open another · 150</button>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1100,&quot;height&quot;:760}}">
+class Component extends DCLogic {
+  state = { stage:'sealed', idx:0, flipped:false, coins:1250 };
+
+  componentDidMount(){ this._i(); }
+  componentDidUpdate(){ this._i(); }
+  componentWillUnmount(){ clearTimeout(this._t); }
+  _i(){ try{ requestAnimationFrame(()=>window.lucide&&window.lucide.createIcons()); }catch(e){} }
+
+  _cards(){
+    // reveal order: build up to the Secret Rare climax
+    const RC = { Common:'#9aa1ad', Uncommon:'#4fc98a', Rare:'#4c8dff', 'Ultra Rare':'#b06bf0', 'Secret Rare':'#f2b23c' };
+    const EN = { fire:'#ef6a43', water:'#4aa6ef', grass:'#5ec269', lightning:'#f4c73a', psychic:'#b06bcf', fighting:'#c26a3a', dark:'#4a4f5d', metal:'#8f9aad', dragon:'#cf9b2e', fairy:'#e987bd', colorless:'#b9bec9' };
+    const IC = { fire:'flame', water:'droplet', grass:'leaf', lightning:'zap', psychic:'eye', fighting:'hand-fist', dark:'moon', metal:'cog', dragon:'flame-kindling', fairy:'sparkles', colorless:'circle' };
+    const raw = [
+      ['Pikachu','lightning','Common','70','025/172',true,10],
+      ['Snorlax','colorless','Common','150','143/172',false,0],
+      ['Machamp','fighting','Uncommon','160','068/172',false,0],
+      ['Arcanine','fire','Uncommon','130','059/172',true,25],
+      ['Lucario','fighting','Rare','120','070/172',false,0],
+      ['Gyarados','water','Rare','180','018/172',false,0],
+      ['Metagross','metal','Rare','150','112/172',true,80],
+      ['Alakazam','psychic','Rare','140','065/172',false,0],
+      ['Venusaur ex','grass','Ultra Rare','310','003/172',false,0],
+      ['Rayquaza ex','dragon','Secret Rare','220','172/172',false,0],
+    ];
+    return raw.map(r=>{
+      const [name,type,rarity,hp,number,dup,dupCoins]=r;
+      const rc=RC[rarity];
+      return { name,type,rarity,hp,number,dup,dupCoins, rarityColor:rc,
+        icon:IC[type], face:'linear-gradient(155deg,'+EN[type]+',#0d0f14)',
+        glow: ['Ultra Rare','Secret Rare'].includes(rarity)?rc+'aa': rc+'44',
+        softGlow: ['Ultra Rare','Secret Rare','Rare'].includes(rarity)?rc+'44':'transparent',
+        border: ['Ultra Rare','Secret Rare'].includes(rarity)?rc:(rarity==='Rare'?rc+'88':'var(--bd)'),
+        holo: ['Ultra Rare','Secret Rare'].includes(rarity),
+        high: ['Ultra Rare','Secret Rare'].includes(rarity) };
+    });
+  }
+
+  openPack(){ return ()=>{ this.setState({stage:'opening'}); clearTimeout(this._t); this._t=setTimeout(()=>this.setState({stage:'reveal',idx:0,flipped:false,coins:1100}),2000); }; }
+  tap(){ return ()=>{ if(this.state.stage!=='reveal') return; if(!this.state.flipped){ this.setState({flipped:true}); } else { if(this.state.idx>=9){ this.setState({stage:'summary'}); } else { this.setState({idx:this.state.idx+1, flipped:false}); } } }; }
+  skip(){ return ()=>this.setState({stage:'summary'}); }
+  openAnother(){ return ()=>this.setState({stage:'sealed',idx:0,flipped:false}); }
+
+  renderVals(){
+    const cards=this._cards();
+    const s=this.state;
+    const cur=cards[s.idx]||cards[0];
+    const rareActive = s.flipped && cur.high;
+    const dots = cards.map((c,i)=>({ w: i===s.idx?'22px':'7px', bg: i<s.idx?'var(--pri)':(i===s.idx?(s.flipped?cur.rarityColor:'#7db0ff'):'rgba(255,255,255,.14)') }));
+    const isLast = s.idx>=9;
+    const rareTitleMap = { 'Secret Rare':'✦ Secret Rare ✦', 'Ultra Rare':'★ Ultra Rare ★', 'Rare':'Rare', 'Uncommon':'Uncommon', 'Common':'Common' };
+
+    // summary computations
+    const dupCards = cards.filter(c=>c.dup);
+    const newCount = cards.length - dupCards.length;
+    const coinsBack = dupCards.reduce((n,c)=>n+c.dupCoins,0);
+    const valueAdded = '$168';
+    const summaryStats = [
+      { label:'New cards', value:''+newCount, icon:'sparkles', tint:'var(--pri-dim,rgba(76,141,255,.14))', color:'var(--pri)' },
+      { label:'Duplicates', value:''+dupCards.length, icon:'copy', tint:'rgba(242,178,60,.14)', color:'var(--gold)' },
+      { label:'Coins back', value:'+'+coinsBack, icon:'coins', tint:'rgba(242,178,60,.14)', color:'var(--gold)' },
+      { label:'Value added', value:valueAdded, icon:'trending-up', tint:'rgba(52,211,153,.14)', color:'var(--grn)' },
+    ];
+    const pulledView = cards.map((c,i)=>({ ...c, delay:(i*0.05)+'s', dupStyle: c.dup?'opacity:.55;':'' }));
+
+    const ambientParticles = [
+      {x:'32%',y:'70%',s:'5px',c:'rgba(120,170,255,.7)',dur:'6s',delay:'0s'},
+      {x:'62%',y:'75%',s:'4px',c:'rgba(255,255,255,.5)',dur:'7s',delay:'1s'},
+      {x:'44%',y:'80%',s:'6px',c:'rgba(120,170,255,.6)',dur:'5.5s',delay:'2s'},
+      {x:'70%',y:'66%',s:'3px',c:'rgba(255,255,255,.4)',dur:'8s',delay:'.5s'},
+      {x:'26%',y:'60%',s:'4px',c:'rgba(120,170,255,.5)',dur:'6.5s',delay:'1.5s'},
+      {x:'55%',y:'85%',s:'5px',c:'rgba(255,255,255,.45)',dur:'7.5s',delay:'2.5s'},
+      {x:'38%',y:'55%',s:'3px',c:'rgba(120,170,255,.6)',dur:'6s',delay:'3s'},
+      {x:'66%',y:'82%',s:'4px',c:'rgba(255,255,255,.5)',dur:'5s',delay:'.8s'},
+    ];
+    const rareParticles = [
+      {x:'40%',y:'62%',s:'6px',dur:'2.2s',delay:'0s'},{x:'58%',y:'64%',s:'5px',dur:'2.6s',delay:'.2s'},
+      {x:'46%',y:'70%',s:'7px',dur:'2s',delay:'.4s'},{x:'62%',y:'58%',s:'4px',dur:'2.8s',delay:'.1s'},
+      {x:'36%',y:'56%',s:'5px',dur:'2.4s',delay:'.5s'},{x:'52%',y:'72%',s:'6px',dur:'2.1s',delay:'.3s'},
+      {x:'68%',y:'66%',s:'4px',dur:'2.7s',delay:'.6s'},{x:'32%',y:'66%',s:'5px',dur:'2.3s',delay:'.15s'},
+      {x:'55%',y:'54%',s:'6px',dur:'2.5s',delay:'.45s'},{x:'44%',y:'60%',s:'4px',dur:'2.9s',delay:'.25s'},
+    ];
+
+    const ambientGlow = rareActive ? (cur.rarityColor+'40') : 'rgba(76,141,255,.12)';
+
+    return {
+      stageSealed:s.stage==='sealed', stageOpening:s.stage==='opening', stageReveal:s.stage==='reveal', stageSummary:s.stage==='summary',
+      showSkip:s.stage==='reveal', coinDisplay:s.coins.toLocaleString(), ambientGlow,
+      openPack:this.openPack(), tap:this.tap(), skip:this.skip(), openAnother:this.openAnother(),
+      // reveal
+      flipped:s.flipped, rareActive,
+      flipStyle: s.flipped ? 'transform:rotateY(180deg);' : 'transform:rotateY(0deg);',
+      entranceStyle: (s.idx%2===0) ? 'animation:cardInA .5s cubic-bezier(.2,.8,.2,1);' : 'animation:cardInB .5s cubic-bezier(.2,.8,.2,1);',
+      curName:cur.name, curHp:cur.hp, curIcon:cur.icon, curNumber:cur.number, curRarity:cur.rarity,
+      curFace:cur.face, curRarityColor:cur.rarityColor, curGlow:cur.glow, curHolo:cur.holo,
+      curDup:cur.dup, curDupCoins:cur.dupCoins,
+      rareRayColor:cur.rarityColor, rareGlow:cur.rarityColor+'55',
+      rareTitle: rareTitleMap[cur.rarity]||cur.rarity,
+      dots, counter:(s.idx+1)+' / 10',
+      hint: s.flipped ? (isLast ? 'Tap to finish' : 'Tap for next card') : 'Tap to reveal',
+      rareParticles, ambientParticles,
+      // summary
+      summaryStats, pulledView,
+    };
+  }
+}
+</script>
+</body>
+</html>

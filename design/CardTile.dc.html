@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div class="hovlift" style="{{ wrapStyle }}" onClick="{{ onOpen }}" style-hover="border-color:{{ rarityColor }};transform:translateY(-4px);box-shadow:0 16px 34px rgba(0,0,0,.45);">
+  <div style="position:relative;aspect-ratio:5/7;background:{{ face }};display:flex;align-items:center;justify-content:center;overflow:hidden;">
+    <div style="position:absolute;inset:0;background:radial-gradient(120px 120px at 50% 30%, rgba(255,255,255,.18), transparent 70%);"></div>
+    <div style="position:absolute;top:9px;left:9px;right:9px;display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:12px;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70%;">{{ name }}</span>
+      <span style="font-family:'Geist Mono';font-size:10.5px;font-weight:600;color:rgba(255,255,255,.9);">{{ hpLabel }}</span>
+    </div>
+    <i data-lucide="{{ icon }}" style="font-size:46px;color:rgba(255,255,255,.92);filter:drop-shadow(0 2px 6px rgba(0,0,0,.35));"></i>
+    <sc-if value="{{ ownedBadge }}" hint-placeholder-val="{{ true }}">
+      <span style="position:absolute;top:9px;right:9px;font-family:'Geist Mono';font-size:10px;font-weight:600;background:rgba(0,0,0,.5);color:#fff;border-radius:6px;padding:2px 6px;">×{{ owned }}</span>
+    </sc-if>
+    <sc-if value="{{ notOwned }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;background:rgba(6,7,10,.6);backdrop-filter:grayscale(.6);display:flex;align-items:center;justify-content:center;"><i data-lucide="lock" style="font-size:18px;color:rgba(255,255,255,.55);"></i></div>
+    </sc-if>
+    <div style="position:absolute;bottom:9px;left:9px;font-family:'Geist Mono';font-size:9.5px;color:rgba(255,255,255,.75);">{{ setNo }}</div>
+  </div>
+  <div style="padding:9px 10px;background:var(--surface,#14161c);border-top:1px solid var(--bd,rgba(255,255,255,.08));display:flex;align-items:center;justify-content:space-between;gap:6px;">
+    <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:{{ rarityColor }};"><span style="width:7px;height:7px;border-radius:99px;background:{{ rarityColor }};"></span>{{ rarity }}</span>
+    <span style="font-family:'Geist Mono';font-size:12px;font-weight:600;color:var(--tx,#eef0f4);">{{ price }}</span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:170,&quot;height&quot;:250},&quot;card&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;object&quot;},&quot;onOpen&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;}}">
+class Component extends DCLogic {
+  componentDidMount(){ this._i(); }
+  componentDidUpdate(){ this._i(); }
+  _i(){ try{ requestAnimationFrame(()=>window.lucide&&window.lucide.createIcons()); }catch(e){} }
+  renderVals(){
+    const c = this.props.card || {};
+    const ENERGY = { fire:'#ef6a43', water:'#4aa6ef', grass:'#5ec269', lightning:'#f4c73a', psychic:'#b06bcf', fighting:'#c26a3a', dark:'#4a4f5d', metal:'#8f9aad', dragon:'#cf9b2e', fairy:'#e987bd', colorless:'#b9bec9' };
+    const RARITY = { Common:'#9aa1ad', Uncommon:'#4fc98a', Rare:'#4c8dff', 'Ultra Rare':'#b06bf0', 'Secret Rare':'#f2b23c' };
+    const ICON = { fire:'flame', water:'droplet', grass:'leaf', lightning:'zap', psychic:'eye', fighting:'hand-fist', dark:'moon', metal:'cog', dragon:'flame-kindling', fairy:'sparkles', colorless:'circle' };
+    const type = c.type || 'colorless';
+    const rarity = c.rarity || 'Common';
+    const rarityColor = RARITY[rarity] || '#9aa1ad';
+    const owned = c.owned != null ? c.owned : 0;
+    const highRare = ['Ultra Rare','Secret Rare'].includes(rarity);
+    const wrapStyle = 'border-radius:13px;overflow:hidden;cursor:pointer;background:var(--surface,#14161c);border:1px solid ' + (highRare ? rarityColor+'66' : 'var(--bd,rgba(255,255,255,.08))') + ';' + (highRare ? 'box-shadow:0 0 22px '+rarityColor+'22;' : '');
+    return {
+      name: c.name || 'Unknown',
+      hpLabel: c.hp ? ('HP '+c.hp) : '',
+      icon: c.icon || ICON[type] || 'circle',
+      face: 'linear-gradient(155deg, '+(ENERGY[type]||'#b9bec9')+', #0d0f14)',
+      rarity, rarityColor,
+      owned, ownedBadge: owned > 0, notOwned: owned === 0,
+      setNo: c.setNo || (c.setCode ? c.setCode+' '+(c.number||'') : ''),
+      price: c.price || '—',
+      onOpen: this.props.onOpen || (()=>{}),
+    };
+  }
+}
+</script>
+</body>
+</html>
