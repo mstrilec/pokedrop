@@ -66,7 +66,7 @@ The system uses a **local catalog-mirror architecture**: card metadata and price
 | **Backend** | NestJS · Prisma · PostgreSQL · Redis · BullMQ · Better Auth · Swagger · Zod |
 | **Frontend** | Next.js (App Router) · React · Tailwind · shadcn/ui · TanStack Query · Zustand · React Hook Form · dnd-kit · Motion · Recharts |
 | **External data** | pokemontcg.io v2 (primary) · TCGdex (fallback/i18n) · Scrydex (upgrade path) · PokéAPI (species enrichment) |
-| **Testing** | Jest · Supertest · Testcontainers (backend) · Vitest · React Testing Library · Playwright · MSW (frontend) |
+| **Testing** | *Deferred* — no automated tests are written during v1 development (see [PRD.md](docs/PRD.md) §20) |
 | **Quality** | ESLint · Prettier · Husky · lint-staged · commitlint |
 
 ## Design system

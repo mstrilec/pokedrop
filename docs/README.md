@@ -32,4 +32,4 @@ The `design/` folder holds interactive HTML mockups these docs were extracted fr
 
 ## Scope guardrails (from the PRD)
 
-Free-to-play economy (in-app currency, no real money) · no live battle engine · informational market prices decoupled from the pack economy · English-first · responsive web only · direct user-to-user trades (no marketplace/auction).
+No automated tests during v1 — testing is deliberately deferred until the product is built (see [PRD.md](PRD.md) §20) · free-to-play economy (in-app currency, no real money) · no live battle engine · informational market prices decoupled from the pack economy · English-first · responsive web only · direct user-to-user trades (no marketplace/auction).

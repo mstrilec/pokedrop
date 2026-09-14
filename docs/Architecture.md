@@ -112,7 +112,7 @@ src/
 
 ### Recommended libraries
 
-`@nestjs/config`, `nestjs-zod` (Zod DTOs + Swagger), `@nestjs/throttler`, `helmet`, `nestjs-pino` + `pino-http`, `@nestjs/terminus`, `@nestjs/bullmq`, `cache-manager` + `cache-manager-ioredis-yet`, `@nestjs/schedule`. Testing: Jest, Supertest, Testcontainers, `@faker-js/faker`. Quality: ESLint + `typescript-eslint`, Prettier, Husky + lint-staged, commitlint.
+`@nestjs/config`, `nestjs-zod` (Zod DTOs + Swagger), `@nestjs/throttler`, `helmet`, `nestjs-pino` + `pino-http`, `@nestjs/terminus`, `@nestjs/bullmq`, `cache-manager` + `cache-manager-ioredis-yet`, `@nestjs/schedule`. Testing: **none during v1** — automated tests are deferred, see [PRD.md](PRD.md) §20. Quality: ESLint + `typescript-eslint`, Prettier, Husky + lint-staged, commitlint.
 
 ## 5. Frontend architecture (Next.js)
 
