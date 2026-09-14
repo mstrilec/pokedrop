@@ -2,7 +2,7 @@
 
 A production-oriented **Pokémon TCG web application** for opening booster packs, building a personal collection, assembling decks, browsing rich card detail pages, and trading cards with other users — all behind role-gated authentication.
 
-> **Status:** Design & documentation phase (PRD + architecture + design system complete; implementation not yet started).
+> **Status:** Foundation in progress. Planning and design deliverables are complete; the monorepo is scaffolded and the local service stack runs. Feature work has not started.
 
 ## What it does
 
@@ -69,6 +69,61 @@ The system uses a **local catalog-mirror architecture**: card metadata and price
 | **Testing** | *Deferred* — no automated tests are written during v1 development (see [PRD.md](docs/PRD.md) §20) |
 | **Quality** | ESLint · Prettier · Husky · lint-staged · commitlint |
 
+## Local development
+
+### Prerequisites
+
+- **Node 22.20.0** (`.nvmrc`) and **pnpm 10.17.1** (enable with `corepack enable`)
+- **Docker Desktop** running
+
+### Bring the stack up
+
+```bash
+cp .env.example .env
+docker compose up -d --wait
+```
+
+`--wait` blocks until both healthchecks pass, so the next command can assume
+the database is actually accepting connections rather than merely started.
+
+| Service | Host port | Credentials |
+|---|---|---|
+| PostgreSQL 17 | **5433** | `pokedrop` / `pokedrop_local_dev`, database `pokedrop` |
+| Redis 7.4 | 6379 | none |
+
+> **Postgres is on 5433, not 5432.** A natively installed PostgreSQL service
+> already owns 5432 on at least one machine here, and Docker Desktop publishes
+> over it without raising an error — so `localhost:5432` silently reaches the
+> wrong server and migrations would land in the wrong database. Both ports are
+> settable in `.env` (`POSTGRES_PORT`, `REDIS_PORT`) if they clash on yours.
+
+### Connect
+
+```bash
+docker compose exec postgres psql -U pokedrop -d pokedrop
+docker compose exec redis redis-cli
+```
+
+From the host, `DATABASE_URL` and `REDIS_URL` in `.env` work verbatim with any
+client — `psql`, `pgcli`, Prisma, `redis-cli -u`.
+
+Redis is split by logical database so that clearing the cache cannot drop
+queued jobs: **db 0** is the read cache, **db 1** is the BullMQ queues.
+
+### Reset
+
+```bash
+docker compose down          # stop, keep data
+docker compose down -v       # stop and delete volumes - next up is a clean DB
+```
+
+### Check status
+
+```bash
+docker compose ps
+docker compose logs -f postgres
+```
+
 ## Design system
 
 A **dark-first, desktop-first** system for a premium collectible-card experience: electric-blue accents, gold economy cues, a full rarity spectrum, built on **Geist** with a strict 4px rhythm. All motion honors `prefers-reduced-motion`; color is never the sole carrier of meaning. See [docs/DesignSystem.md](docs/DesignSystem.md) for the full token set.
@@ -99,4 +154,15 @@ Two roles in v1, enforced **server-side** via NestJS guards (the UI hides what a
 
 ## Project status
 
-This repository currently contains the **planning and design deliverables** — a complete PRD, architecture, data model, API reference, information architecture, user flows, design system, and component specs, along with the source HTML mockups. Backend and frontend implementation follow the structure laid out in [docs/Architecture.md](docs/Architecture.md).
+Planning is complete: PRD, architecture, data model, API reference, information
+architecture, user flows, design system and component specs, plus the source
+HTML mockups in [`design/`](design/).
+
+Foundation work is underway. The pnpm monorepo is scaffolded (`apps/api`,
+`apps/web`, `packages/shared`) and `docker compose up -d` brings up Postgres and
+Redis locally. Still outstanding in the foundation: lint and formatting
+toolchain, NestJS bootstrap, typed configuration, the Prisma and Redis modules,
+the error envelope, structured logging, health probes and CI.
+
+No feature modules exist yet. Backend and frontend implementation follow the
+structure laid out in [docs/Architecture.md](docs/Architecture.md).
