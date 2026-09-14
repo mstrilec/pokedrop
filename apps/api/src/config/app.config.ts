@@ -26,6 +26,7 @@ export function buildAppConfig(env: Env) {
     },
     db: {
       url: env.DATABASE_URL,
+      queryLogging: env.DB_QUERY_LOGGING,
     },
     redis: {
       url: env.REDIS_URL,

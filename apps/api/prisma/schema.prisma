@@ -1,0 +1,16 @@
+// PokeDrop database schema.
+//
+// Deliberately empty of models: PD-16 stands up the client and the transaction
+// helper, and the entities from docs/DataModel.md arrive with PD-22 onward.
+//
+// Note for anyone following docs/Architecture.md: since Prisma 7 the datasource
+// block no longer accepts `url`. The connection string for the CLI lives in
+// prisma.config.ts, and the client receives a driver adapter at construction.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}

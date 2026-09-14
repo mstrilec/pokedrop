@@ -114,6 +114,19 @@ src/
 
 `@nestjs/config`, `nestjs-zod` (Zod DTOs + Swagger), `@nestjs/throttler`, `helmet`, `nestjs-pino` + `pino-http`, `@nestjs/terminus`, `@nestjs/bullmq`, `cache-manager` + `cache-manager-ioredis-yet`, `@nestjs/schedule`. Testing: **none during v1** — automated tests are deferred, see [PRD.md](PRD.md) §20. Quality: ESLint + `typescript-eslint`, Prettier, Husky + lint-staged, commitlint.
 
+### Database access (Prisma 7)
+
+Prisma 7 changed two things that are easy to trip over, so they are written down here:
+
+- **The datasource block no longer accepts `url`.** Connection details for the CLI live in `apps/api/prisma.config.ts`. That file also loads the repository-root `.env` explicitly, because Prisma 7 stopped reading `.env` on its own — without it `prisma migrate` fails with *"datasource.url property is required"*.
+- **The client needs a driver adapter.** `PrismaService` constructs `PrismaPg` from the validated config in `src/config`, so the connection string still has exactly one source of truth and never reaches the client as a raw `process.env` read.
+
+The generator stays on `prisma-client-js`, which emits into `node_modules` as before. The newer `prisma-client` generator emits TypeScript into the repository, which would pull generated code into `tsconfig`, the build and linting for no benefit here.
+
+Versions are pinned: `prisma` and `@prisma/client` must match exactly, and at the time of writing the `latest` dist-tag for `prisma` points at an 8.0 release candidate while `@prisma/client` is on stable 7. Installing both without pins produces mismatched majors.
+
+**`withTransaction`** on `PrismaService` is the primitive behind both transactional cores in section 9. Nothing should call `$transaction` directly.
+
 ## 5. Frontend architecture (Next.js)
 
 ```
