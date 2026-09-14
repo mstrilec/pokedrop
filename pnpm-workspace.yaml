@@ -1,0 +1,9 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# Native optional dependencies pulled in by Next.js. Their build scripts are
+# safe; listing them here keeps pnpm 10 from warning on every install.
+ignoredBuiltDependencies:
+  - sharp
+  - unrs-resolver

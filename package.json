@@ -1,0 +1,22 @@
+{
+  "name": "pokedrop",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pokemon TCG web application - open packs, collect, build decks, trade",
+  "packageManager": "pnpm@10.17.1",
+  "engines": {
+    "node": ">=22.11.0 <23",
+    "pnpm": ">=10.17.0"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "build": "pnpm -r run build",
+    "typecheck": "pnpm -r run typecheck",
+    "lint": "pnpm -r run lint",
+    "test": "pnpm -r run test",
+    "clean": "pnpm -r run clean"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}

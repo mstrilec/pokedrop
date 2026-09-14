@@ -1,0 +1,27 @@
+{
+  "name": "@pokedrop/web",
+  "version": "0.0.0",
+  "private": true,
+  "description": "PokeDrop Next.js App Router frontend",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "echo \"@pokedrop/web: lint lands in PD-12\"",
+    "test": "echo \"@pokedrop/web: tests land in PD-125\"",
+    "clean": "node -e \"require('node:fs').rmSync('.next',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "@pokedrop/shared": "workspace:*",
+    "next": "16.3.5",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "5.9.3"
+  }
+}
