@@ -1,0 +1,58 @@
+# Local development services for PokeDrop.
+#
+# Postgres is the source of truth; Redis backs both the read cache and the
+# BullMQ queues. Neither is reachable from the outside world — these are dev
+# containers with deliberately weak, well-known credentials.
+#
+#   cp .env.example .env && docker compose up -d
+#
+# See the "Local development" section of README.md.
+
+name: pokedrop
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: pokedrop-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      # Without this the cluster is initialised with the host's locale, which
+      # makes index collation differ between machines.
+      POSTGRES_INITDB_ARGS: '--encoding=UTF8 --locale=C'
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      # Without a healthcheck, `up -d` returns before Postgres accepts
+      # connections and the first migration of the session fails.
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: pokedrop-redis
+    restart: unless-stopped
+    # AOF rather than RDB snapshots: BullMQ jobs enqueued in the seconds before
+    # a crash would otherwise be lost.
+    command: ['redis-server', '--appendonly', 'yes', '--save', '']
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+volumes:
+  postgres-data:
+  redis-data:
