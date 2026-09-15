@@ -124,6 +124,25 @@ docker compose ps
 docker compose logs -f postgres
 ```
 
+## Quality gates
+
+```bash
+pnpm typecheck
+pnpm lint
+pnpm format:check
+pnpm build
+```
+
+`typecheck` and `lint` compile `packages/shared` before they run, and `apps/web` runs `next typegen` before `tsc`. Both are load-bearing rather than tidiness: the apps resolve `@pokedrop/shared` through its `dist`, and `layout.tsx` uses the `LayoutProps` type Next generates. On a machine that has built once, leftovers hide this; on a fresh clone the commands would fail with `Cannot find module`. CI is where it surfaced.
+
+A pre-commit hook runs ESLint and Prettier over staged files, and commitlint checks the message. The message format is `[PD-NN]: short lowercase description`.
+
+## Continuous integration
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs typecheck, lint (plus `format:check`) and build as three parallel jobs on every push to `dev` and `main`, sharing the composite setup in [`.github/actions/setup`](.github/actions/setup/action.yml). A warm run finishes in well under a minute.
+
+Versions are never repeated in the workflow: `pnpm/action-setup` reads `packageManager` and `actions/setup-node` reads `engines.node`, both from the root `package.json`, so CI cannot drift from the local toolchain through a line somebody forgot to update.
+
 ## Design system
 
 A **dark-first, desktop-first** system for a premium collectible-card experience: electric-blue accents, gold economy cues, a full rarity spectrum, built on **Geist** with a strict 4px rhythm. All motion honors `prefers-reduced-motion`; color is never the sole carrier of meaning. See [docs/DesignSystem.md](docs/DesignSystem.md) for the full token set.
