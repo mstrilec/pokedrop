@@ -24,6 +24,9 @@ export function buildAppConfig(env: Env) {
         .map((origin) => origin.trim())
         .filter((origin) => origin.length > 0),
     },
+    logging: {
+      level: env.LOG_LEVEL,
+    },
     db: {
       url: env.DATABASE_URL,
       queryLogging: env.DB_QUERY_LOGGING,

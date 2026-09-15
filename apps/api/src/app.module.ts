@@ -6,6 +6,7 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
 import { ZodValidationPipe } from './common/pipes/zod-validation.pipe.js';
 import { AppConfigModule } from './config/index.js';
 import { HealthModule } from './health/health.module.js';
+import { AppLoggingModule } from './logging/index.js';
 import { PrismaModule } from './prisma/index.js';
 import { RedisModule } from './redis/index.js';
 
@@ -15,7 +16,7 @@ import { RedisModule } from './redis/index.js';
  * injection — PD-18 will want the logger and config inside the filter.
  */
 @Module({
-  imports: [AppConfigModule, PrismaModule, RedisModule, HealthModule],
+  imports: [AppConfigModule, AppLoggingModule, PrismaModule, RedisModule, HealthModule],
   controllers: [AppController],
   providers: [
     AppService,

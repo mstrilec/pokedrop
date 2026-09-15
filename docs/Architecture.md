@@ -127,6 +127,23 @@ Versions are pinned: `prisma` and `@prisma/client` must match exactly, and at th
 
 **`withTransaction`** on `PrismaService` is the primitive behind both transactional cores in section 9. Nothing should call `$transaction` directly.
 
+### Logging
+
+`nestjs-pino` wraps `pino-http`. `app.useLogger` routes Nest's own `Logger` through it, so every existing `new Logger(SomeService.name)` becomes a pino child with `context` as a field — no service had to change. All options live in one exported `buildLoggerOptions(config)` so the BullMQ worker entrypoint can import the same configuration rather than repeat it.
+
+Four choices that are not defaults and should not be quietly reverted:
+
+- **`genReqId` returns the id the request-id middleware already set.** Letting pino mint its own would put a different id in the log from the one in the error envelope and the `X-Request-Id` header.
+- **`customLogLevel` maps status to level.** Without it `pino-http` writes every completion line at `useLevel`, which is `info` — a 500 would be logged at the same level as a successful read, and an alert on `level >= error` would never fire.
+- **Request headers are an allowlist, not a redaction list.** The default serializer logs every header, so any future bearer-style header would be logged in full from the day it is introduced. `redact` paths are kept as a second layer in case the serializer is ever widened.
+- **The response serializer emits the status code only.** The default includes response headers, and `Set-Cookie` on a sign-in response is a session handed to whoever can read the log.
+
+Request bodies are never serialized, so a password in a sign-up payload does not reach the log at all.
+
+A failure at 500 or above produces two lines: the completion line carrying `responseTime`, and a record from `AllExceptionsFilter` carrying the real cause and stack. They correlate on `req.id`. Both are needed — the filter answers the request itself, so Express never sees the exception and `pino-http` can only report "failed with status code 500".
+
+The query string is logged as part of the URL, which is worth having for catalog searches. Anything token-bearing added to a query string later must be redacted here first.
+
 ## 5. Frontend architecture (Next.js)
 
 ```
