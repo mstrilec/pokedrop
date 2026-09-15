@@ -8,6 +8,16 @@ import type { AppConfig } from '../config/index.js';
  * bearer-style header nobody thought to redact would be logged in full from
  * the day it is introduced.
  */
+/**
+ * The liveness route, spelled out because it is polled forever.
+ *
+ * Only liveness. A readiness probe that fails is worth a line — it is the
+ * signal that an instance has stopped serving — whereas a liveness probe
+ * answering "yes, the process exists" every few seconds says nothing anyone
+ * will ever read.
+ */
+const LIVENESS_PATH = '/api/v1/health/live';
+
 const CLIENT_ERROR_FLOOR = 400;
 const SERVER_ERROR_FLOOR = 500;
 
@@ -39,6 +49,10 @@ export function buildLoggerOptions(config: AppConfig): Params {
       genReqId: (request) => {
         const { id } = request as { id?: string };
         return id ?? randomUUID();
+      },
+
+      autoLogging: {
+        ignore: (request) => (request.url ?? '').split('?')[0] === LIVENESS_PATH,
       },
 
       // Without this every completion line is written at `useLevel`, which
