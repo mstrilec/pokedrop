@@ -12,12 +12,17 @@
 - **Ownership:** service-level assertions — never trust client-supplied user IDs.
 - **Idempotency:** mutating money/item operations accept an idempotency key (e.g. `openId`).
 - **Rate limiting:** `@nestjs/throttler` on auth, pack-open, and trade endpoints.
+- **Request correlation:** every response carries `X-Request-Id`. An inbound `X-Request-Id` is adopted when it matches `[A-Za-z0-9._-]{1,128}`, and replaced with a generated one otherwise — the value reaches both the log and the response body, so it is not allowed to carry newlines or unbounded length.
 
 ### Standard error envelope
 
 ```json
 { "statusCode": 400, "error": "Bad Request", "message": "…", "requestId": "…" }
 ```
+
+Every failure uses this shape, including requests that match no route — those are answered by a handler mounted behind the Nest router rather than by Express' own HTML page. `error` is always the HTTP reason phrase, never a framework class name. `requestId` matches the `X-Request-Id` response header and the correlated log line.
+
+Responses at 500 and above carry a fixed `"Internal server error"` message; the real cause and its stack go to the log under the same request id. A unique-constraint violation that reaches the filter becomes a 409 with a generic message — services that need a field-specific message ("that email is taken") catch the failure themselves and throw a `ConflictException`.
 
 ---
 
