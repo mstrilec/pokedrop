@@ -115,5 +115,20 @@ Responses at 500 and above carry a fixed `"Internal server error"` message; the 
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/health/live` | Liveness (`@nestjs/terminus`) |
-| GET | `/health/ready` | Readiness (DB + Redis) |
+| GET | `/health/live` | Liveness (`@nestjs/terminus`) — process only, no dependency checks |
+| GET | `/health/ready` | Readiness — Postgres and Redis, 200 or 503 |
+
+Health responses are the Terminus report, **not** the standard error envelope:
+
+```json
+{
+  "status": "error",
+  "info": { "redis": { "status": "up", "responseTime": 3 } },
+  "error": { "database": { "status": "down", "message": "…" } },
+  "details": { "…": "info and error merged" }
+}
+```
+
+A controller-scoped filter keeps the global exception filter from flattening this into the envelope, which would replace the per-dependency detail with `"Internal server error"` — untrue of a healthy process with a dead dependency. Any other failure from these routes still returns the normal envelope.
+
+Liveness stays dependency-free on purpose: a liveness probe that fails because Postgres is down would have an orchestrator restart a healthy process, which does nothing for Postgres and drops every request in flight. Only readiness reports dependencies, so traffic is withheld while the instance stays alive to recover.
