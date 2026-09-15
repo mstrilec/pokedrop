@@ -1,27 +1,50 @@
-import { Controller, Get } from '@nestjs/common';
-import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, UseFilters } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
+import { HealthCheck, HealthCheckService, PrismaHealthIndicator } from '@nestjs/terminus';
+import type { HealthCheckResult } from '@nestjs/terminus';
+import { PrismaService } from '../prisma/index.js';
+import { HealthCheckFilter } from './health-check.filter.js';
+import { RedisHealthIndicator } from './redis.health.js';
 
 /**
- * Liveness only: does the process answer at all.
- *
- * PD-20 replaces this with @nestjs/terminus and adds `/health/ready`, which
- * checks Postgres and Redis. Deliberately kept dependency-free here — a
- * liveness probe that fails because the database is down would have an
- * orchestrator restarting a perfectly healthy process.
+ * How long a dependency has to answer before it counts as down. Short enough
+ * that the probe resolves well inside an orchestrator's own timeout, long
+ * enough not to fail on a slow but working connection.
  */
+const DEPENDENCY_TIMEOUT_MS = 1500;
+
 @ApiTags('health')
+@UseFilters(HealthCheckFilter)
 @Controller('health')
 export class HealthController {
+  constructor(
+    private readonly health: HealthCheckService,
+    private readonly database: PrismaHealthIndicator,
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisHealthIndicator,
+  ) {}
+
+  /**
+   * Liveness: does the process answer at all.
+   *
+   * Deliberately dependency-free. A liveness probe that fails because the
+   * database is down would have an orchestrator restarting a perfectly healthy
+   * process, which does nothing for the database and drops every request in
+   * flight.
+   */
   @Get('live')
-  @ApiOkResponse({
-    description: 'The process is running.',
-    schema: {
-      type: 'object',
-      properties: { status: { type: 'string', enum: ['ok'] } },
-      required: ['status'],
-    },
-  })
-  live(): { status: 'ok' } {
-    return { status: 'ok' };
+  @HealthCheck()
+  live(): Promise<HealthCheckResult> {
+    return this.health.check([]);
+  }
+
+  /** Readiness: can this instance actually serve a request right now. */
+  @Get('ready')
+  @HealthCheck()
+  ready(): Promise<HealthCheckResult> {
+    return this.health.check([
+      () => this.database.pingCheck('database', this.prisma).withTimeout(DEPENDENCY_TIMEOUT_MS),
+      () => this.redis.pingCheck('redis', DEPENDENCY_TIMEOUT_MS),
+    ]);
   }
 }
