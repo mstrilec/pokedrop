@@ -8,6 +8,7 @@ Architecture & design reference for the Pokémon TCG web application (collection
 
 | Doc | What it covers |
 |---|---|
+| [Foundation.md](Foundation.md) | What M0 built, why, how it works, and the traps it left behind. |
 | [PRD.md](PRD.md) | Product requirements — the source of truth for scope, goals, and decisions. |
 | [Architecture.md](Architecture.md) | System topology, module structure (backend + frontend), data flow, sync, caching, provider adapter. |
 | [DataModel.md](DataModel.md) | Prisma entities, relationships, enums, indexes, integrity rules. |
@@ -24,6 +25,7 @@ The `design/` folder holds interactive HTML mockups these docs were extracted fr
 
 ## Reading order
 
+0. **Foundation** for what already exists in the repository and what will bite you.
 1. **PRD** for the "why" and scope boundaries.
 2. **Architecture** + **DataModel** for the system shape.
 3. **InformationArchitecture** + **UserFlows** for what the product does.

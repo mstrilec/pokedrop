@@ -153,6 +153,7 @@ All architecture and design decisions live in [`docs/`](docs/). Start with the [
 
 | Doc | What it covers |
 |---|---|
+| [Foundation.md](docs/Foundation.md) | What M0 built, why, how it works, and the traps it left behind. |
 | [PRD.md](docs/PRD.md) | Product requirements — the source of truth for scope, goals, and decisions. |
 | [Architecture.md](docs/Architecture.md) | System topology, module structure, data flow, sync, caching, provider adapter. |
 | [DataModel.md](docs/DataModel.md) | Prisma entities, relationships, enums, indexes, integrity rules. |
