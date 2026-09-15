@@ -3,6 +3,8 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module.js';
+import { notFoundHandler } from './common/errors/not-found.handler.js';
+import { requestIdMiddleware } from './common/request-id.js';
 import { applyZodSchemas } from './common/zod-dto.js';
 import { APP_CONFIG, type AppConfig } from './config/index.js';
 
@@ -11,6 +13,10 @@ async function bootstrap(): Promise<void> {
   const config = app.get<AppConfig>(APP_CONFIG);
 
   app.use(helmet());
+
+  // Before the router, so that every request carries a correlation id by the
+  // time anything can fail — including requests that match no route.
+  app.use(requestIdMiddleware);
 
   // An array origin makes Express reflect only allowlisted values. Note that a
   // disallowed origin is not refused: the response simply carries no
@@ -35,6 +41,11 @@ async function bootstrap(): Promise<void> {
 
   const document = applyZodSchemas(SwaggerModule.createDocument(app, openApiConfig));
   SwaggerModule.setup('docs', app, document);
+
+  // init() mounts the Nest router; anything registered after it sits behind
+  // every real route, which is precisely where a not-found handler belongs.
+  await app.init();
+  app.use(notFoundHandler);
 
   await app.listen(config.app.port);
 }
