@@ -140,6 +140,8 @@ Four choices that are not defaults and should not be quietly reverted:
 
 Request bodies are never serialized, so a password in a sign-up payload does not reach the log at all.
 
+`autoLogging.ignore` drops the liveness route and nothing else. An orchestrator polls it every few seconds forever, and a line saying "the process exists" is one nobody will read. Readiness is deliberately still logged: a readiness probe that fails is the signal that an instance has stopped serving.
+
 A failure at 500 or above produces two lines: the completion line carrying `responseTime`, and a record from `AllExceptionsFilter` carrying the real cause and stack. They correlate on `req.id`. Both are needed — the filter answers the request itself, so Express never sees the exception and `pino-http` can only report "failed with status code 500".
 
 The query string is logged as part of the URL, which is worth having for catalog searches. Anything token-bearing added to a query string later must be redacted here first.
