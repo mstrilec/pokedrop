@@ -2,6 +2,7 @@ import { VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
+import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module.js';
 import { notFoundHandler } from './common/errors/not-found.handler.js';
 import { requestIdMiddleware } from './common/request-id.js';
@@ -9,7 +10,11 @@ import { applyZodSchemas } from './common/zod-dto.js';
 import { APP_CONFIG, type AppConfig } from './config/index.js';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  // bufferLogs holds everything Nest emits during startup until useLogger
+  // swaps in pino, so the boot sequence is not split across two formats.
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.useLogger(app.get(Logger));
+
   const config = app.get<AppConfig>(APP_CONFIG);
 
   app.use(helmet());

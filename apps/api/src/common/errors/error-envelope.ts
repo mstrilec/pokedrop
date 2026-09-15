@@ -28,10 +28,6 @@ export function buildErrorEnvelope(exception: unknown, requestId: string): Error
   };
 }
 
-export function stackOf(exception: unknown): string | undefined {
-  return exception instanceof Error ? exception.stack : undefined;
-}
-
 function errorNameFor(exception: unknown, statusCode: number): string {
   if (exception instanceof HttpException) {
     const body = exception.getResponse();

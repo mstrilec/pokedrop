@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { Catch, Logger } from '@nestjs/common';
+import { Catch } from '@nestjs/common';
 import type { ArgumentsHost, ExceptionFilter } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { SERVER_ERROR_FLOOR, buildErrorEnvelope, stackOf } from '../errors/error-envelope.js';
+import { PinoLogger } from 'nestjs-pino';
+import { SERVER_ERROR_FLOOR, buildErrorEnvelope } from '../errors/error-envelope.js';
 import { getRequestId } from '../request-id.js';
 
 /**
@@ -15,7 +16,9 @@ import { getRequestId } from '../request-id.js';
  */
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
-  private readonly logger = new Logger(AllExceptionsFilter.name);
+  constructor(private readonly logger: PinoLogger) {
+    this.logger.setContext(AllExceptionsFilter.name);
+  }
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const http = host.switchToHttp();
@@ -29,9 +32,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     if (envelope.statusCode >= SERVER_ERROR_FLOOR) {
       // Only unexpected failures deserve a stack trace; a 400 is the caller's
-      // problem, not an incident. The id is what ties this line to the response
-      // the caller received.
-      this.logger.error(`${requestId} ${String(exception)}`, stackOf(exception));
+      // problem, not an incident. requestId is a field rather than part of the
+      // message so that a log store can be queried by it.
+      this.logger.error({ requestId, err: exception }, 'Request failed');
     }
 
     response.status(envelope.statusCode).json(envelope);

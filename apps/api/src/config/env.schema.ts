@@ -18,6 +18,12 @@ export const EnvSchema = z
     // Comma-separated. Parsed into a list by buildAppConfig.
     CORS_ORIGINS: z.string().default('http://localhost:3000'),
 
+    // pino's levels. `silent` exists for the rare case of wanting a process
+    // that says nothing at all.
+    LOG_LEVEL: z
+      .enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'])
+      .default('info'),
+
     DATABASE_URL: z.string().min(1),
 
     // Off by default. Hunting N+1 queries is something you switch on
