@@ -92,7 +92,7 @@ src/
 │   └── dto/                     # shared response envelopes, pagination
 ├── config/                      # @nestjs/config, env schema (Zod), typed config
 ├── prisma/                      # PrismaModule + PrismaService
-├── redis/                       # Redis / cache-manager provider
+├── redis/                       # ioredis client, CacheService, key builders
 ├── auth/                        # Better Auth integration, sessions, guards
 ├── users/                       # profile, currency, roles
 ├── catalog/                     # cards, sets — read from mirror; search
@@ -112,7 +112,7 @@ src/
 
 ### Recommended libraries
 
-`@nestjs/config`, `nestjs-zod` (Zod DTOs + Swagger), `@nestjs/throttler`, `helmet`, `nestjs-pino` + `pino-http`, `@nestjs/terminus`, `@nestjs/bullmq`, `cache-manager` + `cache-manager-ioredis-yet`, `@nestjs/schedule`. Testing: **none during v1** — automated tests are deferred, see [PRD.md](PRD.md) §20. Quality: ESLint + `typescript-eslint`, Prettier, Husky + lint-staged, commitlint.
+`@nestjs/config`, `nestjs-zod` (Zod DTOs + Swagger), `@nestjs/throttler`, `helmet`, `nestjs-pino` + `pino-http`, `@nestjs/terminus`, `@nestjs/bullmq`, `ioredis` (see Cache implementation below), `@nestjs/schedule`. Testing: **none during v1** — automated tests are deferred, see [PRD.md](PRD.md) §20. Quality: ESLint + `typescript-eslint`, Prettier, Husky + lint-staged, commitlint.
 
 ### Database access (Prisma 7)
 
@@ -194,7 +194,24 @@ Prices are **never fetched on the user request path.** `@nestjs/schedule` cron t
 | Pack-open idempotency lock | `lock:open:{openId}` | short | after commit |
 | Trade expiry / queues | BullMQ namespaces | — | job lifecycle |
 
-Principle: cache read-heavy low-volatility catalog data aggressively; keep user-specific/volatile data short-TTL or uncached; always pair a write with explicit invalidation. Use `cache-manager` with an ioredis store so the same Redis powers cache + BullMQ (separate logical DBs/prefixes).
+Principle: cache read-heavy low-volatility catalog data aggressively; keep user-specific/volatile data short-TTL or uncached; always pair a write with explicit invalidation. The same Redis powers cache and BullMQ, kept apart by both a separate logical database and a key prefix.
+
+### Cache implementation
+
+`apps/api/src/redis` holds a thin `CacheService` built directly on `ioredis`, rather than on `cache-manager`. Three reasons, in order of weight:
+
+- `invalidate(pattern)` is a requirement of the table above, and neither `cache-manager` nor `Keyv` can delete by pattern. That needs `SCAN` on a raw client regardless, so the abstraction would have been bypassed for the operation that matters most.
+- The ioredis store for `cache-manager` (`cache-manager-ioredis-yet`) is deprecated by its maintainer as of `cache-manager` v6, which moved to Keyv. It still composes through the exported `KeyvAdapter`, but only as a compatibility shim.
+- The supported Keyv store, `@keyv/redis`, speaks `node-redis`; `@keyv/ioredis` does not exist. BullMQ requires ioredis, so the supported path means two Redis client libraries and two connection pools in one process.
+
+Conventions that follow from this:
+
+- **Keys are built in `cache.keys.ts` and nowhere else.** A mistyped key literal is a permanent silent cache miss, which presents as mild slowness rather than as a bug.
+- **The `cache:` prefix is part of the key, not ioredis' `keyPrefix` option.** `keyPrefix` is not applied to `SCAN`'s `MATCH` pattern, and the keys `SCAN` returns already carry the prefix — passing those to `del` on the same client prefixes them a second time and deletes nothing, with no error raised. A pattern invalidation would report success and do nothing.
+- **`invalidate` refuses any pattern outside the `cache:` namespace.** The queue has its own logical database, but that separation is one edited line of `.env` away from vanishing.
+- **TTLs live in `buildAppConfig` under `cache.ttl`,** exposed on `CacheService.ttl` so that reaching for a configured TTL is easier than writing a number.
+- **Cache failures are logged and treated as misses.** A cache that throws converts a degraded dependency into an outage. This is also why the pack-open idempotency lock must not be taken through `CacheService`: a lock needs `SET NX PX` and needs failures to be fatal.
+- **Pass a Zod schema to `get`/`getOrSet` for anything containing dates.** JSON has no date type, so a cached `Date` reads back as a string while the type system still claims it is a `Date`.
 
 ## 9. Transactional cores
 
