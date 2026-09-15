@@ -6,9 +6,9 @@ runs:
   steps:
     # No version here on purpose: the action reads packageManager from
     # package.json, so the pnpm version cannot drift from the local one.
-    - uses: pnpm/action-setup@v4
+    - uses: pnpm/action-setup@v6
 
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@v5
       with:
         # Reads engines.node, for the same reason. Must come after pnpm is
         # installed, or the pnpm store cache cannot be located.
