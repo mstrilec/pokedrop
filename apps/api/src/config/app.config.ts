@@ -33,6 +33,23 @@ export function buildAppConfig(env: Env) {
       cacheDb: env.REDIS_CACHE_DB,
       queueDb: env.REDIS_QUEUE_DB,
     },
+    cache: {
+      /**
+       * Seconds, taken from the table in docs/Architecture.md section 8.
+       *
+       * Literals rather than environment variables on purpose. The point of
+       * the rule is that no service writes 86_400 at a call site; these are
+       * already the typed configuration layer, and six variables nobody will
+       * ever set in any environment are just surface to keep in sync.
+       */
+      ttl: {
+        card: 86_400,
+        cardPrice: 3_600,
+        sets: 86_400,
+        facets: 86_400,
+        inventorySummary: 300,
+      },
+    },
     auth: {
       /** Null until PD-29 makes it required. */
       secret: env.AUTH_SECRET ?? null,

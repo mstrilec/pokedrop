@@ -204,7 +204,7 @@ src/
 │   └── dto/                     # shared response envelopes, pagination
 ├── config/                      # @nestjs/config, env schema (Zod), typed config
 ├── prisma/                      # PrismaModule + PrismaService
-├── redis/                       # Redis/cache-manager provider
+├── redis/                       # ioredis client, CacheService, key builders
 ├── auth/                        # Better Auth integration, sessions, guards
 ├── users/                       # profile, currency, roles
 ├── catalog/                     # cards, sets — read from mirror; search
@@ -225,7 +225,7 @@ src/
 **Provider adapter pattern (important):** all external sources implement a common `CardSourceProvider` interface (`fetchSets`, `fetchCards`, `fetchPrices`). `pokemontcg.io` is the default provider; TCGdex is a fallback the sync layer can switch to on repeated failures. This keeps the rest of the app source-agnostic and makes the Scrydex upgrade a one-file swap.
 
 **Recommended backend libraries (beyond your list):**
-`@nestjs/config`, `nestjs-zod` (Zod DTOs + Swagger), `@nestjs/throttler` (rate limiting), `helmet`, `nestjs-pino` + `pino-http` (structured logs), `@nestjs/terminus` (health), `@nestjs/bullmq`, `cache-manager` + `cache-manager-ioredis-yet`, `@nestjs/schedule` (cron triggers). Testing: **deferred, see §20** — no test tooling is installed during v1. Quality: **ESLint** + `typescript-eslint`, **Prettier**, **Husky** + **lint-staged**, **commitlint**.
+`@nestjs/config`, `nestjs-zod` (Zod DTOs + Swagger), `@nestjs/throttler` (rate limiting), `helmet`, `nestjs-pino` + `pino-http` (structured logs), `@nestjs/terminus` (health), `@nestjs/bullmq`, `ioredis` (cache built directly on it, see [Architecture.md](Architecture.md) §8), `@nestjs/schedule` (cron triggers). Testing: **deferred, see §20** — no test tooling is installed during v1. Quality: **ESLint** + `typescript-eslint`, **Prettier**, **Husky** + **lint-staged**, **commitlint**.
 
 ---
 
@@ -446,7 +446,7 @@ Prices are **never fetched on the user request path.** A BullMQ job keeps our DB
 | Pack-open idempotency lock | `lock:open:{openId}` | short | after commit |
 | Trade expiry / job queues | BullMQ namespaces | — | job lifecycle |
 
-Principles: **cache read-heavy, low-volatility catalog data aggressively**; keep user-specific/volatile data (inventory, trades) with short TTLs or no cache; always pair a write with explicit invalidation. Use `cache-manager` with an ioredis store so the same Redis powers cache + BullMQ (separate logical DBs/prefixes).
+Principles: **cache read-heavy, low-volatility catalog data aggressively**; keep user-specific/volatile data (inventory, trades) with short TTLs or no cache; always pair a write with explicit invalidation. The same Redis powers cache and BullMQ, kept apart by a separate logical database and a `cache:` key prefix; the cache is a thin service over `ioredis` rather than `cache-manager` — see [Architecture.md](Architecture.md) §8 for why.
 
 ---
 
