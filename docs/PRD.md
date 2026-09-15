@@ -225,7 +225,7 @@ src/
 **Provider adapter pattern (important):** all external sources implement a common `CardSourceProvider` interface (`fetchSets`, `fetchCards`, `fetchPrices`). `pokemontcg.io` is the default provider; TCGdex is a fallback the sync layer can switch to on repeated failures. This keeps the rest of the app source-agnostic and makes the Scrydex upgrade a one-file swap.
 
 **Recommended backend libraries (beyond your list):**
-`@nestjs/config`, `nestjs-zod` (Zod DTOs + Swagger), `@nestjs/throttler` (rate limiting), `helmet`, `nestjs-pino` + `pino-http` (structured logs), `@nestjs/terminus` (health), `@nestjs/bullmq`, `ioredis` (cache built directly on it, see [Architecture.md](Architecture.md) §8), `@nestjs/schedule` (cron triggers). Testing: **deferred, see §20** — no test tooling is installed during v1. Quality: **ESLint** + `typescript-eslint`, **Prettier**, **Husky** + **lint-staged**, **commitlint**.
+`@nestjs/config`, a local `createZodDto` helper for Zod DTOs and their OpenAPI schemas (not `nestjs-zod` — see [Architecture.md](Architecture.md) §4), `@nestjs/throttler` (rate limiting), `helmet`, `nestjs-pino` + `pino-http` (structured logs), `@nestjs/terminus` (health), `@nestjs/bullmq`, `ioredis` (cache built directly on it, see [Architecture.md](Architecture.md) §8), `@nestjs/schedule` (cron triggers). Testing: **deferred, see §20** — no test tooling is installed during v1. Quality: **ESLint** + `typescript-eslint`, **Prettier**, **Husky** + **lint-staged**, **commitlint**.
 
 ---
 
@@ -453,7 +453,7 @@ Principles: **cache read-heavy, low-volatility catalog data aggressively**; keep
 ## 17. Security Considerations
 
 - **Transport & headers:** HTTPS everywhere, `helmet`, strict CORS allowlist, secure cookies (httpOnly/Secure/SameSite), CSRF protection for cookie flows.
-- **Input validation:** every DTO validated with Zod (`nestjs-zod`); reject unknown fields; validate pagination bounds.
+- **Input validation:** every DTO validated with Zod; reject unknown fields; validate pagination bounds.
 - **AuthZ everywhere:** global auth guard + explicit ownership checks in services; never trust client-supplied user IDs.
 - **Rate limiting & abuse:** `@nestjs/throttler` on auth, pack-open, and trade endpoints; idempotency keys on mutating money/item operations.
 - **Data integrity:** all currency/item/trade mutations inside DB transactions; unique constraints for idempotency; `lockedQuantity` to prevent over-promising.

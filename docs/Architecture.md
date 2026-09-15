@@ -112,7 +112,7 @@ src/
 
 ### Recommended libraries
 
-`@nestjs/config`, `nestjs-zod` (Zod DTOs + Swagger), `@nestjs/throttler`, `helmet`, `nestjs-pino` + `pino-http`, `@nestjs/terminus`, `@nestjs/bullmq`, `ioredis` (see Cache implementation below), `@nestjs/schedule`. Testing: **none during v1** — automated tests are deferred, see [PRD.md](PRD.md) §20. Quality: ESLint + `typescript-eslint`, Prettier, Husky + lint-staged, commitlint.
+`@nestjs/config`, a local `createZodDto` helper for Zod DTOs and their OpenAPI schemas (not `nestjs-zod`, whose peer ranges stop at `@nestjs/common` 11 and `@nestjs/swagger` 11 while this repo runs 12 of both), `@nestjs/throttler`, `helmet`, `nestjs-pino` + `pino-http`, `@nestjs/terminus`, `@nestjs/bullmq`, `ioredis` (see Cache implementation below), `@nestjs/schedule`. Testing: **none during v1** — automated tests are deferred, see [PRD.md](PRD.md) §20. Quality: ESLint + `typescript-eslint`, Prettier, Husky + lint-staged, commitlint.
 
 ### Database access (Prisma 7)
 

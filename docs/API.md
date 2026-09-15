@@ -8,7 +8,7 @@
 - **Versioning:** all endpoints under `/api/v1` (auth handlers mounted under `/api/auth/*`).
 - **Pagination:** all list endpoints take `page`, `pageSize` (cursor optional). Validate bounds.
 - **Auth:** session cookie or JWT validated by a global `JwtAuthGuard`/`SessionGuard`; `@Public()` opts out. `@Roles(Role.ADMIN)` + `RolesGuard` protect admin routes.
-- **Validation:** every DTO validated with Zod (`nestjs-zod`); unknown fields rejected.
+- **Validation:** every DTO validated with Zod through the local `createZodDto` helper (`apps/api/src/common/zod-dto.ts`), which also feeds `components.schemas` in the OpenAPI document; unknown fields rejected.
 - **Ownership:** service-level assertions — never trust client-supplied user IDs.
 - **Idempotency:** mutating money/item operations accept an idempotency key (e.g. `openId`).
 - **Rate limiting:** `@nestjs/throttler` on auth, pack-open, and trade endpoints.
