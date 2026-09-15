@@ -11,9 +11,10 @@
   "scripts": {
     "dev": "pnpm -r --parallel run dev",
     "build": "pnpm -r run build",
-    "typecheck": "pnpm -r run typecheck",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
+    "build:shared": "pnpm --filter @pokedrop/shared build",
+    "typecheck": "pnpm build:shared && pnpm -r run typecheck",
+    "lint": "pnpm build:shared && eslint .",
+    "lint:fix": "pnpm build:shared && eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "clean": "pnpm -r run clean",
