@@ -1,11 +1,12 @@
 // PokeDrop database schema.
 //
-// Deliberately empty of models: PD-16 stands up the client and the transaction
-// helper, and the entities from docs/DataModel.md arrive with PD-22 onward.
-//
 // Note for anyone following docs/Architecture.md: since Prisma 7 the datasource
 // block no longer accepts `url`. The connection string for the CLI lives in
 // prisma.config.ts, and the client receives a driver adapter at construction.
+//
+// Tables are mapped to plural snake_case. `user` is a reserved word in
+// PostgreSQL — unmapped, the table would be "User" and every hand-written query
+// would need the quotes to avoid resolving to CURRENT_USER.
 
 generator client {
   provider = "prisma-client-js"
@@ -13,4 +14,132 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums — docs/DataModel.md
+//
+// All five land here rather than with the models that use them, so that one
+// migration creates every enum type and PD-23 onward only add tables.
+// `Rarity` is deliberately absent: the list is extensible, so it is a string.
+// ---------------------------------------------------------------------------
+
+enum Role {
+  MEMBER
+  ADMIN
+}
+
+enum TradeStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  COUNTERED
+  CANCELLED
+  VOIDED
+}
+
+enum TradeItemSide {
+  OFFERED
+  REQUESTED
+}
+
+enum PriceSource {
+  TCGPLAYER
+  CARDMARKET
+}
+
+enum TransactionType {
+  GRANT
+  PACK_SPEND
+  TRADE
+}
+
+// ---------------------------------------------------------------------------
+// Identity
+//
+// User carries both the Better Auth core fields and our domain fields, because
+// the adapter and the application share one client and one table.
+//
+// Two of the core fields are renamed: Better Auth calls them `name` and
+// `image`, and PD-29 must declare that mapping in its `user.fields` block, or
+// the adapter will look for columns that do not exist here. `role` and
+// `currency` are ours; the adapter only learns about them through
+// `user.additionalFields`, and `role` must be declared there with
+// `input: false` so no sign-up payload can set it.
+//
+// There is no passwordHash. Better Auth stores the credential password on
+// Account, and a second column here would look like the real one.
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  displayName   String
+  avatarUrl     String?
+  role          Role     @default(MEMBER)
+  currency      Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sessions Session[]
+  accounts Account[]
+
+  @@map("users")
+}
+
+/// Better Auth core table. Fields follow @better-auth/core exactly; do not
+/// add or rename without regenerating with the Better Auth CLI.
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+/// Better Auth core table. One row per authentication method linked to a user:
+/// the credential provider stores its hash in `password`, OAuth providers store
+/// their tokens here.
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("accounts")
+}
+
+/// Better Auth core table, used for email verification and password reset
+/// tokens. Rows are short-lived.
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verifications")
 }
