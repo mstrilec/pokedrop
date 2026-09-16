@@ -76,11 +76,21 @@ The **≤ 1 snapshot/card/day** cap is enforced by the price sync job, not by th
 
 ### DeckCard
 `id, deckId, cardId, count`
-**Unique** `(deckId, cardId)`. Enforces max-copies legality.
+**Unique** `(deckId, cardId)`, and `count >= 1`.
+
+The **max-copies rule is not a check constraint.** Basic energy is exempt from it, and `deck_cards` cannot see the card's `supertype` — a `count <= 4` here would simply be wrong. That rule belongs to the deck validation engine. A card that appears in any deck cannot be deleted from the catalog; deleting the deck takes its rows with it.
 
 ### Trade
-`id, initiatorId, recipientId, status(TradeStatus), currencyFromInitiator, currencyFromRecipient, createdAt, resolvedAt`
+`id, initiatorId, recipientId, status(TradeStatus), currencyFromInitiator, currencyFromRecipient, createdAt, resolvedAt, counteredTradeId?`
 → many `TradeItem`.
+
+`counteredTradeId` is a **unique** self-reference to the trade this one replaces. Unique on purpose: a trade can be countered at most once, which makes the chain a list rather than a tree and turns a race between two counter-offers into a constraint violation instead of a fork. Walk it with a recursive CTE — verified over a three-link chain.
+
+Both user relations are **Restrict**, unlike everything else a user owns. A trade belongs to two people, so cascading from one party would silently erase the other party's record of their own completed trade. Verified: a user who has traded cannot be deleted, one who never has can. Account deletion, when it is built, must anonymise rather than delete.
+
+**Indexes:** `(recipientId, status)` and `(initiatorId, status)`. Measured over 20 000 trades: both inbox views plan as a bitmap scan of their own composite index.
+
+> **A PENDING trade holds escrow** — `lockedQuantity` on inventory rows. Nothing in the schema can enforce that removing or voiding such a trade releases those locks. Cards locked by a trade that no longer exists stay locked forever, and only the settlement and expiry jobs can prevent that.
 
 ### TradeItem
 `id, tradeId, side(OFFERED|REQUESTED), cardId, quantity`
@@ -126,6 +136,12 @@ Prisma has no syntax for them, so they live in a hand-written migration. That is
 | `inventory_locked_non_negative` | `lockedQuantity >= 0` |
 | `inventory_locked_within_quantity` | `lockedQuantity <= quantity` |
 | `pack_template_cost_non_negative` | `cost >= 0` |
+| `trade_not_self` | `initiatorId <> recipientId` |
+| `trade_not_self_counter` | `counteredTradeId IS NULL OR counteredTradeId <> id` |
+| `trade_currency_from_initiator_non_negative` | `currencyFromInitiator >= 0` |
+| `trade_currency_from_recipient_non_negative` | `currencyFromRecipient >= 0` |
+| `trade_item_quantity_positive` | `quantity >= 1` |
+| `deck_card_count_positive` | `count >= 1` |
 
 The third is the one that stops a card being promised to two trades at once, and it holds on `UPDATE` as well as `INSERT` — which is the path escrow actually takes. The first is logically implied by the other two and is kept as an explicit statement of intent. The fourth is not in the original specification; a negative cost would pay a user for opening a pack.
 
