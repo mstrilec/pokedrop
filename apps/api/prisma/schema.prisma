@@ -90,6 +90,8 @@ model User {
   decks                Deck[]
   tradesInitiated      Trade[]               @relation("TradeInitiator")
   tradesReceived       Trade[]               @relation("TradeRecipient")
+  notifications        Notification[]
+  auditEntries         AuditLog[]
 
   @@map("users")
 }
@@ -443,4 +445,50 @@ model TradeItem {
 
   @@index([tradeId])
   @@map("trade_items")
+}
+
+// ---------------------------------------------------------------------------
+// Notifications and audit
+// ---------------------------------------------------------------------------
+
+/// Ephemeral, and the user's own — so it cascades with them.
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  /// Open string rather than an enum: new notification kinds arrive with new
+  /// features, and an unknown one must not break a read.
+  type      String
+  payload   Json
+  /// Null until the user opens it. The unread badge counts these.
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+/// Append-only by convention — nothing in application code updates or deletes
+/// these rows. The schema cannot enforce that; a trigger could, at the cost of
+/// a hand-written object Prisma would not know about.
+///
+/// `actorId` is nullable because not every audited action has a human behind
+/// it: the trade-expiry job cancels trades on its own. It is Restrict rather
+/// than SetNull precisely so that deleting a user can never quietly turn their
+/// actions into system actions — the two must stay distinguishable.
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String
+  meta      Json
+  createdAt DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([entity, entityId])
+  @@index([actorId, createdAt])
+  @@map("audit_logs")
 }

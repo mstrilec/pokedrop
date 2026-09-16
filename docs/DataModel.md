@@ -99,10 +99,22 @@ Both user relations are **Restrict**, unlike everything else a user owns. A trad
 `id, userId, amount, type(GRANT|PACK_SPEND|TRADE), refId, createdAt`
 
 ### AuditLog — *admin & sensitive actions*
-`id, actorId, action, entity, entityId, meta(json), createdAt`
+`id, actorId?, action, entity, entityId, meta(json), createdAt`
+
+**`actorId` is nullable.** Not every audited action has a human behind it — the trade-expiry job cancels trades on its own, and that is exactly the kind of event worth recording. Null therefore means *the system*.
+
+The foreign key is **Restrict**, not SetNull, so that meaning stays honest: deleting a user can never quietly convert their recorded actions into system actions. The two must remain distinguishable.
+
+Append-only by convention; nothing in application code updates or deletes these rows. The schema cannot enforce that — a trigger could, at the cost of a hand-written object Prisma does not model.
+
+**Indexes:** `(entity, entityId)` for one object's history, `(actorId, createdAt)` for one admin's. Measured over 40 000 rows: an entity lookup is an index scan returning in 0.07 ms.
 
 ### Notification
 `id, userId, type, payload(json), readAt, createdAt`
+
+Cascades from the user — ephemeral and theirs alone. **Index:** `(userId, readAt)`, which serves the unread badge.
+
+Deliberately **only that one index.** Measured over 40 000 notifications, the notification-list query (`userId`, newest first, limit 20) uses the same index for the lookup and finishes the ordering with a top-N heapsort in 0.2 ms, so a second index on `(userId, createdAt)` would cost writes and buy nothing at this size.
 
 ## Relationships
 
