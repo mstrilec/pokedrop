@@ -82,8 +82,11 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  sessions Session[]
-  accounts Account[]
+  sessions             Session[]
+  accounts             Account[]
+  inventoryItems       InventoryItem[]
+  packOpenings         PackOpening[]
+  currencyTransactions CurrencyTransaction[]
 
   @@map("users")
 }
@@ -216,7 +219,9 @@ model Card {
   /// catalog row. A mirrored set should never be deleted anyway; sync upserts.
   set CardSet @relation(fields: [setId], references: [id], onDelete: Restrict)
 
-  priceSnapshots PriceSnapshot[]
+  priceSnapshots   PriceSnapshot[]
+  inventoryItems   InventoryItem[]
+  packOpeningCards PackOpeningCard[]
 
   @@index([name])
   @@index([setId])
@@ -245,4 +250,101 @@ model PriceSnapshot {
 
   @@index([cardId, capturedAt])
   @@map("price_snapshots")
+}
+
+// ---------------------------------------------------------------------------
+// Economy
+//
+// The constraints in this section are what actually prevent duplication and
+// double-spend; the service code on top of them is the second line, not the
+// first. The CHECKs themselves cannot be declared here — Prisma has no syntax
+// for them — so they live in a hand-written migration. That is safe: Prisma's
+// migration engine models tables, columns, indexes and foreign keys, and has no
+// concept of a check constraint, so it neither reports them as drift nor drops
+// them. Verified by replaying the whole migration history into an empty
+// database, which is what a deployment does.
+//
+// Deletes: anything a user owns cascades from the user, but nothing cascades
+// from the catalog. Deleting a Card must not silently empty someone's
+// collection, and deleting a PackTemplate must not erase the history of packs
+// opened from it — that is what `active` is for.
+// ---------------------------------------------------------------------------
+
+model InventoryItem {
+  id             String   @id @default(cuid())
+  userId         String
+  cardId         String
+  quantity       Int
+  lockedQuantity Int      @default(0)
+  acquiredAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  card Card @relation(fields: [cardId], references: [id], onDelete: Restrict)
+
+  /// Also serves userId-only lookups as the leading column, so no separate
+  /// index on userId.
+  @@unique([userId, cardId])
+  @@map("inventory_items")
+}
+
+model PackTemplate {
+  id         String  @id @default(cuid())
+  name       String
+  setFilter  Json
+  cost       Int
+  slotConfig Json
+  active     Boolean @default(true)
+
+  openings PackOpening[]
+
+  @@map("pack_templates")
+}
+
+model PackOpening {
+  id         String   @id @default(cuid())
+  userId     String
+  templateId String
+  /// The idempotency guard. A retried open with the same id cannot mint twice.
+  openId     String   @unique
+  createdAt  DateTime @default(now())
+
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template PackTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+
+  cards PackOpeningCard[]
+
+  @@index([userId, createdAt])
+  @@map("pack_openings")
+}
+
+/// Rarity is stored as pulled rather than read back from Card, so the history
+/// stays true even if the catalog later reclassifies the card.
+model PackOpeningCard {
+  id            String @id @default(cuid())
+  packOpeningId String
+  cardId        String
+  rarity        String
+
+  packOpening PackOpening @relation(fields: [packOpeningId], references: [id], onDelete: Cascade)
+  card        Card        @relation(fields: [cardId], references: [id], onDelete: Restrict)
+
+  @@index([packOpeningId])
+  @@map("pack_opening_cards")
+}
+
+/// The ledger behind User.currency. Nothing in the schema keeps the two in
+/// agreement — that is the job of the transaction that writes both.
+model CurrencyTransaction {
+  id        String          @id @default(cuid())
+  userId    String
+  /// Signed: grants are positive, spends negative.
+  amount    Int
+  type      TransactionType
+  refId     String?
+  createdAt DateTime        @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("currency_transactions")
 }
