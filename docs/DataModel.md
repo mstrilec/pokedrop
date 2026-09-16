@@ -17,11 +17,25 @@
 ## Entities
 
 ### User
-`id, email, passwordHash?, displayName, avatarUrl, role(MEMBER|ADMIN), currency, createdAt`
+`id, email, emailVerified, displayName, avatarUrl, role(MEMBER|ADMIN), currency, createdAt, updatedAt`
 → many `InventoryItem`, `Deck`, `Trade`, `PackOpening`, `CurrencyTransaction`, `Notification`.
 
-### Session / Account
-Managed by the **Better Auth** adapter (sessions, OAuth accounts, verification tokens). Shares the same Prisma client.
+**There is no `passwordHash`.** Better Auth stores the credential password hashed on `Account.password`; a column here would look like the real one and eventually be written to. Verified against the running adapter.
+
+`emailVerified` and `updatedAt` are required by Better Auth's core schema. `displayName` and `avatarUrl` are the Better Auth fields `name` and `image` under our own names — the rename is declared once, in the `user.fields` block of the auth config, and the adapter fails to find its columns without it.
+
+`role` and `currency` are ours, not Better Auth's. The adapter only learns of them through `user.additionalFields`, and both must be declared there with `input: false`. That flag is load-bearing: with `input: true` a sign-up body carrying `role: "ADMIN"` creates an administrator, which was confirmed by trying it.
+
+### Session / Account / Verification
+Better Auth core tables, taken verbatim from `@better-auth/core` rather than from prose, and regenerable with `npx auth@latest generate --adapter prisma`.
+
+| Table | Fields |
+|---|---|
+| `Session` | `id, token(unique), expiresAt, ipAddress?, userAgent?, userId→User cascade, createdAt, updatedAt` |
+| `Account` | `id, accountId, providerId, userId→User cascade, accessToken?, refreshToken?, idToken?, accessTokenExpiresAt?, refreshTokenExpiresAt?, scope?, password?, createdAt, updatedAt` |
+| `Verification` | `id, identifier(indexed), value, expiresAt, createdAt, updatedAt` |
+
+One row in `Account` per authentication method: the credential provider (`providerId = "credential"`) keeps its hash in `password`, OAuth providers keep their tokens. Deleting a user cascades to both tables.
 
 ### Set — *mirrored from API*
 `id, name, series, releaseDate, printedTotal, total, symbolUrl, logoUrl`
