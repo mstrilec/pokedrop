@@ -87,6 +87,9 @@ model User {
   inventoryItems       InventoryItem[]
   packOpenings         PackOpening[]
   currencyTransactions CurrencyTransaction[]
+  decks                Deck[]
+  tradesInitiated      Trade[]               @relation("TradeInitiator")
+  tradesReceived       Trade[]               @relation("TradeRecipient")
 
   @@map("users")
 }
@@ -222,6 +225,8 @@ model Card {
   priceSnapshots   PriceSnapshot[]
   inventoryItems   InventoryItem[]
   packOpeningCards PackOpeningCard[]
+  deckCards        DeckCard[]
+  tradeItems       TradeItem[]
 
   @@index([name])
   @@index([setId])
@@ -347,4 +352,95 @@ model CurrencyTransaction {
 
   @@index([userId, createdAt])
   @@map("currency_transactions")
+}
+
+// ---------------------------------------------------------------------------
+// Decks and trades
+//
+// A trade is the one record here that belongs to two people at once, which is
+// why both of its user relations are Restrict rather than Cascade: deleting one
+// party would otherwise erase the other party's record of their own completed
+// trade, silently. Restrict fails loudly instead. Account deletion, when it
+// exists, has to anonymise rather than delete.
+//
+// A PENDING trade holds escrow — lockedQuantity on inventory rows. Nothing here
+// can enforce that removing or voiding such a trade releases those locks; that
+// belongs to the settlement and expiry jobs. Cards locked by a trade that no
+// longer exists stay locked forever.
+// ---------------------------------------------------------------------------
+
+model Deck {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  /// Open string, not an enum: legality comes from the card's own `legalities`
+  /// map, which the provider extends with new formats over time.
+  format    String
+  isPublic  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cards DeckCard[]
+
+  @@index([userId])
+  @@map("decks")
+}
+
+/// The max-copies rule is not a check constraint. Basic energy is exempt from
+/// it, and this table cannot see the card's supertype — a `count <= 4` here
+/// would simply be wrong. The deck validation engine owns that rule.
+model DeckCard {
+  id     String @id @default(cuid())
+  deckId String
+  cardId String
+  count  Int
+
+  deck Deck @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  card Card @relation(fields: [cardId], references: [id], onDelete: Restrict)
+
+  @@unique([deckId, cardId])
+  @@map("deck_cards")
+}
+
+model Trade {
+  id                    String      @id @default(cuid())
+  initiatorId           String
+  recipientId           String
+  status                TradeStatus @default(PENDING)
+  currencyFromInitiator Int         @default(0)
+  currencyFromRecipient Int         @default(0)
+  createdAt             DateTime    @default(now())
+  /// Null while PENDING.
+  resolvedAt            DateTime?
+
+  /// The trade this one replaces. Unique, so a trade can be countered at most
+  /// once — which makes the chain a list rather than a tree, and turns a race
+  /// between two counter-offers into a constraint violation instead of a fork.
+  counteredTradeId String? @unique
+  counteredTrade   Trade?  @relation("TradeCounter", fields: [counteredTradeId], references: [id], onDelete: SetNull)
+  counterOffer     Trade?  @relation("TradeCounter")
+
+  initiator User @relation("TradeInitiator", fields: [initiatorId], references: [id], onDelete: Restrict)
+  recipient User @relation("TradeRecipient", fields: [recipientId], references: [id], onDelete: Restrict)
+
+  items TradeItem[]
+
+  @@index([recipientId, status])
+  @@index([initiatorId, status])
+  @@map("trades")
+}
+
+model TradeItem {
+  id       String        @id @default(cuid())
+  tradeId  String
+  side     TradeItemSide
+  cardId   String
+  quantity Int
+
+  trade Trade @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  card  Card  @relation(fields: [cardId], references: [id], onDelete: Restrict)
+
+  @@index([tradeId])
+  @@map("trade_items")
 }
