@@ -115,4 +115,38 @@ PackTemplate 1─N PackOpening 1─N PackOpeningCard
 - Currency / item / trade mutations run inside **DB transactions**.
 - **Unique constraints** back idempotency (`PackOpening.openId`) and prevent duplicate rows (`InventoryItem (userId,cardId)`, `DeckCard (deckId,cardId)`).
 - `lockedQuantity` prevents over-promising the same card across trades.
+
+### Check constraints
+
+Prisma has no syntax for them, so they live in a hand-written migration. That is safe: Prisma models tables, columns, indexes and foreign keys, and has no concept of a check constraint — it neither reports these as drift nor drops them. Confirmed by replaying the migration history into an empty database, which is what a deployment does.
+
+| Constraint | Rule |
+|---|---|
+| `inventory_quantity_non_negative` | `quantity >= 0` |
+| `inventory_locked_non_negative` | `lockedQuantity >= 0` |
+| `inventory_locked_within_quantity` | `lockedQuantity <= quantity` |
+| `pack_template_cost_non_negative` | `cost >= 0` |
+
+The third is the one that stops a card being promised to two trades at once, and it holds on `UPDATE` as well as `INSERT` — which is the path escrow actually takes. The first is logically implied by the other two and is kept as an explicit statement of intent. The fourth is not in the original specification; a negative cost would pay a user for opening a pack.
+
+> **Editing a `--create-only` migration:** Prisma writes its placeholder comment with no trailing newline, so appending to the file turns your first statement into part of that comment and it is skipped in silence.
+
+### Deletes
+
+Everything a user owns cascades from the user; nothing cascades from the catalog.
+
+| Relation | Rule | Why |
+|---|---|---|
+| `InventoryItem.cardId → Card` | Restrict | deleting a catalog row must not empty a collection |
+| `PackOpeningCard.cardId → Card` | Restrict | the same, for pull history |
+| `PackOpening.templateId → PackTemplate` | Restrict | `active` exists so templates are retired, not deleted |
+| `Card.setId → CardSet` | Restrict | a set delete would reach inventory through its cards |
+| `InventoryItem/PackOpening/CurrencyTransaction.userId → User` | Cascade | the user's own data |
+| `PackOpeningCard → PackOpening`, `PriceSnapshot → Card` | Cascade | derived data |
+
+Verified: deleting a user leaves zero inventory rows, openings and transactions, and the catalog untouched.
+
+### Balance
+
+`User.currency` is a denormalised balance beside the `CurrencyTransaction` ledger, and **nothing in the schema keeps them in agreement**. That invariant belongs to the transaction that writes both.
 - The catalog (Set/Card/PriceSnapshot) is re-syncable from source; the irreplaceable data is **users / inventory / decks / trades** — prioritize for backups.
