@@ -143,3 +143,106 @@ model Verification {
   @@index([identifier])
   @@map("verifications")
 }
+
+// ---------------------------------------------------------------------------
+// Catalog mirror
+//
+// Ids are the provider's own (`base1`, `base1-4`), never generated here, which
+// is what makes a re-sync an idempotent upsert rather than a duplicate insert.
+//
+// `updatedAt` is not in docs/DataModel.md's field list. It is here because the
+// sync processor and the admin sync-status endpoint both need to know how stale
+// a mirrored row is, and nothing else records that.
+// ---------------------------------------------------------------------------
+
+/// docs/DataModel.md calls this `Set`. Named `CardSet` for two reasons: `set`
+/// is a reserved word in PostgreSQL, and a generated TypeScript type named
+/// `Set` shadows the global one for any file that imports it — the same reason
+/// @pokedrop/shared exports `CardSetSchema`.
+model CardSet {
+  id           String   @id
+  name         String
+  series       String
+  releaseDate  DateTime
+  printedTotal Int
+  total        Int
+  symbolUrl    String?
+  logoUrl      String?
+  updatedAt    DateTime @updatedAt
+
+  cards Card[]
+
+  @@map("sets")
+}
+
+model Card {
+  id          String   @id
+  setId       String
+  name        String
+  supertype   String
+  subtypes    String[]
+  hp          Int?
+  types       String[]
+  rarity      String?
+  retreatCost String[]
+
+  /// Provider payloads, stored whole. Their shapes are the provider's to
+  /// change, and @pokedrop/shared parses them on the way out.
+  weaknesses  Json
+  resistances Json
+  attacks     Json
+  abilities   Json
+  legalities  Json
+
+  nationalPokedexNumbers Int[]
+
+  imageSmall String
+  imageLarge String
+
+  tcgplayerId  String?
+  cardmarketId String?
+
+  /// Denormalised so a catalog list does not join the time series. Decimal
+  /// rather than Float: these are summed into collection valuations, and
+  /// "it is only for display" is how float error ships.
+  latestPriceUsd Decimal?  @db.Decimal(10, 2)
+  latestPriceEur Decimal?  @db.Decimal(10, 2)
+  priceUpdatedAt DateTime?
+
+  updatedAt DateTime @updatedAt
+
+  /// Restrict, not Cascade. A cascade from a set would delete its cards, and
+  /// cards cascade into InventoryItem — user property destroyed by deleting a
+  /// catalog row. A mirrored set should never be deleted anyway; sync upserts.
+  set CardSet @relation(fields: [setId], references: [id], onDelete: Restrict)
+
+  priceSnapshots PriceSnapshot[]
+
+  @@index([name])
+  @@index([setId])
+  @@index([rarity])
+  /// GIN, because a btree on an array cannot serve a containment query.
+  @@index([types], type: Gin)
+  @@map("cards")
+}
+
+/// The fastest-growing table in the system. docs/DataModel.md caps it at one
+/// snapshot per card per day; that needs a unique index on an expression
+/// (`capturedAt::date`), which Prisma cannot express — so the cap is enforced
+/// by the price sync job, not here.
+model PriceSnapshot {
+  id         String      @id @default(cuid())
+  cardId     String
+  source     PriceSource
+  currency   String      @db.VarChar(3)
+  market     Decimal?    @db.Decimal(10, 2)
+  low        Decimal?    @db.Decimal(10, 2)
+  mid        Decimal?    @db.Decimal(10, 2)
+  high       Decimal?    @db.Decimal(10, 2)
+  capturedAt DateTime
+
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@index([cardId, capturedAt])
+  @@map("price_snapshots")
+}
