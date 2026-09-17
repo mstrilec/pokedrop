@@ -47,6 +47,25 @@ export const EnvSchema = z
     // succeed and then have no session.
     AUTH_BASE_URL: z.url().default('http://localhost:4000'),
 
+    // Unset means a host-only cookie: the browser returns it only to the exact
+    // host that set it, which is the right default. Set it to a parent domain
+    // (".pokedrop.app") when the web app and the API are different subdomains
+    // of one site and have to share the session.
+    AUTH_COOKIE_DOMAIN: z.string().min(1).optional(),
+
+    // `none` is correct only when the web app and the API are on different
+    // registrable domains. It also removes the browser-side CSRF protection
+    // that `lax` provides for free — CsrfGuard is what replaces it.
+    AUTH_COOKIE_SAME_SITE: z.enum(['lax', 'strict', 'none']).default('lax'),
+
+    // Tri-state on purpose: unset resolves to `NODE_ENV === 'production'` in
+    // buildAppConfig. The `Secure` attribute and the `__Secure-` name prefix
+    // move together inside Better Auth, so this is the only switch for both.
+    AUTH_SECURE_COOKIES: z
+      .enum(['true', 'false'])
+      .optional()
+      .transform((value) => (value === undefined ? undefined : value === 'true')),
+
     // Optional permanently: pokemontcg.io serves unauthenticated callers at a
     // lower rate limit, so a missing key must not stop the app from booting.
     POKEMONTCG_API_KEY: z.string().min(1).optional(),
@@ -59,7 +78,22 @@ export const EnvSchema = z
     message:
       'REDIS_CACHE_DB and REDIS_QUEUE_DB must differ, or flushing the cache drops queued jobs',
     path: ['REDIS_QUEUE_DB'],
-  });
+  })
+  .refine(
+    (env) => {
+      const secureCookies = env.AUTH_SECURE_COOKIES ?? env.NODE_ENV === 'production';
+      return env.AUTH_COOKIE_SAME_SITE !== 'none' || secureCookies;
+    },
+    {
+      message:
+        'AUTH_COOKIE_SAME_SITE=none requires secure cookies. Every current browser ' +
+        'silently discards a SameSite=None cookie that lacks Secure, so the symptom is ' +
+        'a sign-in that returns 200 and leaves the user signed out, with no error in ' +
+        'the browser or the server log. Set AUTH_SECURE_COOKIES=true and serve over ' +
+        'https, or leave AUTH_COOKIE_SAME_SITE at lax.',
+      path: ['AUTH_COOKIE_SAME_SITE'],
+    },
+  );
 
 export type Env = z.infer<typeof EnvSchema>;
 

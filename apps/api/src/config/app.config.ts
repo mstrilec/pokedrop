@@ -56,6 +56,14 @@ export function buildAppConfig(env: Env) {
     auth: {
       secret: env.AUTH_SECRET,
       baseUrl: env.AUTH_BASE_URL,
+      /** Null is valid and is the default: a host-only cookie. */
+      cookieDomain: env.AUTH_COOKIE_DOMAIN ?? null,
+      cookieSameSite: env.AUTH_COOKIE_SAME_SITE,
+      /**
+       * The tri-state environment variable collapses here, so nothing
+       * downstream has to know that "unset" ever meant anything.
+       */
+      secureCookies: env.AUTH_SECURE_COOKIES ?? env.NODE_ENV === 'production',
     },
     providers: {
       /** Null is valid: the provider serves anonymous callers at a lower rate limit. */
