@@ -2,19 +2,32 @@ import { Logger } from '@nestjs/common';
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import type { AppConfig } from '../config/index.js';
+import type { WelcomeGrantService } from '../economy/index.js';
+import type { MailService, RenderedMail } from '../mail/index.js';
+import { passwordResetEmail, verificationEmail } from '../mail/index.js';
 import type { PrismaService } from '../prisma/index.js';
-import {
-  MailService,
-  passwordResetEmail,
-  verificationEmail,
-  type RenderedMail,
-} from '../mail/index.js';
+import type { RedisService } from '../redis/index.js';
 import { AUTH_BASE_PATH } from './auth.constants.js';
 
 const SESSION_LIFETIME_SECONDS = 60 * 60 * 24 * 7;
 
 /** How often an active session's expiry is pushed forward. */
 const SESSION_REFRESH_SECONDS = 60 * 60 * 24;
+
+/**
+ * Everything the factory needs from the application, as one named object.
+ *
+ * It was two positional parameters in PD-29 and three in PD-132, and this
+ * ticket would have made it five. A list that grows by one per ticket is a
+ * list that eventually gets its arguments in the wrong order; a field cannot
+ * be transposed with its neighbour.
+ */
+export interface AuthDependencies {
+  prisma: PrismaService;
+  mail: MailService;
+  welcomeGrant: WelcomeGrantService;
+  redis: RedisService;
+}
 
 export type AuthInstance = ReturnType<typeof buildAuth>;
 
@@ -26,7 +39,7 @@ export type AuthInstance = ReturnType<typeof buildAuth>;
  * by construction instead of by convention: there is no second connection pool
  * for it to use.
  */
-export function buildAuth(prisma: PrismaService, config: AppConfig, mail: MailService) {
+export function buildAuth(config: AppConfig, deps: AuthDependencies) {
   if (!config.auth.secret) {
     throw new Error('AUTH_SECRET is required. Generate one with: openssl rand -base64 32');
   }
@@ -47,7 +60,7 @@ export function buildAuth(prisma: PrismaService, config: AppConfig, mail: MailSe
    */
   const deliver = async (to: string, rendered: RenderedMail): Promise<void> => {
     try {
-      await mail.send({ to, ...rendered });
+      await deps.mail.send({ to, ...rendered });
     } catch (error) {
       logger.error(
         `Failed to deliver "${rendered.subject}": ${
@@ -57,8 +70,32 @@ export function buildAuth(prisma: PrismaService, config: AppConfig, mail: MailSe
     }
   };
 
+  /**
+   * Fills in a `callbackURL` when the caller gave none.
+   *
+   * Better Auth builds the link from AUTH_BASE_URL and redirects to
+   * `callbackURL` afterwards; sign-up supplies none, so it defaults to `/` —
+   * the API's root, which has no route. Measured in PD-132: the account is
+   * verified and the person is looking at a 404.
+   *
+   * The link is repaired rather than rebuilt. Constructing it here would
+   * duplicate the provider's own URL shape and break silently the day it
+   * changes, and it would also override a client that had supplied a
+   * perfectly good callback of its own.
+   */
+  const withCallback = (url: string, fallback: string): string => {
+    const parsed = new URL(url);
+    const current = parsed.searchParams.get('callbackURL');
+
+    if (current === null || current === '/') {
+      parsed.searchParams.set('callbackURL', fallback);
+    }
+
+    return parsed.toString();
+  };
+
   return betterAuth({
-    database: prismaAdapter(prisma, { provider: 'postgresql' }),
+    database: prismaAdapter(deps.prisma, { provider: 'postgresql' }),
     secret: config.auth.secret,
     baseURL: config.auth.baseUrl,
     basePath: AUTH_BASE_PATH,
@@ -86,11 +123,19 @@ export function buildAuth(prisma: PrismaService, config: AppConfig, mail: MailSe
       requireEmailVerification: false,
 
       sendResetPassword: async ({ user, url }) => {
-        await deliver(user.email, passwordResetEmail({ displayName: user.name, url }));
+        await deliver(
+          user.email,
+          passwordResetEmail({
+            displayName: user.name,
+            url: withCallback(url, `${config.app.webBaseUrl}/reset-password`),
+          }),
+        );
       },
     },
 
     emailVerification: {
+      expiresIn: config.auth.verificationTtlSeconds,
+
       /**
        * Explicitly true, and this is load-bearing. The default is `undefined`,
        * which means "follow requireEmailVerification" — and that is false, so
@@ -102,7 +147,13 @@ export function buildAuth(prisma: PrismaService, config: AppConfig, mail: MailSe
       sendVerificationEmail: async ({ user, url }) => {
         // `user.name`, not `user.displayName`: the user.fields mapping below
         // renames the column, so the provider's model field is `name`.
-        await deliver(user.email, verificationEmail({ displayName: user.name, url }));
+        await deliver(
+          user.email,
+          verificationEmail({
+            displayName: user.name,
+            url: withCallback(url, `${config.app.webBaseUrl}/verify-email`),
+          }),
+        );
       },
     },
 
