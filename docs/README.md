@@ -11,6 +11,7 @@ Architecture & design reference for the Pokémon TCG web application (collection
 | [Foundation.md](Foundation.md) | What M0 built, why, how it works, and the traps it left behind. |
 | [PRD.md](PRD.md) | Product requirements — the source of truth for scope, goals, and decisions. |
 | [Architecture.md](Architecture.md) | System topology, module structure (backend + frontend), data flow, sync, caching, provider adapter. |
+| [Migrations.md](Migrations.md) | How the schema changes: the rules, the rollback path, and what CI enforces. |
 | [DataModel.md](DataModel.md) | Prisma entities, relationships, enums, indexes, integrity rules. |
 | [API.md](API.md) | REST endpoint reference, conventions, error envelope. |
 | [InformationArchitecture.md](InformationArchitecture.md) | Page inventory (32 pages), routing, navigation chrome, RBAC gating. |
