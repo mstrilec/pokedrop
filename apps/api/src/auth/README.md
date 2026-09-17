@@ -43,6 +43,76 @@ Better Auth's own, outside the versioned prefix, verified against the running ha
 
 Note `sign-up/email` and `get-session` — not `sign-up` and `session`, which is what `docs/API.md` claimed until this was checked.
 
+## Sessions
+
+A session is one opaque token in `sessions.token`, sent as an httpOnly cookie. It lives seven days and its expiry is pushed forward at most once a day while the user is active.
+
+| Attribute | Value | Controlled by |
+| --- | --- | --- |
+| `HttpOnly` | always on | Better Auth, not configurable |
+| `Path` | `/` | not configurable — see below |
+| `SameSite` | `Lax` | `AUTH_COOKIE_SAME_SITE` |
+| `Domain` | absent (host-only) | `AUTH_COOKIE_DOMAIN` |
+| `Secure` + the `__Secure-` name prefix | on in production | `AUTH_SECURE_COOKIES` |
+
+Verified against the real `Set-Cookie` header, one variable at a time:
+
+```
+(nothing set)              better-auth.session_token=…; Max-Age=604800; Path=/; HttpOnly; SameSite=Lax
+AUTH_COOKIE_DOMAIN=.localhost   …; Domain=.localhost; Path=/; HttpOnly; SameSite=Lax
+AUTH_SECURE_COOKIES=true   __Secure-better-auth.session_token=…; Path=/; HttpOnly; Secure; SameSite=Lax
+```
+
+Note that the last one moved two things. `secure` is deliberately driven only by `useSecureCookies`, never through `defaultCookieAttributes`, because Better Auth derives both the attribute and the name prefix from that one expression (`cookies/index.mjs:34`). Two switches could disagree; one cannot.
+
+`SameSite=None` without `Secure` is refused at boot:
+
+```
+Error: Invalid environment configuration:
+  · AUTH_COOKIE_SAME_SITE: AUTH_COOKIE_SAME_SITE=none requires secure cookies. …
+```
+
+Browsers discard such a cookie without reporting anything, so the symptom is a sign-in that returns 200 and leaves the user signed out — a failure with no error in the browser or the log. Refusing it at boot is worth more than any amount of documentation about it.
+
+`Path` is deliberately not configurable. A cookie path is not a security boundary: any document on the origin reaches a sibling path through the DOM. Both `/api/auth/*` and `/api/v1/*` need the cookie, so `/` is the only correct value.
+
+### There is no refresh token, and no rotation
+
+PD-35 asked for refresh-token rotation with reuse detection. This installation has nothing to rotate. `better-auth/dist/api/routes/session.mjs:198` is the whole refresh path:
+
+```js
+await ctx.context.internalAdapter.updateSession(session.session.token, {
+  expiresAt: getDate(ctx.context.sessionConfig.expiresIn, 'sec'),
+  updatedAt: new Date(),
+});
+```
+
+The token is the lookup key, not a value being replaced. No new token is issued, so no old token can be replayed, so there is no family to invalidate.
+
+Rotation was considered and rejected rather than overlooked. It would mean adding `familyId` to `sessions` and swapping the token inside `SessionGuard` — but Better Auth's own `getSession` knows nothing about that column and would keep honouring a rotated token on every path that does not run through the guard, including the auth handler's own routes. Two session systems disagreeing about which tokens are live is worse than one system without rotation.
+
+The residual risk is explicit: theft is not *detectable* here. It is still revocable and visible, which is what the endpoints below are for.
+
+### Two middlewares that are easy to confuse
+
+| Endpoint | Middleware | Age-gated |
+| --- | --- | --- |
+| `POST /api/auth/revoke-sessions` | `sensitiveSessionMiddleware` | no |
+| `POST /api/auth/revoke-other-sessions` | `sensitiveSessionMiddleware` | no |
+| `POST /api/auth/revoke-session` | `sensitiveSessionMiddleware` | no |
+| `GET /api/auth/list-sessions` | `freshSessionMiddleware` | **yes** |
+
+`sensitiveSessionMiddleware` forces the session to be read from the database rather than the signed cookie cache. It does not look at age. `freshSessionMiddleware` is the one that compares `createdAt` against `session.freshAge`.
+
+Better Auth defaults `freshAge` to one day, which put the gate on the wrong endpoint: the three calls that *fix* a compromise stayed open for the full seven days, while the one call that makes a compromise *visible* closed after twenty-four hours. Measured by backdating `sessions.createdAt` three days and issuing both requests from the same session:
+
+```
+list-sessions          {"message":"Session is not fresh","code":"SESSION_NOT_FRESH"}
+revoke-other-sessions  {"status":true}
+```
+
+`freshAge` is therefore set to the session lifetime. Not to `0`, which disables the check globally and permanently, including for the re-authentication that PD-32 and a future account deletion will want.
+
 ## Regenerating the schema
 
 The CLI moved to the `auth` package; `@better-auth/cli` is stranded two minors behind and would emit a stale schema.

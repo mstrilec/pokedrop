@@ -44,7 +44,23 @@ Responses at 500 and above carry a fixed `"Internal server error"` message; the 
 
 Paths below are Better Auth's own, verified against the running handler rather than transcribed — several differ from what this document originally claimed.
 
-**State-changing auth routes require an `Origin` header** matching the trusted list. `POST /auth/sign-out` without one is refused with `MISSING_OR_NULL_ORIGIN`, and with a foreign one, `INVALID_ORIGIN` — CSRF protection, not a bug. Sign-up and sign-in do not require it.
+**State-changing routes require an `Origin` header** matching the trusted list, on both sides of the mount.
+
+Under `/api/auth/*` this is Better Auth's own check: `POST /auth/sign-out` without one is refused with `MISSING_OR_NULL_ORIGIN`, and with a foreign one, `INVALID_ORIGIN` — CSRF protection, not a bug. Sign-up and sign-in do not require it.
+
+Under `/api/v1/*` this is `CsrfGuard`, which Better Auth's middleware cannot reach: the auth handler is mounted on the Express instance, outside the Nest router, so its protection stopped exactly where ours began. The guard refuses any `POST`, `PUT`, `PATCH` or `DELETE` that carries the session cookie without a trusted `Origin`, and answers in the standard envelope. Requests *without* the session cookie pass — CSRF needs an ambient credential, and refusing them would break every non-browser caller for no gain. Measured:
+
+| Request | Result |
+|---|---|
+| foreign `Origin`, session cookie | 403 `Cross-origin request rejected` |
+| trusted `Origin`, session cookie | passes |
+| foreign `Origin`, no cookie | passes |
+| no `Origin` at all, session cookie | 403 |
+| cross-origin `GET`, session cookie | passes |
+
+`SameSite=Lax` also stops the browser sending the cookie cross-site, but that protection lives in the browser rather than in the service, and it disappears entirely if `AUTH_COOKIE_SAME_SITE` is set to `none`. The guard is what replaces it.
+
+One consequence for the frontend: anything that forwards a user's session cookie from a server — a Next.js server component or route handler acting as a BFF — must send an `Origin` header too. Better Auth already requires that of `/api/auth/*`, so a frontend that can sign a user in already satisfies it.
 
 **Sign-up leaks whether an email is registered**, and this is a known, accepted residual. A duplicate registration answers 422 `USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL`. Softening the wording would not close it: any status distinct from success is itself the oracle. Closing it properly means answering identically either way and letting an email tell the real user which case it was, which arrives with the verification flow; what blunts it at scale is rate limiting. Sign-*in* does not leak — a wrong password and an unknown address return byte-identical responses, and their timings are indistinguishable (81.7 ms against 80.0 ms over 15 samples each), because the provider hashes a dummy password rather than returning early.
 
@@ -53,6 +69,10 @@ Paths below are Better Auth's own, verified against the running handler rather t
 | POST | `/auth/sign-up/email` | Register. `role` and `currency` in the body are ignored |
 | POST | `/auth/sign-in/email` | Sign in → session cookie |
 | POST | `/auth/sign-out` | Current session |
+| GET | `/auth/list-sessions` | Active sessions with IP and user agent |
+| POST | `/auth/revoke-session` | One session, by token |
+| POST | `/auth/revoke-other-sessions` | Every session except the caller's |
+| POST | `/auth/revoke-sessions` | Every session, including the caller's |
 | GET | `/auth/verify-email` | Activate account (+ welcome grant) |
 | POST | `/auth/reset-password` | With reset token |
 | GET | `/auth/get-session` | Current session/user |
