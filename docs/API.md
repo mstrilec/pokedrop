@@ -25,7 +25,15 @@
 { "statusCode": 400, "error": "Bad Request", "message": "…", "requestId": "…" }
 ```
 
-Every failure uses this shape, including requests that match no route — those are answered by a handler mounted behind the Nest router rather than by Express' own HTML page. `error` is always the HTTP reason phrase, never a framework class name. `requestId` matches the `X-Request-Id` response header and the correlated log line.
+Every failure **from `/api/v1/*`** uses this shape, including requests that match no route — those are answered by a handler mounted behind the Nest router rather than by Express' own HTML page. `error` is always the HTTP reason phrase, never a framework class name. `requestId` matches the `X-Request-Id` response header and the correlated log line.
+
+**`/api/auth/*` is the exception, deliberately.** Those routes are Better Auth's contract, mounted inside the API but not owned by it — the same reason they sit outside the versioned prefix. Their failures carry Better Auth's own shape:
+
+```json
+{ "message": "Invalid email or password", "code": "INVALID_EMAIL_OR_PASSWORD" }
+```
+
+A client has to handle both. That is a feature rather than an oversight: `code` is a stable machine-readable discriminator (`INVALID_EMAIL_OR_PASSWORD`, `PASSWORD_TOO_SHORT`, `USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL`, `INVALID_ORIGIN`), and flattening it into our envelope would cost the frontend exactly the information it needs to write a useful message. Reshaping a third-party handler's responses would also mean buffering them, which breaks the moment an OAuth redirect flow is added.
 
 Responses at 500 and above carry a fixed `"Internal server error"` message; the real cause and its stack go to the log under the same request id. A unique-constraint violation that reaches the filter becomes a 409 with a generic message — services that need a field-specific message ("that email is taken") catch the failure themselves and throw a `ConflictException`.
 
@@ -35,6 +43,10 @@ Responses at 500 and above carry a fixed `"Internal server error"` message; the 
 > Delegated to Better Auth handlers, mounted under `/api/auth/*`.
 
 Paths below are Better Auth's own, verified against the running handler rather than transcribed — several differ from what this document originally claimed.
+
+**State-changing auth routes require an `Origin` header** matching the trusted list. `POST /auth/sign-out` without one is refused with `MISSING_OR_NULL_ORIGIN`, and with a foreign one, `INVALID_ORIGIN` — CSRF protection, not a bug. Sign-up and sign-in do not require it.
+
+**Sign-up leaks whether an email is registered**, and this is a known, accepted residual. A duplicate registration answers 422 `USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL`. Softening the wording would not close it: any status distinct from success is itself the oracle. Closing it properly means answering identically either way and letting an email tell the real user which case it was, which arrives with the verification flow; what blunts it at scale is rate limiting. Sign-*in* does not leak — a wrong password and an unknown address return byte-identical responses, and their timings are indistinguishable (81.7 ms against 80.0 ms over 15 samples each), because the provider hashes a dummy password rather than returning early.
 
 | Method | Path | Notes |
 |---|---|---|
