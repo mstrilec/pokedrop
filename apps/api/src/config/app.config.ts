@@ -54,8 +54,8 @@ export function buildAppConfig(env: Env) {
       },
     },
     auth: {
-      /** Null until PD-29 makes it required. */
-      secret: env.AUTH_SECRET ?? null,
+      secret: env.AUTH_SECRET,
+      baseUrl: env.AUTH_BASE_URL,
     },
     providers: {
       /** Null is valid: the provider serves anonymous callers at a lower rate limit. */

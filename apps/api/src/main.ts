@@ -1,18 +1,31 @@
 import { VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import express from 'express';
 import helmet from 'helmet';
+import { toNodeHandler } from 'better-auth/node';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module.js';
 import { notFoundHandler } from './common/errors/not-found.handler.js';
 import { requestIdMiddleware } from './common/request-id.js';
 import { applyZodSchemas } from './common/zod-dto.js';
+import { AUTH_BASE_PATH, AUTH_INSTANCE, type AuthInstance } from './auth/index.js';
 import { APP_CONFIG, type AppConfig } from './config/index.js';
 
 async function bootstrap(): Promise<void> {
   // bufferLogs holds everything Nest emits during startup until useLogger
   // swaps in pino, so the boot sequence is not split across two formats.
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  //
+  // bodyParser is off because Better Auth reads the raw request body and Nest's
+  // parser would consume it first. Everything else gets a parser below, after
+  // the auth handler and before the router — an express.json() registered after
+  // app.init() would sit behind the router and leave every controller with an
+  // empty body.
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+    bodyParser: false,
+  });
   app.useLogger(app.get(Logger));
 
   const config = app.get<AppConfig>(APP_CONFIG);
@@ -30,6 +43,18 @@ async function bootstrap(): Promise<void> {
     origin: config.app.corsOrigins,
     credentials: true,
   });
+
+  // Registered as a route rather than with app.use(AUTH_BASE_PATH, ...):
+  // mounting strips the prefix from req.url, and Better Auth routes on the full
+  // path. Deliberately outside the versioned prefix — these are Better Auth's
+  // own URLs, and versioning them would mean versioning someone else's
+  // contract.
+  const auth = app.get<AuthInstance>(AUTH_INSTANCE);
+  const authRoute = `${AUTH_BASE_PATH}/*splat`;
+  app.getHttpAdapter().getInstance().all(authRoute, toNodeHandler(auth));
+
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
 
   app.setGlobalPrefix('api');
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
