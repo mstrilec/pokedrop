@@ -43,6 +43,45 @@ Better Auth's own, outside the versioned prefix, verified against the running ha
 
 Note `sign-up/email` and `get-session` — not `sign-up` and `session`, which is what `docs/API.md` claimed until this was checked.
 
+## Mail
+
+Two messages, both Better Auth's own flows. The provider generates the token, builds the URL and enforces expiry and single use; this module only delivers.
+
+| Trigger | Template | What the link does |
+| --- | --- | --- |
+| sign-up | `verificationEmail` | `GET /api/auth/verify-email?token=…&callbackURL=…` — verifies, then redirects |
+| `POST /api/auth/request-password-reset` | `passwordResetEmail` | `GET /api/auth/reset-password/{token}?callbackURL=…` — 302 to `{callbackURL}?token={token}` |
+
+Note the asymmetry, verified against the running handler rather than transcribed: the verification token is a **query parameter** while the reset token is a **path segment**, and the reset link does not itself change anything — it bounces the browser to a page that then posts the new password to `POST /api/auth/reset-password`.
+
+**`sendOnSignUp: true` is load-bearing.** Its default is `undefined`, which means "follow `requireEmailVerification`" — and that is `false`. Remove the line and no verification mail is ever sent, which looks exactly like a broken transport.
+
+**Delivery failure is logged, not raised.** Better Auth writes the user row before calling the callback, so failing the response would report a failed sign-up for one that partly succeeded, and the caller's retry would then hit "that address is already taken". Measured with the relay unreachable: sign-up returns 200, the user row exists, and the log carries
+
+```
+Failed to deliver "Confirm your PokeDrop email": connect ECONNREFUSED 127.0.0.1:1099
+```
+
+The recovery path is the resend endpoint PD-31 adds.
+
+**The boot does not depend on the relay.** `MailService` does not call `transporter.verify()` at startup, unlike `RedisService`, which pings and fails the boot on a bad URL. Redis is on the path of every request — the cache, and the rate limiter since PD-36; mail is on two flows that already treat a delivery failure as non-fatal.
+
+**`requireEmailVerification` is still `false`.** The transport exists, but turning verification on while the token lives an hour and no resend endpoint exists would strand anyone who missed the window. PD-31 turns it on together with resend, its cooldown and the welcome grant.
+
+### The verification link currently lands nowhere
+
+A known gap, measured rather than assumed. Better Auth builds the link from `AUTH_BASE_URL`, and the `callbackURL` it redirects to afterwards comes from the request. Password reset supplies one — `request-password-reset` takes `redirectTo`, so the bounce lands on the web app. **Sign-up supplies nothing**, so `callbackURL` defaults to `/`, which is the API's root and has no route:
+
+```
+emailVerified before: f
+following the link:   404
+emailVerified after:  t
+```
+
+The account is verified; the person is looking at a 404. Closing it needs the frontend to send a `callbackURL` on sign-up, and a `WEB_BASE_URL` to build it from — both PD-31.
+
+Local mail goes to Mailpit and nowhere else — read it at <http://localhost:8025>.
+
 ## Sessions
 
 A session is one opaque token in `sessions.token`, sent as an httpOnly cookie. It lives seven days and its expiry is pushed forward at most once a day while the user is active.
