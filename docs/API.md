@@ -20,7 +20,7 @@
 
   | Policy | Default | Applies to | Variables |
   |---|---|---|---|
-  | strict | 10 per 15 min | `sign-in/email`, `sign-up/email`, `reset-password`, `request-password-reset` | `THROTTLE_AUTH_LIMIT` / `THROTTLE_AUTH_WINDOW` |
+  | strict | 10 per 15 min | `sign-in/email`, `sign-up/email`, `reset-password`, `request-password-reset`, `send-verification-email` | `THROTTLE_AUTH_LIMIT` / `THROTTLE_AUTH_WINDOW` |
   | default | 100 per min | every other route | `THROTTLE_DEFAULT_LIMIT` / `THROTTLE_DEFAULT_WINDOW` |
   | moderate | 30 per min | pack-open and trade creation, when those routes exist | `THROTTLE_MODERATE_LIMIT` / `THROTTLE_MODERATE_WINDOW` |
 
@@ -78,7 +78,13 @@ Under `/api/v1/*` this is `CsrfGuard`, which Better Auth's middleware cannot rea
 
 One consequence for the frontend: anything that forwards a user's session cookie from a server — a Next.js server component or route handler acting as a BFF — must send an `Origin` header too. Better Auth already requires that of `/api/auth/*`, so a frontend that can sign a user in already satisfies it.
 
-**Sign-up leaks whether an email is registered**, and this is a known, accepted residual. A duplicate registration answers 422 `USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL`. Softening the wording would not close it: any status distinct from success is itself the oracle. Closing it properly means answering identically either way and letting an email tell the real user which case it was, which arrives with the verification flow; what blunts it at scale is rate limiting. Sign-*in* does not leak — a wrong password and an unknown address return byte-identical responses, and their timings are indistinguishable (81.7 ms against 80.0 ms over 15 samples each), because the provider hashes a dummy password rather than returning early.
+**Sign-up leaks whether an email is registered**, and this is a measured, accepted residual. A duplicate registration answers 422 `USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL`. Softening the wording would not close it: any status distinct from success is itself the oracle.
+
+Closing it properly means answering identically either way and letting a mail tell the real person which case it was. PD-31 considered that and declined it. Sign-up is Better Auth's route, so an identical answer needs either a middleware that rewrites the provider's response — rejected in PD-30, because it breaks OAuth redirects and costs the frontend the machine-readable `code` — or a second registration route of our own, duplicating one that exists and needing its own constant-time floor. The cost lands on honest users, who would see "check your email" instead of a plain answer, and PD-36's strict limit already caps a walk at roughly 960 addresses a day from one source.
+
+Note the contrast: `POST /auth/send-verification-email` **is** enumeration-safe, because the provider wrote it that way — decoy work for an unknown address and a 500 ms constant-time floor, always answering `{ status: true }`.
+
+Sign-*in* does not leak either: a wrong password and an unknown address return byte-identical responses, and their timings are indistinguishable (81.7 ms against 80.0 ms over 15 samples each), because the provider hashes a dummy password rather than returning early. Requiring verification does not change that — the 403 `EMAIL_NOT_VERIFIED` sits after the password check.
 
 | Method | Path | Notes |
 |---|---|---|
@@ -89,7 +95,8 @@ One consequence for the frontend: anything that forwards a user's session cookie
 | POST | `/auth/revoke-session` | One session, by token |
 | POST | `/auth/revoke-other-sessions` | Every session except the caller's |
 | POST | `/auth/revoke-sessions` | Every session, including the caller's |
-| GET | `/auth/verify-email` | Activate account (+ welcome grant) |
+| GET | `/auth/verify-email` | Activate account and release the 1,000-coin grant. A bad token is a 302 to `{callbackURL}?error=TOKEN_EXPIRED` — never a body |
+| POST | `/auth/send-verification-email` | Resend. Enumeration-safe by the provider; strict rate limit plus a per-recipient cooldown |
 | POST | `/auth/reset-password` | With reset token |
 | GET | `/auth/get-session` | Current session/user |
 

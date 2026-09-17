@@ -39,7 +39,7 @@ One flag is the whole distance between a public registration form and an admin a
 
 Better Auth's own, outside the versioned prefix, verified against the running handler:
 
-`POST /api/auth/sign-up/email` · `POST /api/auth/sign-in/email` · `POST /api/auth/sign-out` · `GET /api/auth/get-session` · `GET /api/auth/verify-email` · `POST /api/auth/reset-password`
+`POST /api/auth/sign-up/email` · `POST /api/auth/sign-in/email` · `POST /api/auth/sign-out` · `GET /api/auth/get-session` · `GET /api/auth/verify-email` · `POST /api/auth/send-verification-email` · `POST /api/auth/request-password-reset` · `POST /api/auth/reset-password`
 
 Note `sign-up/email` and `get-session` — not `sign-up` and `session`, which is what `docs/API.md` claimed until this was checked.
 
@@ -62,23 +62,53 @@ Note the asymmetry, verified against the running handler rather than transcribed
 Failed to deliver "Confirm your PokeDrop email": connect ECONNREFUSED 127.0.0.1:1099
 ```
 
-The recovery path is the resend endpoint PD-31 adds.
+The recovery path is `send-verification-email`, which is the provider's own and already existed — see below.
 
 **The boot does not depend on the relay.** `MailService` does not call `transporter.verify()` at startup, unlike `RedisService`, which pings and fails the boot on a bad URL. Redis is on the path of every request — the cache, and the rate limiter since PD-36; mail is on two flows that already treat a delivery failure as non-fatal.
 
-**`requireEmailVerification` is still `false`.** The transport exists, but turning verification on while the token lives an hour and no resend endpoint exists would strand anyone who missed the window. PD-31 turns it on together with resend, its cooldown and the welcome grant.
+### Verification is mandatory
 
-### The verification link currently lands nowhere
+`requireEmailVerification: true`. An unverified sign-in is refused with 403 `EMAIL_NOT_VERIFIED`, and `sendOnSignIn: true` means the provider mails a fresh link *before* refusing. "My link expired" is therefore solved by trying to sign in again, and no separate recovery flow exists.
 
-A known gap, measured rather than assumed. Better Auth builds the link from `AUTH_BASE_URL`, and the `callbackURL` it redirects to afterwards comes from the request. Password reset supplies one — `request-password-reset` takes `redirectTo`, so the bounce lands on the web app. **Sign-up supplies nothing**, so `callbackURL` defaults to `/`, which is the API's root and has no route:
+This does not add an enumeration oracle: the 403 sits after the password check, so only someone who already holds valid credentials can see it.
+
+It does couple sign-in to deliverability in production. With no working relay nobody can sign in at all, which makes SPF, DKIM, DMARC and a sending domain a release blocker rather than a nicety.
+
+`AUTH_VERIFICATION_TTL` is the link's lifetime, one hour by default.
+
+### An expired link answers with a redirect, not a body
+
+`email-verification.mjs:43-49`. When a `callbackURL` is present — and one always is, see below — a bad token is a **302 to `{callbackURL}?error=CODE`**, where the code is `TOKEN_EXPIRED`, `INVALID_TOKEN`, `USER_NOT_FOUND` or `INVALID_USER`. Measured:
 
 ```
-emailVerified before: f
-following the link:   404
-emailVerified after:  t
+expired link: 302, redirect_url: http://localhost:3000/verify-email?error=TOKEN_EXPIRED
 ```
 
-The account is verified; the person is looking at a 404. Closing it needs the frontend to send a `callbackURL` on sign-up, and a `WEB_BASE_URL` to build it from — both PD-31.
+The frontend's `/verify-email` page has to read `?error=` from its own URL. Nothing appears in any response body.
+
+### The link is repaired, not rebuilt
+
+Better Auth redirects to `callbackURL` after verifying, and sign-up supplies none, so it used to default to `/` — the API's root, which has no route, so a verified account landed on a 404. `withCallback` fills in `WEB_BASE_URL` when the caller gave nothing or gave `/`, and leaves a real one alone. Both directions are measured.
+
+Rebuilding the URL here instead would duplicate the provider's own shape and break silently the day it changes.
+
+### The welcome grant
+
+`afterEmailVerification` credits 1,000 coins through `WelcomeGrantService`, once per account. Idempotent by a unique constraint on `(userId, type, refId)` rather than by checking first — two concurrent verifications both pass a read-then-write guard at READ COMMITTED, and neither passes a unique index. Measured: one grant, a replayed link, and two concurrent grants all leave the balance at 1,000 with one ledger row.
+
+The hook catches and logs rather than raising, because it runs after `emailVerified` is written and the token is already spent. **The residual:** a user whose grant failed is verified with a zero balance and nothing retries it. Any later retry is safe; the trigger belongs with M10's admin tooling.
+
+Note that the Prisma client logs the caught unique violation at `error` level, because its log configuration is warn+error. `WelcomeGrantService`'s `debug` line is the authoritative outcome — the expected path is not a failure.
+
+### Two limits on the resend path
+
+`POST /api/auth/send-verification-email` is the provider's own, and is already enumeration-safe: decoy work for an unknown address plus a 500 ms constant-time floor, always answering `{ status: true }`.
+
+It carries the strict rate limit, keyed by caller — it was missed when that list was written in PD-36 and ran under the default 100 per minute until this ticket. Measured before and after: ten calls all passed, then five passed and five were refused.
+
+On top of it, `MAIL_RESEND_COOLDOWN` is keyed by *recipient*, inside the delivery callback, which is the first layer where the address can be read. That is what bounds a distributed flood of one person's inbox, which a per-IP limit cannot.
+
+A suppressed mail is invisible to the caller: the provider's constant-time floor sits above the callback and answers identically either way. It also suppresses the `sendOnSignIn` mail while it holds, which is correct — a valid link is already in that inbox — and lets one through once it lapses. Both measured.
 
 Local mail goes to Mailpit and nowhere else — read it at <http://localhost:8025>.
 

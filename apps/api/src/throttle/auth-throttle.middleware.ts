@@ -8,18 +8,24 @@ import type { AppConfig } from '../config/index.js';
 import type { RedisThrottlerStorage } from './redis-throttler.storage.js';
 
 /**
- * The routes that spend a password, create an account, or mail a reset link.
+ * The routes that spend a password, create an account, or mail a link.
  *
  * An explicit list rather than the whole prefix, because GET
  * /api/auth/get-session is called by the frontend on every page load. A strict
  * limit over all of /api/auth/* would throttle that first and hardest, and the
  * application would appear to sign people out at random.
+ *
+ * send-verification-email was missed when this list was written in PD-36. It
+ * is unauthenticated and takes an arbitrary address, so under the default
+ * limit it was a mail cannon pointed at anybody at a hundred a minute. The
+ * per-recipient cooldown in auth.factory.ts bounds the rest.
  */
 const CREDENTIAL_PATHS = new Set([
   `${AUTH_BASE_PATH}/sign-in/email`,
   `${AUTH_BASE_PATH}/sign-up/email`,
   `${AUTH_BASE_PATH}/reset-password`,
   `${AUTH_BASE_PATH}/request-password-reset`,
+  `${AUTH_BASE_PATH}/send-verification-email`,
 ]);
 
 /**
