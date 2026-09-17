@@ -1,5 +1,6 @@
 import { Controller, Get, UseFilters } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { Public } from '../common/decorators/public.decorator.js';
 import { HealthCheck, HealthCheckService, PrismaHealthIndicator } from '@nestjs/terminus';
 import type { HealthCheckResult } from '@nestjs/terminus';
@@ -15,6 +16,13 @@ import { RedisHealthIndicator } from './redis.health.js';
 const DEPENDENCY_TIMEOUT_MS = 1500;
 
 @ApiTags('health')
+/**
+ * Exempt: an orchestrator polls these every few seconds from one address, so a
+ * per-IP limit throttles them by design. A 429 from a liveness probe reads as a
+ * dead process — the orchestrator restarts a healthy instance, then does it
+ * again.
+ */
+@SkipThrottle()
 @Public()
 @UseFilters(HealthCheckFilter)
 @Controller('health')

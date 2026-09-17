@@ -23,6 +23,7 @@ export function buildAppConfig(env: Env) {
       corsOrigins: env.CORS_ORIGINS.split(',')
         .map((origin) => origin.trim())
         .filter((origin) => origin.length > 0),
+      trustProxyHops: env.TRUST_PROXY_HOPS,
     },
     logging: {
       level: env.LOG_LEVEL,
@@ -73,6 +74,20 @@ export function buildAppConfig(env: Env) {
     },
     queue: {
       concurrency: env.QUEUE_CONCURRENCY,
+    },
+    throttle: {
+      /**
+       * Milliseconds, converted here and only here. The throttler takes
+       * milliseconds for a window but reports the remainder in seconds, so the
+       * asymmetry is worth confining to two files: this one and
+       * redis-throttler.storage.ts.
+       */
+      defaultLimit: env.THROTTLE_DEFAULT_LIMIT,
+      defaultWindowMs: env.THROTTLE_DEFAULT_WINDOW * 1000,
+      authLimit: env.THROTTLE_AUTH_LIMIT,
+      authWindowMs: env.THROTTLE_AUTH_WINDOW * 1000,
+      moderateLimit: env.THROTTLE_MODERATE_LIMIT,
+      moderateWindowMs: env.THROTTLE_MODERATE_WINDOW * 1000,
     },
   } as const;
 }

@@ -30,6 +30,15 @@ async function bootstrap(): Promise<void> {
 
   const config = app.get<AppConfig>(APP_CONFIG);
 
+  // Decides what req.ip is, and therefore what the rate limiter keys on.
+  //
+  // Unset behind a proxy, every request appears to come from the proxy: one key
+  // for every user, and the first few requests exhaust the limit for everybody.
+  // Set to `true`, any client can send its own X-Forwarded-For and pick its own
+  // key. A hop count is the only answer that is wrong in neither direction, and
+  // it differs per environment.
+  app.set('trust proxy', config.app.trustProxyHops);
+
   app.use(helmet());
 
   // Before the router, so that every request carries a correlation id by the
