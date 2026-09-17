@@ -5,6 +5,7 @@ import type { AppConfig } from '../config/index.js';
 import type { WelcomeGrantService } from '../economy/index.js';
 import type { MailService, RenderedMail } from '../mail/index.js';
 import { passwordResetEmail, verificationEmail } from '../mail/index.js';
+import { throttleKeys } from '../redis/index.js';
 import type { PrismaService } from '../prisma/index.js';
 import type { RedisService } from '../redis/index.js';
 import { AUTH_BASE_PATH } from './auth.constants.js';
@@ -71,6 +72,43 @@ export function buildAuth(config: AppConfig, deps: AuthDependencies) {
   };
 
   /**
+   * Whether enough time has passed to mail this address again.
+   *
+   * PD-36's limiter is keyed by the caller's address, which does nothing
+   * against a distributed flood of one person's inbox. This is keyed by the
+   * recipient, and it has to live here because it is the first layer where the
+   * address is readable — the handler needs the raw body, so the Express
+   * middleware runs before any parser.
+   *
+   * Nothing leaks by suppressing a send. The provider's own constant-time
+   * floor sits above this callback and answers `{ status: true }` after the
+   * same 500 ms either way.
+   *
+   * Fails open, like the rate limiter: a mail not sent is worse than a mail
+   * sent twice.
+   */
+  const cooldownAllows = async (email: string): Promise<boolean> => {
+    try {
+      const result = await deps.redis.client.set(
+        throttleKeys.resend(email),
+        '1',
+        'EX',
+        config.mail.resendCooldownSeconds,
+        'NX',
+      );
+
+      return result === 'OK';
+    } catch (error) {
+      logger.warn(
+        `Resend cooldown check failed, sending anyway: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return true;
+    }
+  };
+
+  /**
    * Fills in a `callbackURL` when the caller gave none.
    *
    * Better Auth builds the link from AUTH_BASE_URL and redirects to
@@ -116,11 +154,22 @@ export function buildAuth(config: AppConfig, deps: AuthDependencies) {
        */
       minPasswordLength: 12,
       /**
-       * PD-31 turns this on. Not here: the transport exists as of PD-132, but
-       * making verification mandatory while the token lives one hour and no
-       * resend endpoint exists would strand anyone who missed the window.
+       * Verification is the gate, as `docs/UserFlows.md` §1 describes. Without
+       * it the welcome grant hangs from an event nobody has to reach, and
+       * anyone can register against an address they do not own.
+       *
+       * It does not add an enumeration oracle. The 403 this produces sits
+       * after the password check — a wrong password is still 401 — so it is
+       * only visible to someone who already holds valid credentials and
+       * therefore already knows the account exists. Checked in the provider
+       * rather than assumed, because otherwise it would have cost the property
+       * PD-30 measured.
+       *
+       * In production this couples sign-in to deliverability: with no working
+       * relay, nobody can sign in at all. SPF, DKIM, DMARC and a sending
+       * domain are a release blocker, not a nicety — noted on PD-126.
        */
-      requireEmailVerification: false,
+      requireEmailVerification: true,
 
       sendResetPassword: async ({ user, url }) => {
         await deliver(
@@ -144,7 +193,43 @@ export function buildAuth(config: AppConfig, deps: AuthDependencies) {
        */
       sendOnSignUp: true,
 
+      /**
+       * What makes mandatory verification survivable. When an unverified user
+       * tries to sign in, the provider sends a fresh link before refusing —
+       * so "my link expired" is solved by trying again, and no separate
+       * recovery flow has to exist.
+       */
+      sendOnSignIn: true,
+
+      /**
+       * Runs after `emailVerified` is already written, so an exception escaping
+       * here would show an error to someone who is in fact verified — and the
+       * link cannot be retried, because the token is spent. Hence catch and
+       * log.
+       *
+       * The residual is real: a user whose grant failed is verified with a
+       * zero balance, and nothing retries it. The unique constraint makes any
+       * later retry safe, but the trigger for one belongs with the admin
+       * tooling in M10.
+       */
+      afterEmailVerification: async (user) => {
+        try {
+          await deps.welcomeGrant.grantIfFirstTime(user.id);
+        } catch (error) {
+          logger.error(
+            `Welcome grant failed for ${user.id}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+      },
+
       sendVerificationEmail: async ({ user, url }) => {
+        if (!(await cooldownAllows(user.email))) {
+          logger.log('Verification mail suppressed by the resend cooldown');
+          return;
+        }
+
         // `user.name`, not `user.displayName`: the user.fields mapping below
         // renames the column, so the provider's model field is `name`.
         await deliver(
