@@ -54,3 +54,22 @@ export const cachePatterns = {
 export const lockKeys = {
   packOpen: (openId: string) => `lock:open:${openId}`,
 } as const;
+
+/**
+ * Also not a cache key, and for the same reason the lock above is not.
+ *
+ * CacheService.invalidate deletes by glob under `cache:`. A rate-limit counter
+ * living there would be reset by every routine cache flush — a catalog sync
+ * would hand an attacker a fresh budget, repeatedly and silently.
+ *
+ * The storage prepends these itself, so both enforcement points — the Nest
+ * guard and the Express middleware in front of the auth handler — land in the
+ * same namespace without either of them knowing the prefix.
+ */
+export const THROTTLE_NAMESPACE = 'throttle';
+
+export const throttleKeys = {
+  counter: (key: string) => `${THROTTLE_NAMESPACE}:${key}`,
+  /** Separate key, so that clearing a block does not also clear the count. */
+  block: (key: string) => `${THROTTLE_NAMESPACE}:block:${key}`,
+} as const;
