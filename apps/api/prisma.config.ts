@@ -24,6 +24,9 @@ export default defineConfig({
   schema: 'prisma/schema.prisma',
   migrations: {
     path: 'prisma/migrations',
+
+    /** Lets `prisma migrate reset` reseed in the same step. */
+    seed: 'node prisma/seed.ts',
   },
   datasource: {
     url: process.env.DATABASE_URL,

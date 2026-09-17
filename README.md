@@ -86,6 +86,19 @@ docker compose up -d --wait
 `--wait` blocks until both healthchecks pass, so the next command can assume
 the database is actually accepting connections rather than merely started.
 
+Then apply the schema and fill it with something to look at:
+
+```bash
+pnpm --filter @pokedrop/api exec prisma migrate deploy
+pnpm db:seed
+```
+
+The seed is small and hand-written: five users across both roles, three sets and twelve cards spanning the rarity ramp, one pack template, a deck, a pack opening, and six trades covering every `TradeStatus` — including a counter-offer chain and a pending trade whose escrow lock matches what it promises.
+
+Sign-in accounts do not exist yet; seeded users have no credentials until Better Auth lands. Re-running the seed is safe: every row has a fixed id and the script removes only its own rows before inserting.
+
+Each user's `currency` is computed from their ledger rather than written beside it, and the script fails loudly if the two ever disagree — nothing in the schema keeps them in step.
+
 | Service | Host port | Credentials |
 |---|---|---|
 | PostgreSQL 17 | **5433** | `pokedrop` / `pokedrop_local_dev`, database `pokedrop` |
