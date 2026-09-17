@@ -1,5 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { APP_CONFIG, type AppConfig } from '../config/index.js';
+import { MailService } from '../mail/index.js';
 import { PrismaService } from '../prisma/index.js';
 import { AUTH_INSTANCE } from './auth.constants.js';
 import { buildAuth } from './auth.factory.js';
@@ -13,8 +14,9 @@ import { buildAuth } from './auth.factory.js';
   providers: [
     {
       provide: AUTH_INSTANCE,
-      inject: [PrismaService, APP_CONFIG],
-      useFactory: (prisma: PrismaService, config: AppConfig) => buildAuth(prisma, config),
+      inject: [PrismaService, APP_CONFIG, MailService],
+      useFactory: (prisma: PrismaService, config: AppConfig, mail: MailService) =>
+        buildAuth(prisma, config, mail),
     },
   ],
   exports: [AUTH_INSTANCE],

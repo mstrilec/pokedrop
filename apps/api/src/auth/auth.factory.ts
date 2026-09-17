@@ -1,7 +1,14 @@
+import { Logger } from '@nestjs/common';
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import type { AppConfig } from '../config/index.js';
 import type { PrismaService } from '../prisma/index.js';
+import {
+  MailService,
+  passwordResetEmail,
+  verificationEmail,
+  type RenderedMail,
+} from '../mail/index.js';
 import { AUTH_BASE_PATH } from './auth.constants.js';
 
 const SESSION_LIFETIME_SECONDS = 60 * 60 * 24 * 7;
@@ -19,10 +26,36 @@ export type AuthInstance = ReturnType<typeof buildAuth>;
  * by construction instead of by convention: there is no second connection pool
  * for it to use.
  */
-export function buildAuth(prisma: PrismaService, config: AppConfig) {
+export function buildAuth(prisma: PrismaService, config: AppConfig, mail: MailService) {
   if (!config.auth.secret) {
     throw new Error('AUTH_SECRET is required. Generate one with: openssl rand -base64 32');
   }
+
+  const logger = new Logger('AuthMail');
+
+  /**
+   * The delivery policy for auth mail: log a failure, never rethrow it.
+   *
+   * Better Auth writes the user row before calling these, so failing the
+   * response would report a failed sign-up for one that partly succeeded — and
+   * the caller's retry would then hit "that address is already taken", which is
+   * the worst of both outcomes. The recovery path is the resend endpoint in
+   * PD-31.
+   *
+   * `error` rather than `warn`: a relay that will not accept mail is a real
+   * failure, even though it is not the caller's.
+   */
+  const deliver = async (to: string, rendered: RenderedMail): Promise<void> => {
+    try {
+      await mail.send({ to, ...rendered });
+    } catch (error) {
+      logger.error(
+        `Failed to deliver "${rendered.subject}": ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  };
 
   return betterAuth({
     database: prismaAdapter(prisma, { provider: 'postgresql' }),
@@ -46,11 +79,31 @@ export function buildAuth(prisma: PrismaService, config: AppConfig) {
        */
       minPasswordLength: 12,
       /**
-       * PD-31 turns this on together with the verification email. Until a mail
-       * transport exists, requiring verification would lock out every account
-       * the moment it is created.
+       * PD-31 turns this on. Not here: the transport exists as of PD-132, but
+       * making verification mandatory while the token lives one hour and no
+       * resend endpoint exists would strand anyone who missed the window.
        */
       requireEmailVerification: false,
+
+      sendResetPassword: async ({ user, url }) => {
+        await deliver(user.email, passwordResetEmail({ displayName: user.name, url }));
+      },
+    },
+
+    emailVerification: {
+      /**
+       * Explicitly true, and this is load-bearing. The default is `undefined`,
+       * which means "follow requireEmailVerification" — and that is false, so
+       * without this line no verification mail is ever sent and the transport
+       * looks broken.
+       */
+      sendOnSignUp: true,
+
+      sendVerificationEmail: async ({ user, url }) => {
+        // `user.name`, not `user.displayName`: the user.fields mapping below
+        // renames the column, so the provider's model field is `name`.
+        await deliver(user.email, verificationEmail({ displayName: user.name, url }));
+      },
     },
 
     session: {
