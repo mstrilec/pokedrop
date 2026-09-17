@@ -38,8 +38,14 @@ export const EnvSchema = z
     REDIS_CACHE_DB: z.coerce.number().int().min(0).max(15).default(0),
     REDIS_QUEUE_DB: z.coerce.number().int().min(0).max(15).default(1),
 
-    // Optional until Better Auth lands in PD-29, then required.
-    AUTH_SECRET: z.string().min(32).optional(),
+    // Required since PD-29. Signs session cookies and verification tokens, so
+    // rotating it invalidates every session in existence.
+    AUTH_SECRET: z.string().min(32),
+
+    // The public origin the API is reached at. Better Auth builds callback and
+    // cookie URLs from it, so a wrong value produces sign-ins that appear to
+    // succeed and then have no session.
+    AUTH_BASE_URL: z.url().default('http://localhost:4000'),
 
     // Optional permanently: pokemontcg.io serves unauthenticated callers at a
     // lower rate limit, so a missing key must not stop the app from booting.

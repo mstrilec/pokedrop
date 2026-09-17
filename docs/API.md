@@ -29,14 +29,20 @@ Responses at 500 and above carry a fixed `"Internal server error"` message; the 
 ## Auth
 > Delegated to Better Auth handlers, mounted under `/api/auth/*`.
 
+Paths below are Better Auth's own, verified against the running handler rather than transcribed — several differ from what this document originally claimed.
+
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/auth/sign-up` | Register |
-| POST | `/auth/sign-in` | Sign in → session/JWT |
+| POST | `/auth/sign-up/email` | Register. `role` and `currency` in the body are ignored |
+| POST | `/auth/sign-in/email` | Sign in → session cookie |
 | POST | `/auth/sign-out` | Current session |
-| POST | `/auth/verify-email` | Activate account (+ welcome grant) |
+| GET | `/auth/verify-email` | Activate account (+ welcome grant) |
 | POST | `/auth/reset-password` | With reset token |
-| GET | `/auth/session` | Current session/user |
+| GET | `/auth/get-session` | Current session/user |
+
+These are **not** under `/api/v1`. They are Better Auth's contract, and versioning someone else's URLs buys nothing. The handler owns everything under `/api/auth/*` and answers 404 for anything it does not recognise.
+
+The endpoint that *requests* a reset email does not exist yet — it appears once a mail transport is configured.
 
 ## Users / Profile
 
