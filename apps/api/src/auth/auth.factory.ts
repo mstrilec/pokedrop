@@ -56,6 +56,26 @@ export function buildAuth(prisma: PrismaService, config: AppConfig) {
     session: {
       expiresIn: SESSION_LIFETIME_SECONDS,
       updateAge: SESSION_REFRESH_SECONDS,
+      /**
+       * Better Auth defaults this to one day, and in this configuration it
+       * gates exactly two endpoints: list-sessions and unlink-account. The
+       * second is unreachable — no social provider is configured — so the
+       * default's only effect is that the device list stops working a day
+       * into a seven-day session.
+       *
+       * That is the wrong endpoint to close. The three revoke-* calls, which
+       * fix a compromise, are behind sensitiveSessionMiddleware and are not
+       * age-gated at all; list-sessions is the one that makes a compromise
+       * visible in the first place, by showing an IP and a user agent the
+       * owner does not recognise. Measured in PD-35: a three-day-old session
+       * could revoke every other session but could not list them.
+       *
+       * Matching the session lifetime keeps the list readable for as long as
+       * the session it describes. Deliberately not 0, which disables the check
+       * globally and for good, including for the re-authentication PD-32 and a
+       * future account deletion will want.
+       */
+      freshAge: SESSION_LIFETIME_SECONDS,
     },
 
     advanced: {
