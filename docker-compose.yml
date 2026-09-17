@@ -53,6 +53,27 @@ services:
       retries: 10
       start_period: 5s
 
+  # A local mail sink. Nothing it receives ever leaves this machine.
+  #
+  # Chosen over a vendor's sandbox for its HTTP API on 8025: a measurement can
+  # pull the verification link out of a received message and follow it, which is
+  # the difference between "a mail was probably sent" and "the link in the mail
+  # verifies the account".
+  mailpit:
+    image: axllent/mailpit:v1.31
+    container_name: pokedrop-mailpit
+    restart: unless-stopped
+    ports:
+      - '${MAILPIT_SMTP_PORT:-1025}:1025'
+      - '${MAILPIT_UI_PORT:-8025}:8025'
+    healthcheck:
+      # Mailpit ships its own readiness probe; the image has no curl or wget.
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
 volumes:
   postgres-data:
   redis-data:

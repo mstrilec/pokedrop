@@ -89,6 +89,10 @@ export function buildAppConfig(env: Env) {
       moderateLimit: env.THROTTLE_MODERATE_LIMIT,
       moderateWindowMs: env.THROTTLE_MODERATE_WINDOW * 1000,
     },
+    mail: {
+      smtpUrl: env.MAIL_SMTP_URL,
+      from: env.MAIL_FROM,
+    },
   } as const;
 }
 

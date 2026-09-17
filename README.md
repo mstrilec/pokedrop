@@ -83,8 +83,10 @@ cp .env.example .env
 docker compose up -d --wait
 ```
 
-`--wait` blocks until both healthchecks pass, so the next command can assume
+`--wait` blocks until every healthcheck passes, so the next command can assume
 the database is actually accepting connections rather than merely started.
+Mailpit's web interface is then at <http://localhost:8025> — every mail the API
+sends in development lands there and goes nowhere else.
 
 Then apply the schema and fill it with something to look at:
 
