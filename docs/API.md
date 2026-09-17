@@ -7,7 +7,8 @@
 
 - **Versioning:** all endpoints under `/api/v1` (auth handlers mounted under `/api/auth/*`).
 - **Pagination:** all list endpoints take `page`, `pageSize` (cursor optional). Validate bounds.
-- **Auth:** session cookie or JWT validated by a global `JwtAuthGuard`/`SessionGuard`; `@Public()` opts out. `@Roles(Role.ADMIN)` + `RolesGuard` protect admin routes.
+- **Auth:** **protected by default.** A global `SessionGuard` resolves the Better Auth session on every request; `@Public()` is the deliberate exception. Forgetting the decorator produces a 401, which is noisy and cheap to fix — the opposite polarity would leak a route silently. `@Roles(Role.ADMIN)` + `RolesGuard` protect admin routes.
+- **Identity:** handlers take the caller from `@CurrentUser()`, never from a body, query or path parameter. An id sent by the client is a claim; the one on the session is a fact.
 - **Validation:** every DTO validated with Zod through the local `createZodDto` helper (`apps/api/src/common/zod-dto.ts`), which also feeds `components.schemas` in the OpenAPI document; unknown fields rejected.
 - **Ownership:** service-level assertions — never trust client-supplied user IDs.
 - **Idempotency:** mutating money/item operations accept an idempotency key (e.g. `openId`).
