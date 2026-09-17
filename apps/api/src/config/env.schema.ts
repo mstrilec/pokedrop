@@ -108,6 +108,23 @@ export const EnvSchema = z
 
     // RFC 5322 display form is accepted: `PokeDrop <no-reply@example.com>`.
     MAIL_FROM: z.string().min(1).default('PokeDrop <no-reply@pokedrop.local>'),
+
+    // Where the web application is served. Verification and reset links bounce
+    // through the API and land here, so a wrong value produces a mail whose
+    // link verifies the account and then shows an error page.
+    WEB_BASE_URL: z.url().default('http://localhost:3000'),
+
+    // How long a verification link is good for. Better Auth's default is an
+    // hour; it is explicit here because the ticket asks for expiry to be
+    // documented, and because a short value is what makes the expired-token
+    // path measurable without forging a token.
+    AUTH_VERIFICATION_TTL: z.coerce.number().int().min(1).default(3600),
+
+    // Per-address floor between two verification mails. PD-36's limiter is
+    // keyed by the address of the *caller*; this one is keyed by the address
+    // of the recipient, which is what stops a distributed flood of somebody
+    // else's inbox.
+    MAIL_RESEND_COOLDOWN: z.coerce.number().int().min(1).default(60),
   })
   .refine((env) => env.REDIS_CACHE_DB !== env.REDIS_QUEUE_DB, {
     message:

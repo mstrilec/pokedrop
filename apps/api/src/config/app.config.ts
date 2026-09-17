@@ -24,6 +24,7 @@ export function buildAppConfig(env: Env) {
         .map((origin) => origin.trim())
         .filter((origin) => origin.length > 0),
       trustProxyHops: env.TRUST_PROXY_HOPS,
+      webBaseUrl: env.WEB_BASE_URL,
     },
     logging: {
       level: env.LOG_LEVEL,
@@ -65,6 +66,7 @@ export function buildAppConfig(env: Env) {
        * downstream has to know that "unset" ever meant anything.
        */
       secureCookies: env.AUTH_SECURE_COOKIES ?? env.NODE_ENV === 'production',
+      verificationTtlSeconds: env.AUTH_VERIFICATION_TTL,
     },
     providers: {
       /** Null is valid: the provider serves anonymous callers at a lower rate limit. */
@@ -92,6 +94,7 @@ export function buildAppConfig(env: Env) {
     mail: {
       smtpUrl: env.MAIL_SMTP_URL,
       from: env.MAIL_FROM,
+      resendCooldownSeconds: env.MAIL_RESEND_COOLDOWN,
     },
   } as const;
 }

@@ -72,4 +72,10 @@ export const throttleKeys = {
   counter: (key: string) => `${THROTTLE_NAMESPACE}:${key}`,
   /** Separate key, so that clearing a block does not also clear the count. */
   block: (key: string) => `${THROTTLE_NAMESPACE}:block:${key}`,
+  /**
+   * Per-recipient floor between verification mails, keyed by address rather
+   * than by caller — PD-36's limiter is per IP and does nothing against a
+   * distributed flood of one person's inbox.
+   */
+  resend: (email: string) => `${THROTTLE_NAMESPACE}:resend:${email.toLowerCase()}`,
 } as const;
