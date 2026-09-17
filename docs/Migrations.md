@@ -36,7 +36,7 @@ docker compose down -v && docker compose up -d --wait
 cd apps/api && pnpm exec prisma migrate deploy
 ```
 
-`prisma migrate reset` does the same in one step, but it is blocked for AI agents without explicit consent, and the sequence above destroys nothing that is not already reproducible.
+`prisma migrate reset` does the same in one step and reseeds afterwards — `prisma.config.ts` points `migrations.seed` at `prisma/seed.ts`. It is blocked for AI agents without explicit consent, and the sequence above destroys nothing that is not already reproducible. After it, run `pnpm db:seed` to get the development data back.
 
 **Already deployed.** Roll _forward_ with a migration that reverses the change. Prisma will write the SQL for you, using the previous schema as the target:
 

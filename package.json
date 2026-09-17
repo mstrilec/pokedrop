@@ -17,6 +17,7 @@
     "lint:fix": "pnpm build:shared && eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "db:seed": "pnpm --filter @pokedrop/api db:seed",
     "clean": "pnpm -r run clean",
     "prepare": "husky"
   },
