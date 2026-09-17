@@ -68,7 +68,7 @@ jobs:
       - uses: ./.github/actions/setup
 
       # The shadow database has to exist before the diff can replay into it.
-      - run: psql "" -c 'CREATE DATABASE pokedrop_shadow'
+      - run: psql "$DATABASE_URL" -c 'CREATE DATABASE pokedrop_shadow'
 
       # Does the committed history apply to an empty database at all? This is
       # what a deployment does, and it is the only thing that exercises the
