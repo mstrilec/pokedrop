@@ -27,5 +27,13 @@ export default defineConfig({
   },
   datasource: {
     url: process.env.DATABASE_URL,
+
+    /**
+     * Only `prisma migrate diff --from-migrations` needs this: replaying a
+     * migration history to compare it against the schema requires somewhere to
+     * replay it. Unset locally, where the check is not run; CI points it at a
+     * throwaway database on its own Postgres service.
+     */
+    shadowDatabaseUrl: process.env.SHADOW_DATABASE_URL,
   },
 });

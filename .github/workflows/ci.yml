@@ -40,3 +40,47 @@ jobs:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
       - run: pnpm build
+
+  # The only job that needs a database. PD-21 deferred service containers, but
+  # that was about test suites; this is a schema-integrity gate, and without it
+  # a schema edited without a matching migration reaches main unnoticed and
+  # surfaces at deploy.
+  migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: pokedrop
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: pokedrop_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://pokedrop:ci@localhost:5432/pokedrop_ci
+      SHADOW_DATABASE_URL: postgresql://pokedrop:ci@localhost:5432/pokedrop_shadow
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+
+      # The shadow database has to exist before the diff can replay into it.
+      - run: psql "" -c 'CREATE DATABASE pokedrop_shadow'
+
+      # Does the committed history apply to an empty database at all? This is
+      # what a deployment does, and it is the only thing that exercises the
+      # hand-written check-constraint migrations.
+      - name: Migration history applies from scratch
+        run: pnpm --filter @pokedrop/api exec prisma migrate deploy
+
+      # Does the committed schema match the committed history? Exit code 2 means
+      # they have diverged.
+      - name: Schema and migration history agree
+        run: >-
+          pnpm --filter @pokedrop/api exec prisma migrate diff
+          --from-migrations ./prisma/migrations
+          --to-schema ./prisma/schema.prisma
+          --exit-code

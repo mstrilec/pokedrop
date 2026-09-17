@@ -156,6 +156,7 @@ All architecture and design decisions live in [`docs/`](docs/). Start with the [
 | [Foundation.md](docs/Foundation.md) | What M0 built, why, how it works, and the traps it left behind. |
 | [PRD.md](docs/PRD.md) | Product requirements — the source of truth for scope, goals, and decisions. |
 | [Architecture.md](docs/Architecture.md) | System topology, module structure, data flow, sync, caching, provider adapter. |
+| [Migrations.md](docs/Migrations.md) | How the schema changes: the rules, the rollback path, and what CI enforces. |
 | [DataModel.md](docs/DataModel.md) | Prisma entities, relationships, enums, indexes, integrity rules. |
 | [API.md](docs/API.md) | REST endpoint reference, conventions, error envelope. |
 | [InformationArchitecture.md](docs/InformationArchitecture.md) | Page inventory (32 pages), routing, navigation, RBAC gating. |
