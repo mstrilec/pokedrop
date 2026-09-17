@@ -12,6 +12,7 @@ import { requestIdMiddleware } from './common/request-id.js';
 import { applyZodSchemas } from './common/zod-dto.js';
 import { AUTH_BASE_PATH, AUTH_INSTANCE, type AuthInstance } from './auth/index.js';
 import { APP_CONFIG, type AppConfig } from './config/index.js';
+import { RedisThrottlerStorage, createAuthThrottleMiddleware } from './throttle/index.js';
 
 async function bootstrap(): Promise<void> {
   // bufferLogs holds everything Nest emits during startup until useLogger
@@ -60,7 +61,17 @@ async function bootstrap(): Promise<void> {
   // contract.
   const auth = app.get<AuthInstance>(AUTH_INSTANCE);
   const authRoute = `${AUTH_BASE_PATH}/*splat`;
-  app.getHttpAdapter().getInstance().all(authRoute, toNodeHandler(auth));
+  const expressApp = app.getHttpAdapter().getInstance();
+
+  // Registered on the same pattern and before the handler, so Express runs it
+  // first and it can refuse without the handler ever seeing the request. The
+  // global ThrottlerGuard cannot do this job: these routes are not on the Nest
+  // router at all.
+  //
+  // Deliberately not app.use(AUTH_BASE_PATH, …): mounting strips the prefix
+  // from req.url, and this middleware routes on the full path.
+  expressApp.all(authRoute, createAuthThrottleMiddleware(app.get(RedisThrottlerStorage), config));
+  expressApp.all(authRoute, toNodeHandler(auth));
 
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
