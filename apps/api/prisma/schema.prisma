@@ -352,6 +352,16 @@ model CurrencyTransaction {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  /// Makes a credit idempotent on its own reference rather than on a
+  /// read-then-write check, which at READ COMMITTED two concurrent writers
+  /// both pass. `refId` is nullable and PostgreSQL treats NULL as distinct
+  /// from NULL, so rows without a reference — every GRANT in the seed — are
+  /// unaffected.
+  ///
+  /// It generalises: (userId, PACK_SPEND, openId) is the idempotency a
+  /// retried pack open needs in PD-58, and (userId, TRADE, tradeId) the same
+  /// for trade settlement.
+  @@unique([userId, type, refId])
   @@index([userId, createdAt])
   @@map("currency_transactions")
 }
