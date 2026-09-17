@@ -60,11 +60,34 @@ export function buildAuth(prisma: PrismaService, config: AppConfig) {
 
     advanced: {
       /**
-       * Secure cookies in production only — a Secure cookie over plain http is
-       * simply dropped, which would make local development look like a broken
-       * login rather than a configuration choice.
+       * Secure cookies in production by default — a Secure cookie over plain
+       * http is simply dropped, which would make local development look like a
+       * broken login rather than a configuration choice. AUTH_SECURE_COOKIES
+       * overrides it for a staging environment that does serve https.
+       *
+       * This is deliberately the only switch for `secure`. Better Auth ties the
+       * attribute to the `__Secure-` name prefix in the same expression
+       * (cookies/index.mjs:34), so setting `secure` through
+       * defaultCookieAttributes below would let the prefix and the attribute
+       * disagree with each other.
        */
-      useSecureCookies: config.app.isProduction,
+      useSecureCookies: config.auth.secureCookies,
+
+      /**
+       * Spread into Better Auth's cookie defaults after its own `domain` and
+       * before the per-cookie overrides (cookies/index.mjs:38), so these two
+       * win while the session cookie's maxAge survives.
+       *
+       * `path` is deliberately absent and stays at the library's `/`. A cookie
+       * path is not a security boundary — any document on the origin reaches a
+       * sibling path through the DOM — and both /api/auth/* and /api/v1/* need
+       * the cookie, so `/` is the only correct value. A configuration knob with
+       * one admissible setting is not configuration.
+       */
+      defaultCookieAttributes: {
+        ...(config.auth.cookieDomain === null ? {} : { domain: config.auth.cookieDomain }),
+        sameSite: config.auth.cookieSameSite,
+      },
     },
 
     user: {
