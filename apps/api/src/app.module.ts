@@ -12,6 +12,7 @@ import { AuthModule } from './auth/index.js';
 import { AppConfigModule } from './config/index.js';
 import { HealthModule } from './health/health.module.js';
 import { AppLoggingModule } from './logging/index.js';
+import { MailModule } from './mail/index.js';
 import { PrismaModule } from './prisma/index.js';
 import { RedisModule } from './redis/index.js';
 import { ThrottleModule } from './throttle/index.js';
@@ -28,6 +29,7 @@ import { ThrottleModule } from './throttle/index.js';
     PrismaModule,
     RedisModule,
     ThrottleModule,
+    MailModule,
     AuthModule,
     HealthModule,
   ],
