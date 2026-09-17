@@ -47,6 +47,27 @@ export function mapPrismaError(exception: unknown): MappedError | null {
   }
 }
 
+/**
+ * Whether a failure is a unique-constraint violation, in either shape.
+ *
+ * Callers use this to treat "already exists" as success — a grant that was
+ * already credited, an operation retried with the same idempotency key. The
+ * P2010 branch matters for the same reason it matters in mapPrismaError: a raw
+ * query bypasses the engine's error translation and arrives with the real
+ * cause buried in meta.
+ */
+export function isUniqueViolation(exception: unknown): boolean {
+  if (!(exception instanceof Prisma.PrismaClientKnownRequestError)) {
+    return false;
+  }
+
+  if (exception.code === 'P2002') {
+    return true;
+  }
+
+  return exception.code === 'P2010' && driverErrorKind(exception) === 'UniqueConstraintViolation';
+}
+
 function conflict(message: string): MappedError {
   return { statusCode: HttpStatus.CONFLICT, error: 'Conflict', message };
 }
