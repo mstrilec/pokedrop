@@ -10,7 +10,11 @@
 - **Auth:** **protected by default.** A global `SessionGuard` resolves the Better Auth session on every request; `@Public()` is the deliberate exception. Forgetting the decorator produces a 401, which is noisy and cheap to fix — the opposite polarity would leak a route silently. `@Roles(Role.ADMIN)` + `RolesGuard` protect admin routes.
 - **Identity:** handlers take the caller from `@CurrentUser()`, never from a body, query or path parameter. An id sent by the client is a claim; the one on the session is a fact.
 - **Validation:** every DTO validated with Zod through the local `createZodDto` helper (`apps/api/src/common/zod-dto.ts`), which also feeds `components.schemas` in the OpenAPI document; unknown fields rejected.
-- **Ownership:** service-level assertions — never trust client-supplied user IDs.
+- **Ownership:** `assertOwner(resourceOwnerId, user)` in services — never trust client-supplied user IDs.
+
+  **Ownership is not a role check, and `assertOwner` has no admin bypass.** The obvious-looking `|| user.role === 'ADMIN'` would hand administrators every member capability over every user's data — editing anyone's deck, reading anyone's private inventory — none of which appears in the capability matrix in [PRD.md](PRD.md) §4. What that matrix grants admins is a short, specific list, and each item is its own route behind `@Roles`, where the power is visible and auditable. Verified: an ADMIN session is refused on another user's resource.
+
+  The role is read from the database on every request rather than baked into the session, so a demotion takes effect immediately — verified by promoting a user mid-session without re-authenticating.
 - **Idempotency:** mutating money/item operations accept an idempotency key (e.g. `openId`).
 - **Rate limiting:** `@nestjs/throttler` on auth, pack-open, and trade endpoints.
 - **Request correlation:** every response carries `X-Request-Id`. An inbound `X-Request-Id` is adopted when it matches `[A-Za-z0-9._-]{1,128}`, and replaced with a generated one otherwise — the value reaches both the log and the response body, so it is not allowed to carry newlines or unbounded length.
