@@ -3,6 +3,7 @@ import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
+import { CsrfGuard } from './common/guards/csrf.guard.js';
 import { RolesGuard } from './common/guards/roles.guard.js';
 import { SessionGuard } from './common/guards/session.guard.js';
 import { ZodValidationPipe } from './common/pipes/zod-validation.pipe.js';
@@ -23,9 +24,13 @@ import { RedisModule } from './redis/index.js';
   controllers: [AppController],
   providers: [
     AppService,
-    // Order is load-bearing: global guards run in the order they are
-    // provided, and RolesGuard reads the caller SessionGuard put on the
-    // request. Reversed, it sees nobody and rejects everything.
+    // Order is load-bearing: global guards run in the order they are provided.
+    // CsrfGuard is first so a forged request is refused on a header check
+    // rather than after SessionGuard has spent a database round-trip resolving
+    // the session it was trying to abuse. RolesGuard is last because it reads
+    // the caller SessionGuard put on the request; reversed, it sees nobody and
+    // rejects everything.
+    { provide: APP_GUARD, useClass: CsrfGuard },
     { provide: APP_GUARD, useClass: SessionGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_PIPE, useClass: ZodValidationPipe },
