@@ -96,6 +96,18 @@ export const EnvSchema = z
     // Pack opening and trade creation, applied when those routes exist.
     THROTTLE_MODERATE_LIMIT: z.coerce.number().int().min(1).default(30),
     THROTTLE_MODERATE_WINDOW: z.coerce.number().int().min(1).default(60),
+
+    // One URL rather than five variables: nodemailer parses host, port,
+    // credentials and TLS mode out of it, so changing vendor — Resend, SES,
+    // Postmark, Mailgun — is an environment change and not a code change.
+    // `smtp://` is plain or STARTTLS; `smtps://` is implicit TLS on 465.
+    //
+    // The default points at the Mailpit container, so a fresh clone sends mail
+    // successfully with no mail configuration at all.
+    MAIL_SMTP_URL: z.string().min(1).default('smtp://localhost:1025'),
+
+    // RFC 5322 display form is accepted: `PokeDrop <no-reply@example.com>`.
+    MAIL_FROM: z.string().min(1).default('PokeDrop <no-reply@pokedrop.local>'),
   })
   .refine((env) => env.REDIS_CACHE_DB !== env.REDIS_QUEUE_DB, {
     message:
