@@ -73,6 +73,29 @@ export const EnvSchema = z
     TCGDEX_BASE_URL: z.url().default('https://api.tcgdex.net/v2'),
 
     QUEUE_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(4),
+
+    // How many proxies sit in front of this process. Express uses it to decide
+    // which entry of X-Forwarded-For is the real client.
+    //
+    // 0 is correct for direct exposure and for local development. Behind one
+    // load balancer it is 1. Never `true`: trusting every proxy lets a client
+    // send its own X-Forwarded-For and therefore choose its own rate-limit key,
+    // which both evades its limit and lets it exhaust somebody else's.
+    TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
+
+    // Windows are seconds here and milliseconds in buildAppConfig. The
+    // throttler wants milliseconds; no .env file should contain 900000.
+    THROTTLE_DEFAULT_LIMIT: z.coerce.number().int().min(1).default(100),
+    THROTTLE_DEFAULT_WINDOW: z.coerce.number().int().min(1).default(60),
+
+    // Sign-in, sign-up and the reset routes. Ten attempts a quarter of an hour
+    // is generous for a person and ruinous for a script walking a list.
+    THROTTLE_AUTH_LIMIT: z.coerce.number().int().min(1).default(10),
+    THROTTLE_AUTH_WINDOW: z.coerce.number().int().min(1).default(900),
+
+    // Pack opening and trade creation, applied when those routes exist.
+    THROTTLE_MODERATE_LIMIT: z.coerce.number().int().min(1).default(30),
+    THROTTLE_MODERATE_WINDOW: z.coerce.number().int().min(1).default(60),
   })
   .refine((env) => env.REDIS_CACHE_DB !== env.REDIS_QUEUE_DB, {
     message:
