@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { CatalogWriter } from './catalog.writer.js';
 import { ProvidersModule } from './providers/index.js';
+import { SyncRunService } from './sync-run.service.js';
 
 /**
  * The sync layer. Processors arrive with the tickets that own them: PD-42
@@ -12,7 +13,7 @@ import { ProvidersModule } from './providers/index.js';
  */
 @Module({
   imports: [ProvidersModule],
-  providers: [CatalogWriter],
-  exports: [ProvidersModule, CatalogWriter],
+  providers: [CatalogWriter, SyncRunService],
+  exports: [ProvidersModule, CatalogWriter, SyncRunService],
 })
 export class SyncModule {}
