@@ -148,3 +148,110 @@ The catalog is 20 670 cards, so a full sweep is 83 pages — roughly 275 request
 once retries are counted. Well inside the anonymous rate limit. The free API key
 raises it further and should be set before the first production sweep; v1 uses
 no paid services, and this key is free.
+
+## The catalog sync
+
+`catalog-sync.processor.ts` fills the mirror. `catalog-sync.scheduler.ts`
+enqueues it daily at 3am, and its entire body is a `queue.add`.
+
+### The guard is the whole point
+
+`catalog.writer.ts` holds the only raw SQL in this module, because Prisma has no
+conditional-update upsert and `prisma.card.upsert` issues an UPDATE on conflict
+unconditionally. On a 20 670-card catalog that is 20 670 dead tuples per sweep
+plus churn across five indexes, for data that changes a few times a year.
+
+Measured with `xmin`, the transaction that last wrote a row:
+
+| | rows written | xmin |
+| --- | --- | --- |
+| unguarded, identical payload | 1 | moved |
+| guarded, identical payload | 0 | unmoved |
+| guarded, rarity changed | 1 | moved |
+| guarded, same change replayed | 0 | unmoved |
+
+Measured again end to end, which is the number that matters. Every existing card
+id was snapshotted with its `xmin`, then a full sync re-fetched and re-upserted
+19 920 cards:
+
+```
+rewrites among rows that already existed : 0
+rows inserted (pages that had failed before) : 250
+```
+
+**Three rules hold it together, and breaking any is silent.** Column names are
+quoted, because they are camelCase in the database. `"updatedAt"` is set with
+`now()`, because Prisma's `@updatedAt` does not apply to raw SQL. And
+`"updatedAt"` stays **out** of the comparison tuple — including it makes every
+row differ from itself, which restores the churn while the SQL still looks
+guarded.
+
+`jsonb` values bind as `JSON.stringify(value)` with an explicit `::jsonb` cast;
+arrays bind natively.
+
+### Flat pagination, not per set
+
+The ticket's scope line says per set. Per set is at least 176 requests, roughly
+590 once PD-39's retries are counted at the measured 30% success rate. Flat at
+250 cards a page is 83 requests, roughly 275. The anonymous rate limit cannot be
+observed, since the provider sends no headers, so the cheaper loop wins and
+failure isolation happens per page instead of per set — which is finer.
+
+### The mirror converges rather than completing
+
+A sweep does not finish the catalog in one pass, and is not meant to. Measured
+across four real runs:
+
+| run | processed | pages failed | cards in the mirror |
+| --- | --- | --- | --- |
+| 1 | 18 420 | 9 | 18 421 |
+| 2 | 19 920 | 3 | 20 420 |
+| 3 | 19 920 | 3 | 20 670 |
+| 4 | 19 920 | 3 | 20 670 |
+
+Each run picks up the pages the last one dropped, and the guard means the rows
+already there are not rewritten on the way past. By run 3 the mirror was
+complete. A run reporting `PARTIAL` with a handful of failed pages is the normal
+outcome against this upstream, not a fault.
+
+### Resumption
+
+`SyncRun.cursor` holds `{ page }`. A run is only resumed when the BullMQ job now
+executing is the one that created it, so a retry continues and a new job starts
+clean.
+
+Measured by killing the worker at page 5 and restarting it:
+
+```
+Resuming sync run cmu7hn5m8...  from {"page":5}
+first page after restart: 5
+sets re-fetched: 0
+```
+
+Sets are fetched only on page 1, so a resumed run does not spend a request
+re-reading 176 sets it already wrote.
+
+### Failure handling
+
+| What | Result |
+| --- | --- |
+| a page exhausts PD-39's retry budget | counted into `failed`, skipped, loop continues |
+| a card fails to parse | arrives in `CardPage.skipped`, counted, logged by id |
+| `ProviderContractError` | run closes `FAILED` immediately — the upstream changed shape |
+| the sets fetch fails | run closes `FAILED`; without sets, cards violate the foreign key |
+
+A run finishes `SUCCEEDED` when nothing failed and `PARTIAL` otherwise. Only
+those two invalidate the cache; a `FAILED` run leaves it warm, because the mirror
+is no less current than it was.
+
+### Two things that are not obvious
+
+**`SyncModule` imports `QueueModule` for the scheduler, not the processor.**
+BullMQ's explorer discovers `@Processor` classes globally, so the processor
+resolves without it — but `@InjectQueue` resolves through the importing module's
+own context, and the scheduler will not boot without the import.
+
+**A probe that boots `WorkerModule` and enqueues will not exit promptly.** The
+worker consumes what it enqueued, and `app.close()` drains the job in flight —
+which for a catalog sync is minutes. That is PD-41's graceful shutdown working,
+not a hang.
