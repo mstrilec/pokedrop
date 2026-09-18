@@ -56,6 +56,17 @@ export function buildAppConfig(env: Env) {
     },
     queue: {
       concurrency: env.QUEUE_CONCURRENCY,
+      defaults: {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5_000 },
+        removeOnComplete: { age: 86_400, count: 1_000 },
+        // BullMQ has no dead-letter queue: a job that exhausts its attempts
+        // stays in the `failed` set, and that set is the dead letter. `true`
+        // would delete the evidence at the moment it became interesting;
+        // `false` would keep every failure for ever in the same Redis database
+        // as the queues.
+        removeOnFail: { age: 604_800 },
+      },
     },
     throttle: {
       defaultLimit: env.THROTTLE_DEFAULT_LIMIT,
