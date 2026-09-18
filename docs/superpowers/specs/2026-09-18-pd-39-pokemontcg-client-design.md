@@ -41,7 +41,8 @@ than an error to report.
 `totalCount` on `/v2/cards` is 20 670. `pageSize=250` works and returns a 486 KB
 page, so a full sweep is **83 pages**. At the measured success rate that is
 roughly 275 HTTP requests including retries — comfortably inside the daily
-budget even anonymously.
+request ceiling even anonymously. ("Ceiling" throughout this document means a
+rate limit, never money: v1 uses no paid services, `docs/PRD.md` §2.)
 
 This is what keeps pokemontcg.io primary despite the flakiness: TCGdex serves
 full card data one card at a time, which is 20 670 requests for the same result.
@@ -53,7 +54,8 @@ A successful response carries `x-request-id` and nothing else — no
 budget it has left; it finds out by receiving a 429.
 
 `POKEMONTCG_API_KEY` is currently unset, so the sync runs anonymously at the
-lower documented ceiling. The key must be picked up the moment it is set, and it
+lower documented ceiling. The key itself is free — registration only — and just
+raises that limit. The key must be picked up the moment it is set, and it
 must never reach a log.
 
 **No 429 was observed.** Everything below about `Retry-After` is designed from
