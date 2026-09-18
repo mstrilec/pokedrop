@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { CatalogSyncProcessor } from './catalog-sync.processor.js';
 import { CatalogSyncScheduler } from './catalog-sync.scheduler.js';
 import { CatalogWriter } from './catalog.writer.js';
+import { QueueModule } from '../queue/index.js';
 import { ProvidersModule } from './providers/index.js';
 import { SyncRunService } from './sync-run.service.js';
 
@@ -14,7 +15,10 @@ import { SyncRunService } from './sync-run.service.js';
  * refuses that anywhere else.
  */
 @Module({
-  imports: [ProvidersModule],
+  // QueueModule is here for the scheduler's @InjectQueue. The processor does
+  // not need it - BullMQ's explorer discovers @Processor classes globally - but
+  // injecting a queue resolves through the importing module's own context.
+  imports: [ProvidersModule, QueueModule],
   providers: [CatalogWriter, SyncRunService, CatalogSyncProcessor, CatalogSyncScheduler],
   exports: [ProvidersModule, CatalogWriter, SyncRunService],
 })
