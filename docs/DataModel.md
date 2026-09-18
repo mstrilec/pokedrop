@@ -58,6 +58,18 @@ Measured on 20 000 synthetic cards: a `setId + rarity` filter plans as a `Bitmap
 
 The **≤ 1 snapshot/card/day** cap is enforced by the price sync job, not by the schema. Expressing it needs a unique index over `capturedAt::date`, and Prisma cannot declare expression indexes; adding one by hand would read as schema drift and Prisma would try to drop it on every subsequent migration.
 
+
+### SyncRun — *operational*
+
+`id, kind(CATALOG|PRICE), provider, status(RUNNING|SUCCEEDED|PARTIAL|FAILED), jobId?, startedAt, finishedAt?, processed, failed, cursor(json)?, error?`
+**Index:** `(kind, startedAt DESC)` — every consumer asks for the most recent run of a kind.
+
+One row per execution of a background sync. Redis and BullMQ job state were both considered and rejected: Redis loses the history on `docker compose down -v` and its keys would have to live outside the `cache:` namespace or a routine invalidation would sweep them, and BullMQ's retention is bounded so "the last successful catalog run" is a scan there rather than a query.
+
+`cursor` is the resume point — `{ "page": 12 }` for a catalog run. `jobId` is what makes resuming safe: a `RUNNING` row is only continued when the BullMQ job now executing is the one that created it, so a retry resumes and a new job starts clean.
+
+`provider` is a plain string on purpose. A closed enum would need a migration every time a provider is added, which is exactly the coupling the `CardSourceProvider` adapter removes.
+
 ### InventoryItem
 `id, userId, cardId, quantity, lockedQuantity, acquiredAt`
 **Unique** `(userId, cardId)`. `lockedQuantity` supports trade escrow; `availableQuantity = quantity − lockedQuantity`.
