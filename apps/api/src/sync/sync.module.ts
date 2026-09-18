@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { CatalogWriter } from './catalog.writer.js';
 import { ProvidersModule } from './providers/index.js';
 
 /**
@@ -11,6 +12,7 @@ import { ProvidersModule } from './providers/index.js';
  */
 @Module({
   imports: [ProvidersModule],
-  exports: [ProvidersModule],
+  providers: [CatalogWriter],
+  exports: [ProvidersModule, CatalogWriter],
 })
 export class SyncModule {}
