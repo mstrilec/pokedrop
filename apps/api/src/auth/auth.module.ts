@@ -7,10 +7,6 @@ import { RedisService } from '../redis/index.js';
 import { AUTH_INSTANCE } from './auth.constants.js';
 import { buildAuth } from './auth.factory.js';
 
-/**
- * Global because the guard in PD-33 needs the instance on every request, and
- * making each feature module import this one would be noise.
- */
 @Global()
 @Module({
   providers: [

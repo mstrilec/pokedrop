@@ -8,20 +8,9 @@ import { PrismaService } from '../prisma/index.js';
 import { HealthCheckFilter } from './health-check.filter.js';
 import { RedisHealthIndicator } from './redis.health.js';
 
-/**
- * How long a dependency has to answer before it counts as down. Short enough
- * that the probe resolves well inside an orchestrator's own timeout, long
- * enough not to fail on a slow but working connection.
- */
 const DEPENDENCY_TIMEOUT_MS = 1500;
 
 @ApiTags('health')
-/**
- * Exempt: an orchestrator polls these every few seconds from one address, so a
- * per-IP limit throttles them by design. A 429 from a liveness probe reads as a
- * dead process — the orchestrator restarts a healthy instance, then does it
- * again.
- */
 @SkipThrottle()
 @Public()
 @UseFilters(HealthCheckFilter)
@@ -34,21 +23,12 @@ export class HealthController {
     private readonly redis: RedisHealthIndicator,
   ) {}
 
-  /**
-   * Liveness: does the process answer at all.
-   *
-   * Deliberately dependency-free. A liveness probe that fails because the
-   * database is down would have an orchestrator restarting a perfectly healthy
-   * process, which does nothing for the database and drops every request in
-   * flight.
-   */
   @Get('live')
   @HealthCheck()
   live(): Promise<HealthCheckResult> {
     return this.health.check([]);
   }
 
-  /** Readiness: can this instance actually serve a request right now. */
   @Get('ready')
   @HealthCheck()
   ready(): Promise<HealthCheckResult> {

@@ -3,10 +3,6 @@ import { HealthIndicatorService } from '@nestjs/terminus';
 import type { HealthCheckAttempt } from '@nestjs/terminus';
 import { RedisService } from '../redis/index.js';
 
-/**
- * Terminus ships indicators for several databases but none for a plain ioredis
- * client, so this is the whole thing: ask Redis to say PONG.
- */
 @Injectable()
 export class RedisHealthIndicator {
   constructor(
@@ -18,11 +14,9 @@ export class RedisHealthIndicator {
     return this.healthIndicatorService
       .check(key)
       .attempt(async () => {
-        // Checked before pinging because ioredis keeps `enableOfflineQueue` on
-        // by default: with the server down, `ping()` does not reject, it joins
-        // a queue and waits for a reconnection that may never come. The status
-        // check turns that silent hang into an immediate, named failure, and
-        // the timeout below is only the backstop.
+        // Check status before pinging: ioredis keeps enableOfflineQueue on, so
+        // with the server down ping() does not reject - it queues and waits for
+        // a reconnection, and the probe would hang to its timeout.
         const { status } = this.redis.client;
 
         if (status !== 'ready') {

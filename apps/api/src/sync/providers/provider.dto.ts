@@ -11,16 +11,6 @@ import {
   WeaknessSchema,
 } from '@pokedrop/shared';
 
-/**
- * What a provider returns once its own mapper has run — provider-neutral by
- * construction, because the shape is taken from our Prisma models rather than
- * from any upstream payload.
- *
- * Dates are `z.date()` and not `z.coerce.date()` on purpose. The schemas in
- * @pokedrop/shared coerce because they serve both the wire and Prisma; here the
- * only producer is a mapper inside this folder, so accepting a string would do
- * nothing but hide a mapper that forgot to parse one.
- */
 export const SetDTOSchema = z.object({
   id: SetIdSchema,
   name: z.string().min(1),
@@ -34,13 +24,9 @@ export const SetDTOSchema = z.object({
 export type SetDTO = z.infer<typeof SetDTOSchema>;
 
 /**
- * A card as the catalog path carries it.
- *
- * `latestPriceUsd`, `latestPriceEur` and `priceUpdatedAt` are absent, and their
- * absence is the point: those three columns belong to the price path
- * (docs/Architecture.md section 7), and a type with no field for them cannot
- * express an overwrite of a fresh price with a stale one. The separation is
- * structural rather than a convention somebody has to remember.
+ * `latestPriceUsd`, `latestPriceEur` and `priceUpdatedAt` are absent on purpose:
+ * they belong to the price path, and a type with no field for them cannot
+ * express a catalog sync overwriting a fresh price with a stale one.
  */
 export const CardDTOSchema = z.object({
   id: CardIdSchema,
@@ -65,12 +51,6 @@ export const CardDTOSchema = z.object({
 });
 export type CardDTO = z.infer<typeof CardDTOSchema>;
 
-/**
- * One captured price point — what PriceSnapshot stores, minus its own id.
- *
- * A card yields up to two of these, one per source. `currency` is derived from
- * the source by the mapper rather than trusted from the payload.
- */
 export const PriceDTOSchema = z.object({
   cardId: CardIdSchema,
   source: PriceSourceSchema,

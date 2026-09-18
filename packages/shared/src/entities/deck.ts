@@ -9,10 +9,6 @@ export const DeckCardSchema = z.object({
 });
 export type DeckCard = z.infer<typeof DeckCardSchema>;
 
-/**
- * `format` is an open string rather than an enum: legality comes from the
- * card's own `legalities` map, which the provider extends with new formats.
- */
 export const DeckSchema = z.object({
   id: DeckIdSchema,
   userId: UserIdSchema,

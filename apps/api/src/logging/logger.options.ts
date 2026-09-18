@@ -2,25 +2,14 @@ import { randomUUID } from 'node:crypto';
 import type { Params } from 'nestjs-pino';
 import type { AppConfig } from '../config/index.js';
 
-/**
- * Request headers worth keeping. An allowlist rather than a denylist: the
- * default pino-http serializer logs every header, which means any future
- * bearer-style header nobody thought to redact would be logged in full from
- * the day it is introduced.
- */
-/**
- * The liveness route, spelled out because it is polled forever.
- *
- * Only liveness. A readiness probe that fails is worth a line — it is the
- * signal that an instance has stopped serving — whereas a liveness probe
- * answering "yes, the process exists" every few seconds says nothing anyone
- * will ever read.
- */
 const LIVENESS_PATH = '/api/v1/health/live';
 
 const CLIENT_ERROR_FLOOR = 400;
 const SERVER_ERROR_FLOOR = 500;
 
+// An allowlist, not a denylist: the default pino-http serializer logs every
+// header, so any future bearer-style header would be logged in full from the
+// day it is introduced.
 const LOGGED_REQUEST_HEADERS = [
   'user-agent',
   'referer',
@@ -29,23 +18,11 @@ const LOGGED_REQUEST_HEADERS = [
   'x-request-id',
 ] as const;
 
-/**
- * One source of pino configuration.
- *
- * The BullMQ worker in PD-41 is a second entrypoint into this same codebase,
- * and it imports this function rather than repeating any of it — that is what
- * makes "worker and API share the logger configuration" true by construction
- * instead of by discipline.
- */
 export function buildLoggerOptions(config: AppConfig): Params {
   return {
     pinoHttp: {
       level: config.logging.level,
 
-      // Adopt the id the request-id middleware already put on the request.
-      // Letting pino generate its own would put a different id in the log from
-      // the one in the error envelope and the X-Request-Id header, which is the
-      // exact failure PD-18 existed to fix.
       genReqId: (request) => {
         const { id } = request as { id?: string };
         return id ?? randomUUID();
@@ -55,9 +32,9 @@ export function buildLoggerOptions(config: AppConfig): Params {
         ignore: (request) => (request.url ?? '').split('?')[0] === LIVENESS_PATH,
       },
 
-      // Without this every completion line is written at `useLevel`, which
-      // defaults to info — a 500 would be logged at the same level as a
-      // successful read, and no alert on level >= error would ever fire.
+      // Without this, pino-http writes every completion line at `info` - a 500
+      // would be recorded at the level of a successful read, and an alert on
+      // level >= error would never fire.
       customLogLevel: (_request, response, error) => {
         if (error || response.statusCode >= SERVER_ERROR_FLOOR) {
           return 'error';
@@ -75,23 +52,18 @@ export function buildLoggerOptions(config: AppConfig): Params {
         }) => ({
           id: request.id,
           method: request.method,
-          // Carries the query string, which is worth having for catalog
-          // searches. Nothing secret travels in a query string today; anything
-          // token-bearing added later needs redacting here first.
+
           url: request.url,
           headers: pick(request.headers, LOGGED_REQUEST_HEADERS),
         }),
 
-        // Status only. The default serializer includes response headers, and
-        // Set-Cookie on a sign-in response is a session handed to anyone who
-        // can read the log.
         res: (response: { statusCode?: number }) => ({
           statusCode: response.statusCode,
         }),
       },
 
       // Defence in depth. The serializers above already drop these, but a later
-      // change to them should not silently re-expose anything.
+      // change to them should not silently re-expose a session cookie.
       redact: {
         paths: [
           'req.headers.authorization',
@@ -103,8 +75,6 @@ export function buildLoggerOptions(config: AppConfig): Params {
         censor: '[redacted]',
       },
 
-      // pino-pretty is a devDependency: production emits JSON and never loads
-      // it.
       transport: config.app.isProduction
         ? undefined
         : {

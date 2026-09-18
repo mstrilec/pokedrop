@@ -4,36 +4,18 @@ import { APP_CONFIG, type AppConfig } from '../config/index.js';
 import { CACHE_NAMESPACE } from './cache.keys.js';
 import { RedisService } from './redis.service.js';
 
-/** Keys examined per SCAN round trip during a pattern invalidation. */
 const SCAN_BATCH = 200;
 
 function describe(error: unknown): string {
   return error instanceof Error ? error.message : 'unknown error';
 }
 
-/**
- * The cache. Every method treats a Redis failure as a miss and carries on: a
- * cache that throws turns a degraded dependency into an outage, and the whole
- * point of this data being cached is that it can be fetched again.
- *
- * That tolerance is also why locks must not be taken through this class — see
- * the note on `lockKeys` in cache.keys.ts.
- */
 @Injectable()
 export class CacheService {
   private readonly logger = new Logger(CacheService.name);
 
-  /**
-   * Loads already in progress, keyed by cache key. Without this, every request
-   * that arrives in the moment after a popular entry expires starts its own
-   * identical call to the upstream API.
-   */
   private readonly inFlight = new Map<string, Promise<unknown>>();
 
-  /**
-   * The TTL table from docs/Architecture.md section 8, surfaced here so that
-   * reaching for a TTL is easier than writing a number.
-   */
   readonly ttl: AppConfig['cache']['ttl'];
 
   constructor(
@@ -43,12 +25,6 @@ export class CacheService {
     this.ttl = config.cache.ttl;
   }
 
-  /**
-   * Pass `schema` for anything containing dates. JSON has no date type, so a
-   * cached `Date` returns as a string while TypeScript goes on insisting it is
-   * a `Date` — a lie that surfaces somewhere far from here. The schemas in
-   * @pokedrop/shared coerce it back.
-   */
   async get<T>(key: string, schema?: ZodType<T>): Promise<T | null> {
     let raw: string | null;
 
@@ -78,8 +54,6 @@ export class CacheService {
 
     const result = schema.safeParse(parsed);
     if (!result.success) {
-      // Almost always means the shape changed in a deploy. Dropping the entry
-      // keeps a schema change from poisoning the key until its TTL runs out.
       this.logger.warn(`Cached value at ${key} no longer matches its schema; dropping it`);
       await this.drop(key);
       return null;
@@ -113,12 +87,10 @@ export class CacheService {
   }
 
   /**
-   * Returns the cached value, or runs `loader`, stores its result and returns
-   * that.
-   *
-   * A `null` from `loader` is stored but reads back as a miss, so callers whose
-   * absence is meaningful should represent it as something other than `null`
-   * rather than re-loading on every request.
+   * A `null` from `loader` is stored but reads back as a miss, so a loader whose
+   * absence is meaningful re-runs on every request. Pass `schema` for anything
+   * carrying dates: JSON has no date type, so a cached `Date` returns a string
+   * while TypeScript goes on insisting it is a `Date`.
    */
   async getOrSet<T>(
     key: string,
@@ -149,13 +121,6 @@ export class CacheService {
     return load;
   }
 
-  /**
-   * Deletes every key matching a glob, and returns how many went.
-   *
-   * Patterns are required to stay inside the cache namespace. The queue lives
-   * in its own logical database already, but that separation is one edited line
-   * of .env away from disappearing, whereas this check fails loudly.
-   */
   async invalidate(pattern: string): Promise<number> {
     if (!pattern.startsWith(`${CACHE_NAMESPACE}:`)) {
       throw new Error(
@@ -174,8 +139,6 @@ export class CacheService {
         cursor = next;
 
         if (keys.length > 0) {
-          // UNLINK, not DEL: the memory is reclaimed on a background thread, so
-          // clearing a large namespace does not stall every other caller.
           removed += await client.unlink(...keys);
         }
       } while (cursor !== '0');

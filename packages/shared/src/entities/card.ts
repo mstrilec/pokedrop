@@ -30,19 +30,9 @@ export const AbilitySchema = z.object({
 });
 export type Ability = z.infer<typeof AbilitySchema>;
 
-/**
- * Format legality. Values are left open rather than enumerated because the
- * provider adds formats over time and an unknown one must not fail a sync.
- */
 export const LegalitiesSchema = z.record(z.string(), z.string());
 export type Legalities = z.infer<typeof LegalitiesSchema>;
 
-/**
- * A card, mirrored from the provider and price-synced.
- *
- * The price fields are a denormalised convenience so a card list does not have
- * to join PriceSnapshot; the time series lives in PriceSnapshotSchema.
- */
 export const CardSchema = z.object({
   id: CardIdSchema,
   setId: SetIdSchema,

@@ -15,14 +15,10 @@ import { APP_CONFIG, type AppConfig } from './config/index.js';
 import { RedisThrottlerStorage, createAuthThrottleMiddleware } from './throttle/index.js';
 
 async function bootstrap(): Promise<void> {
-  // bufferLogs holds everything Nest emits during startup until useLogger
-  // swaps in pino, so the boot sequence is not split across two formats.
-  //
-  // bodyParser is off because Better Auth reads the raw request body and Nest's
-  // parser would consume it first. Everything else gets a parser below, after
-  // the auth handler and before the router — an express.json() registered after
-  // app.init() would sit behind the router and leave every controller with an
-  // empty body.
+  // bodyParser is off because Better Auth reads the raw request body. Every
+  // other route gets a parser below - after the auth handler and before
+  // app.init(), because a parser registered after init sits behind the Nest
+  // router and leaves every controller with an empty body.
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
     bodyParser: false,
@@ -31,45 +27,23 @@ async function bootstrap(): Promise<void> {
 
   const config = app.get<AppConfig>(APP_CONFIG);
 
-  // Decides what req.ip is, and therefore what the rate limiter keys on.
-  //
-  // Unset behind a proxy, every request appears to come from the proxy: one key
-  // for every user, and the first few requests exhaust the limit for everybody.
-  // Set to `true`, any client can send its own X-Forwarded-For and pick its own
-  // key. A hop count is the only answer that is wrong in neither direction, and
-  // it differs per environment.
+  // A hop count, never `true`: trusting every proxy lets a client send its own
+  // X-Forwarded-For and so choose its own rate-limit bucket.
   app.set('trust proxy', config.app.trustProxyHops);
 
   app.use(helmet());
 
-  // Before the router, so that every request carries a correlation id by the
-  // time anything can fail — including requests that match no route.
   app.use(requestIdMiddleware);
 
-  // An array origin makes Express reflect only allowlisted values. Note that a
-  // disallowed origin is not refused: the response simply carries no
-  // Access-Control-Allow-Origin header and the browser blocks it.
   app.enableCors({
     origin: config.app.corsOrigins,
     credentials: true,
   });
 
-  // Registered as a route rather than with app.use(AUTH_BASE_PATH, ...):
-  // mounting strips the prefix from req.url, and Better Auth routes on the full
-  // path. Deliberately outside the versioned prefix — these are Better Auth's
-  // own URLs, and versioning them would mean versioning someone else's
-  // contract.
   const auth = app.get<AuthInstance>(AUTH_INSTANCE);
   const authRoute = `${AUTH_BASE_PATH}/*splat`;
   const expressApp = app.getHttpAdapter().getInstance();
 
-  // Registered on the same pattern and before the handler, so Express runs it
-  // first and it can refuse without the handler ever seeing the request. The
-  // global ThrottlerGuard cannot do this job: these routes are not on the Nest
-  // router at all.
-  //
-  // Deliberately not app.use(AUTH_BASE_PATH, …): mounting strips the prefix
-  // from req.url, and this middleware routes on the full path.
   expressApp.all(authRoute, createAuthThrottleMiddleware(app.get(RedisThrottlerStorage), config));
   expressApp.all(authRoute, toNodeHandler(auth));
 
@@ -79,8 +53,6 @@ async function bootstrap(): Promise<void> {
   app.setGlobalPrefix('api');
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
 
-  // Lets Nest run onModuleDestroy hooks on SIGTERM, which the BullMQ workers in
-  // PD-41 need in order to finish the job in flight before the process exits.
   app.enableShutdownHooks();
 
   const openApiConfig = new DocumentBuilder()
@@ -92,8 +64,8 @@ async function bootstrap(): Promise<void> {
   const document = applyZodSchemas(SwaggerModule.createDocument(app, openApiConfig));
   SwaggerModule.setup('docs', app, document);
 
-  // init() mounts the Nest router; anything registered after it sits behind
-  // every real route, which is precisely where a not-found handler belongs.
+  // init() mounts the Nest router, so anything registered after it sits behind
+  // every real route - which is where a not-found handler belongs.
   await app.init();
   app.use(notFoundHandler);
 

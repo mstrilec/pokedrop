@@ -4,12 +4,6 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { APP_CONFIG, type AppConfig } from '../config/index.js';
 
-/**
- * The transaction-scoped client handed to a `withTransaction` callback.
- *
- * It is the full client minus the methods that would break out of the
- * transaction — you cannot nest a `$transaction` or `$connect` inside one.
- */
 export type TransactionClient = Omit<
   PrismaClient,
   '$connect' | '$disconnect' | '$on' | '$transaction' | '$extends'
@@ -21,9 +15,6 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   constructor(@Inject(APP_CONFIG) config: AppConfig) {
     super({
-      // Since Prisma 7 the connection string no longer lives in the schema, so
-      // the client is constructed with a driver adapter built from the typed
-      // config. prisma.config.ts covers the CLI separately.
       adapter: new PrismaPg({ connectionString: config.db.url }),
       log: config.db.queryLogging ? ['query', 'warn', 'error'] : ['warn', 'error'],
     });
@@ -40,13 +31,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   /**
-   * Runs `fn` inside a single database transaction, rolling the whole thing
-   * back if it throws.
-   *
-   * This is the primitive the two transactional cores are built on: the pack
-   * open in PD-58 debits currency and mints inventory, and the trade
-   * settlement in PD-70 swaps items between two users. Neither may ever half
-   * apply, so neither should call `$transaction` directly.
+   * The primitive both transactional cores build on. Nothing else should call
+   * `$transaction` directly.
    */
   async withTransaction<T>(fn: (tx: TransactionClient) => Promise<T>): Promise<T> {
     return this.$transaction(fn);

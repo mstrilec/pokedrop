@@ -2,10 +2,6 @@ import { z } from 'zod';
 import { PriceSourceSchema } from '../enums.js';
 import { CardIdSchema, PriceSnapshotIdSchema } from '../primitives/id.js';
 
-/**
- * One captured price point. Throttled to at most one per card per day, per
- * docs/DataModel.md — this is the fastest-growing table in the system.
- */
 export const PriceSnapshotSchema = z.object({
   id: PriceSnapshotIdSchema,
   cardId: CardIdSchema,

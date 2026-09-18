@@ -1,11 +1,3 @@
-/**
- * The entire public surface of this folder.
- *
- * Nothing outside `sync/providers/` may import a provider-specific type — the
- * fourth item of PD-38's scope. The rule is enforced by `no-restricted-imports`
- * in eslint.config.mjs rather than left as a convention, following the
- * workspace boundary PD-10 established.
- */
 export { CARD_SOURCE_PROVIDER, CARD_SOURCE_REGISTRY } from './card-source-provider.js';
 export type {
   CardPage,
