@@ -20,11 +20,28 @@ The system uses a **local catalog-mirror architecture**: card metadata and price
 
 ### API strategy (summary of the pre-PRD analysis)
 
+> **Decision — 2026-09-18: v1 uses no paid services.**
+>
+> Every external API this project depends on is free and stays free. No ticket
+> may introduce a service that requires payment, a credit balance, or a card on
+> file. **Scrydex is a documented option, never work to schedule** — the
+> provider adapter exists so that choosing it would one day cost a
+> configuration change, not a rewrite, and that day is not in v1.
+>
+> The mirror architecture is what makes free tiers sufficient structurally
+> rather than hopefully: external APIs are reached only by scheduled background
+> jobs, so call volume follows the size of the catalog and not the number of
+> users. A full catalog sweep is 83 pages plus one call for the set list.
+>
+> Hosting and a production mail relay are the only line items that can cost
+> money, and both have free tiers adequate to this load. They are decisions for
+> M14, not dependencies of any feature.
+
 | Concern | Decision |
 |---|---|
-| Primary card + price source | **pokemontcg.io API v2** — free, ~20k req/day with key, card object embeds TCGPlayer (USD) + Cardmarket (EUR) prices |
+| Primary card + price source | **pokemontcg.io API v2** — free; the key is free too and only raises the daily ceiling (~20k with it, lower anonymously). The card object embeds TCGPlayer (USD) + Cardmarket (EUR) prices |
 | Fallback / multilingual / self-host insurance | **TCGdex** — free, no key, REST + GraphQL, 14 languages, open-source & Docker-self-hostable, also carries Cardmarket/TCGplayer prices |
-| Documented production upgrade | **Scrydex** — commercial successor of pokemontcg.io, credit-based, SLA-backed; drop-in when a contract/SLA is required |
+| Documented production upgrade, **not used in v1** | **Scrydex** — commercial successor of pokemontcg.io, credit-based, SLA-backed. Paid, therefore out of scope; kept here only as the escape hatch the provider adapter makes cheap |
 | Optional species enrichment | **PokéAPI** — video-game Pokédex base stats/flavor for the card detail page only |
 | Explicitly rejected | Direct TCGPlayer API (closed to new devs) and scraping TCGPlayer/eBay (ToS-prohibited, fragile) |
 
