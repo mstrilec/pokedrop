@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { NotificationIdSchema, UserIdSchema } from '../primitives/id.js';
 
-/** `readAt` is null until the user opens it. */
 export const NotificationSchema = z.object({
   id: NotificationIdSchema,
   userId: UserIdSchema,

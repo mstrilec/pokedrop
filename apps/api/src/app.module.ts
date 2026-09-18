@@ -18,11 +18,6 @@ import { PrismaModule } from './prisma/index.js';
 import { RedisModule } from './redis/index.js';
 import { ThrottleModule } from './throttle/index.js';
 
-/**
- * The pipe and filter are registered through APP_PIPE and APP_FILTER rather
- * than app.useGlobalPipes in main.ts so they participate in dependency
- * injection — PD-18 will want the logger and config inside the filter.
- */
 @Module({
   imports: [
     AppConfigModule,
@@ -38,16 +33,12 @@ import { ThrottleModule } from './throttle/index.js';
   controllers: [AppController],
   providers: [
     AppService,
-    // Order is load-bearing: global guards run in the order they are provided.
-    // CsrfGuard is first so a forged request is refused on a header check
-    // rather than after SessionGuard has spent a database round-trip resolving
-    // the session it was trying to abuse. ThrottlerGuard comes after
-    // SessionGuard because it keys on the authenticated user, who is not on the
-    // request until SessionGuard puts them there — the cost is one lookup spent
-    // on a flood that carries a valid cookie, and SessionGuard does no lookup
-    // at all when there is no cookie. RolesGuard is last because it reads the
-    // caller SessionGuard resolved; reversed, it sees nobody and rejects
-    // everything.
+
+    // Order is load-bearing. CsrfGuard first, so a forged request is refused
+    // before SessionGuard spends a lookup on it. ThrottlerGuard after
+    // SessionGuard, because it keys on the authenticated user. RolesGuard last,
+    // because it reads the caller SessionGuard resolved - reversed, it sees
+    // nobody and rejects everything.
     { provide: APP_GUARD, useClass: CsrfGuard },
     { provide: APP_GUARD, useClass: SessionGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },

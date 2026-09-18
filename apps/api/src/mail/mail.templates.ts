@@ -1,13 +1,3 @@
-/**
- * Pure functions from data to a message. No I/O, no configuration, no
- * dependency on how delivery happens — so what a mail says can be changed and
- * read without touching the transport, and the transport without touching the
- * words.
- *
- * Deliberately no template library. mjml, handlebars and react-email all earn
- * their place at some number of templates; that number is not two.
- */
-
 export interface RenderedMail {
   subject: string;
   html: string;
@@ -16,11 +6,6 @@ export interface RenderedMail {
 
 const BRAND = 'PokeDrop';
 
-/**
- * Styles are inline rather than in a <style> block: a good share of mail
- * clients strip the head, and a stripped stylesheet leaves an unreadable page
- * rather than a plain one.
- */
 function layout(heading: string, paragraph: string, cta: string, url: string): string {
   return `<!doctype html>
 <html lang="en">
@@ -41,11 +26,6 @@ function layout(heading: string, paragraph: string, cta: string, url: string): s
 </html>`;
 }
 
-/**
- * Every template carries a text part as well as HTML. It is not decoration:
- * its absence is one of the signals spam filters weigh, and it is what a
- * plain-text client shows.
- */
 function plain(heading: string, paragraph: string, url: string): string {
   return `${BRAND}
 

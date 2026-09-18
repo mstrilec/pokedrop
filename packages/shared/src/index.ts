@@ -1,15 +1,3 @@
-/**
- * @pokedrop/shared — the API contract.
- *
- * Schemas are the source of truth and every type is inferred from one, so a
- * change here surfaces as a typecheck error in both apps rather than as a
- * runtime surprise. Nothing in this package may import from Nest or React.
- *
- * Endpoint request/response schemas are added by the ticket that implements
- * the endpoint. What lives here is what docs/DataModel.md and docs/API.md
- * actually specify: enums, entities, and the primitives every route shares.
- */
-
 export * from './enums.js';
 
 export * from './primitives/id.js';

@@ -1,11 +1,5 @@
 import { RarityTierSchema, type Card, type RarityTier } from '@pokedrop/shared';
 
-/**
- * Placeholder home page. The real landing page is PD-101.
- *
- * It consumes contracts from @pokedrop/shared so that a broken cross-package
- * type fails `pnpm typecheck` rather than surfacing later in a browser.
- */
 function cardLabel(card: Pick<Card, 'name' | 'rarity'>): string {
   return `${card.name} — ${card.rarity ?? 'unknown rarity'}`;
 }

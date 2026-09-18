@@ -11,12 +11,6 @@ export const TradeItemSchema = z.object({
 });
 export type TradeItem = z.infer<typeof TradeItemSchema>;
 
-/**
- * A trade proposal and its outcome.
- *
- * Currency moves in both directions independently, so a trade can be cards for
- * cards, cards for coins, or a mix. `resolvedAt` is null while PENDING.
- */
 export const TradeSchema = z.object({
   id: TradeIdSchema,
   initiatorId: UserIdSchema,
