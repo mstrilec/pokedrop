@@ -171,6 +171,24 @@ export function buildAuth(config: AppConfig, deps: AuthDependencies) {
        */
       requireEmailVerification: true,
 
+      /**
+       * Short, and shorter than the verification link. A stolen reset token
+       * takes over an account; a stolen verification token only proves an
+       * address.
+       */
+      resetPasswordTokenExpiresIn: config.auth.resetTtlSeconds,
+
+      /**
+       * A reset is the response to "someone else may have my password", so
+       * every existing session has to go — including the attacker's. Better
+       * Auth deletes them itself (password.mjs:171); doing it in
+       * `onPasswordReset` instead would duplicate that.
+       *
+       * PD-35 measured that revocation is not age-gated, so this holds however
+       * old the sessions are.
+       */
+      revokeSessionsOnPasswordReset: true,
+
       sendResetPassword: async ({ user, url }) => {
         await deliver(
           user.email,
@@ -268,6 +286,32 @@ export function buildAuth(config: AppConfig, deps: AuthDependencies) {
     },
 
     advanced: {
+      /**
+       * Stops a mail send from holding the response open, which is what makes
+       * `request-password-reset` a timing oracle.
+       *
+       * Without a handler here, `runInBackgroundOrAwait`
+       * (create-context.mjs:215) simply awaits — so the branch that finds a
+       * user pays for a full SMTP exchange and the branch that does not pays
+       * for one dummy lookup. Measured before this line: 708.8 ms against
+       * 1.9 ms over 15 samples each. The bodies were already identical; the
+       * clock gave it away anyway.
+       *
+       * The promise is detached deliberately. Failures are already caught and
+       * logged inside `deliver`, so nothing new becomes invisible, and the
+       * `catch` here is the guard against a rejection nobody owns crashing the
+       * process.
+       */
+      backgroundTasks: {
+        handler: (promise: Promise<unknown>) => {
+          void promise.catch((error: unknown) => {
+            logger.error(
+              `Background task failed: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          });
+        },
+      },
+
       /**
        * Secure cookies in production by default — a Secure cookie over plain
        * http is simply dropped, which would make local development look like a

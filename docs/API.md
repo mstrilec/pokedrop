@@ -97,7 +97,8 @@ Sign-*in* does not leak either: a wrong password and an unknown address return b
 | POST | `/auth/revoke-sessions` | Every session, including the caller's |
 | GET | `/auth/verify-email` | Activate account and release the 1,000-coin grant. A bad token is a 302 to `{callbackURL}?error=TOKEN_EXPIRED` — never a body |
 | POST | `/auth/send-verification-email` | Resend. Enumeration-safe by the provider; strict rate limit plus a per-recipient cooldown |
-| POST | `/auth/reset-password` | With reset token |
+| POST | `/auth/request-password-reset` | Always answers identically. Single-use token, `AUTH_RESET_TTL` (15 min) |
+| POST | `/auth/reset-password` | Consumes the token, sets the password, revokes every session |
 | GET | `/auth/get-session` | Current session/user |
 
 These are **not** under `/api/v1`. They are Better Auth's contract, and versioning someone else's URLs buys nothing. The handler owns everything under `/api/auth/*` and answers 404 for anything it does not recognise.

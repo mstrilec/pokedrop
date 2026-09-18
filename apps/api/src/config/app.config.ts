@@ -67,6 +67,7 @@ export function buildAppConfig(env: Env) {
        */
       secureCookies: env.AUTH_SECURE_COOKIES ?? env.NODE_ENV === 'production',
       verificationTtlSeconds: env.AUTH_VERIFICATION_TTL,
+      resetTtlSeconds: env.AUTH_RESET_TTL,
     },
     providers: {
       /** Null is valid: the provider serves anonymous callers at a lower rate limit. */

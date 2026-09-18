@@ -9,6 +9,25 @@ const CONNECTION_TIMEOUT_MS = 5_000;
 const GREETING_TIMEOUT_MS = 5_000;
 const SOCKET_TIMEOUT_MS = 10_000;
 
+/**
+ * Sends reuse a small pool of connections instead of opening one each.
+ *
+ * Without this, every message is its own SMTP connection. That was invisible
+ * while sends were awaited one request at a time, and it broke the moment
+ * PD-32 detached them: fifteen concurrent resets opened fifteen connections
+ * and ten died with "Greeting never received" — the relay was queueing them
+ * past the greeting timeout. Ten mails lost, and nothing in the response said
+ * so, because a detached send reports only to the log.
+ *
+ * Three is deliberately small. Real relays cap concurrent connections far
+ * harder than a local sink does, so the pool is what keeps a burst from
+ * looking like abuse.
+ */
+const MAX_CONNECTIONS = 3;
+
+/** Connections are recycled rather than held forever. */
+const MAX_MESSAGES_PER_CONNECTION = 100;
+
 export interface MailMessage {
   to: string;
   subject: string;
@@ -47,6 +66,9 @@ export class MailService implements OnModuleDestroy {
     // takes both.
     this.transporter = createTransport({
       url: config.mail.smtpUrl,
+      pool: true,
+      maxConnections: MAX_CONNECTIONS,
+      maxMessages: MAX_MESSAGES_PER_CONNECTION,
       connectionTimeout: CONNECTION_TIMEOUT_MS,
       greetingTimeout: GREETING_TIMEOUT_MS,
       socketTimeout: SOCKET_TIMEOUT_MS,
