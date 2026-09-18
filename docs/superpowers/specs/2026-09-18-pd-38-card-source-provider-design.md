@@ -391,9 +391,9 @@ order to switch providers at runtime.
 Both land now. The registry is three lines, and introducing it later would mean
 changing every call site that had injected the single token.
 
-`SyncModule` builds both. Until PD-39 registers an implementation the map is
-empty, so the factory **refuses to boot** with a readable message rather than
-resolving to `undefined`:
+`SyncModule` builds both. The factory for `CARD_SOURCE_PROVIDER` **refuses to
+boot** rather than resolving to `undefined` when the configured name is not in
+the registry:
 
 ```
 No card source provider is registered for "pokemontcg". Providers are
@@ -402,6 +402,18 @@ registered by PD-39 (pokemontcg) and PD-40 (tcgdex).
 
 This follows the precedent set by `parseEnv`: a misconfiguration names itself at
 boot instead of surfacing as a null dereference inside a job at 3am.
+
+#### `SyncModule` is not wired into `AppModule` by this ticket
+
+Nest instantiates providers eagerly, so importing `SyncModule` into `AppModule`
+while the registry is still empty would make that refusal fire on every boot —
+PD-38 would leave `dev` unable to start until PD-39 landed. A guard against
+misconfiguration must not become the misconfiguration.
+
+`SyncModule` is therefore written, exported and left unimported. PD-39 wires it
+into `AppModule` in the same commit that registers the first provider, which is
+the first moment the refusal can only fire for a real reason. The verification
+plan imports it temporarily to observe the refusal, then reverts.
 
 ### Configuration
 
@@ -475,8 +487,10 @@ scratchpad: `ptcg-sets.json`, `tcgdex-sets.json`, `tcgdex-set.json`,
 4. **The error taxonomy is distinguishable.** Construct one of each and assert
    `instanceof ProviderError` holds for all three while the subclasses remain
    distinct — this is what PD-43 will branch on.
-5. **The boot refusal fires.** Start the API with no provider registered and
-   confirm it exits naming `pokemontcg` rather than starting and failing later.
+5. **The boot refusal fires.** Temporarily import `SyncModule` into
+   `AppModule`, start the API, and confirm it exits naming `pokemontcg` rather
+   than starting and failing later. Revert the import — PD-39 makes it
+   permanent.
 6. **The ESLint boundary bites.** Add a temporary import of a path under
    `sync/providers/pokemon-tcg/` from `apps/api/src/app.service.ts`, confirm
    `pnpm lint` fails with the configured message, then remove it.
@@ -506,9 +520,20 @@ reported, not smoothed over.
 | --- | --- |
 | `apps/api/src/config/env.schema.ts` | `CARD_SOURCE_PROVIDER` |
 | `apps/api/src/config/app.config.ts` | `providers.active` |
-| `apps/api/src/app.module.ts` | import `SyncModule` |
 | `eslint.config.mjs` | the provider-folder boundary rule |
+| `docs/Architecture.md` | §3, the `fetchCards` signature |
 | `.env.example`, `.env` | the new variable, documented |
+
+`apps/api/src/sync/README.md` is new too — it carries the boundary rule the
+ticket's fourth scope bullet asks to document, beside the code the rule governs.
+
+`apps/api/src/app.module.ts` is deliberately **not** edited; see *`SyncModule` is
+not wired into `AppModule` by this ticket*.
+
+`docs/Architecture.md` §3 currently prints the interface with
+`fetchCards(params): Promise<CardDTO[]>`. Changing the signature without
+changing the document would leave the architecture reference stating something
+untrue on the first page anyone reads about this seam.
 
 No migration. No new dependency.
 
