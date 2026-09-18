@@ -17,3 +17,5 @@ export {
   ProviderUnavailableError,
 } from './provider.errors.js';
 export type { ProviderItemError } from './provider.errors.js';
+
+export { ProvidersModule } from './providers.module.js';

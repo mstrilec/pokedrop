@@ -1,37 +1,16 @@
 import { Module } from '@nestjs/common';
-import { APP_CONFIG, type AppConfig } from '../config/index.js';
-import {
-  CARD_SOURCE_PROVIDER,
-  CARD_SOURCE_REGISTRY,
-  type CardSourceName,
-  type CardSourceProvider,
-  type CardSourceRegistry,
-} from './providers/index.js';
+import { ProvidersModule } from './providers/index.js';
 
+/**
+ * The sync layer. Processors arrive with the tickets that own them: PD-42
+ * (catalog sync), PD-48 (price sync), PD-74 (trade expiry).
+ *
+ * The provider registry is not here but in ProvidersModule, because registering
+ * one means naming a concrete client and the lint rule sealing that folder
+ * refuses that anywhere else.
+ */
 @Module({
-  providers: [
-    {
-      provide: CARD_SOURCE_REGISTRY,
-
-      useFactory: (): CardSourceRegistry => new Map<CardSourceName, CardSourceProvider>(),
-    },
-    {
-      provide: CARD_SOURCE_PROVIDER,
-      inject: [CARD_SOURCE_REGISTRY, APP_CONFIG],
-      useFactory: (registry: CardSourceRegistry, config: AppConfig): CardSourceProvider => {
-        const provider = registry.get(config.providers.active);
-
-        if (!provider) {
-          throw new Error(
-            `No card source provider is registered for "${config.providers.active}". ` +
-              'Providers are registered by PD-39 (pokemontcg) and PD-40 (tcgdex).',
-          );
-        }
-
-        return provider;
-      },
-    },
-  ],
-  exports: [CARD_SOURCE_PROVIDER, CARD_SOURCE_REGISTRY],
+  imports: [ProvidersModule],
+  exports: [ProvidersModule],
 })
 export class SyncModule {}

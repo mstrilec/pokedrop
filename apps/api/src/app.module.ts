@@ -17,6 +17,7 @@ import { MailModule } from './mail/index.js';
 import { PrismaModule } from './prisma/index.js';
 import { QueueModule } from './queue/index.js';
 import { RedisModule } from './redis/index.js';
+import { SyncModule } from './sync/index.js';
 import { ThrottleModule } from './throttle/index.js';
 
 @Module({
@@ -31,6 +32,7 @@ import { ThrottleModule } from './throttle/index.js';
     AuthModule,
     HealthModule,
     QueueModule,
+    SyncModule,
   ],
   controllers: [AppController],
   providers: [
