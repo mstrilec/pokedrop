@@ -1,2 +1,6 @@
-export { AppLoggingModule } from './logging.module.js';
-export { buildLoggerOptions } from './logger.options.js';
+export { AppLoggingModule, WorkerLoggingModule } from './logging.module.js';
+export {
+  buildBaseLoggerOptions,
+  buildLoggerOptions,
+  buildWorkerLoggerOptions,
+} from './logger.options.js';
