@@ -60,7 +60,7 @@
 |---|---|
 | Primary card + price source | **pokemontcg.io API v2** — free, ~20k req/day with key; card object embeds TCGPlayer (USD) + Cardmarket (EUR) prices |
 | Fallback / multilingual / self-host | **TCGdex** — free, no key, REST + GraphQL, 14 languages, Docker-self-hostable |
-| Documented production upgrade | **Scrydex** — commercial successor of pokemontcg.io, credit-based, SLA-backed; drop-in when a contract is required |
+| Documented production upgrade, **not used in v1** | **Scrydex** — commercial successor of pokemontcg.io, credit-based, SLA-backed. Paid, and v1 uses no paid services (`docs/PRD.md` §2, API strategy); kept as the escape hatch this adapter makes cheap |
 | Optional species enrichment | **PokéAPI** — Pokédex base stats/flavor for the card detail page only |
 | Rejected | Direct TCGPlayer API (closed) and scraping TCGPlayer/eBay (ToS-prohibited) |
 
