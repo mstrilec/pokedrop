@@ -11,11 +11,14 @@
     "dev": "nest start --watch",
     "start": "nest start",
     "start:prod": "node dist/main",
+    "start:worker": "node dist/worker",
+    "dev:worker": "nest start --watch --entryFile worker",
     "db:seed": "node prisma/seed.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\""
   },
   "dependencies": {
+    "@nestjs/bullmq": "12.0.0",
     "@nestjs/common": "^12.0.3",
     "@nestjs/config": "^12.0.0",
     "@nestjs/core": "^12.0.3",
@@ -27,6 +30,7 @@
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
     "better-auth": "1.7.5",
+    "bullmq": "5.81.5",
     "express": "5.2.1",
     "helmet": "^8.3.0",
     "ioredis": "5.8.2",
