@@ -353,11 +353,18 @@ Windows — there is no real POSIX signal delivery, so the process is killed
 before `onModuleDestroy` runs.
 
 That would make the third scope item unobservable on the development machine,
-which is not acceptable for a repository whose claims are all measured. The way
-around it is that **Node does deliver SIGINT on Windows**, and Nest's shutdown
-hooks listen for SIGINT alongside SIGTERM. So the drain is measured with SIGINT:
-enqueue a job that sleeps, signal the worker mid-job, and watch the job complete
-before the process exits.
+which is not acceptable for a repository whose claims are all measured.
+
+> **Corrected during implementation, 2026-09-18.** This section originally said
+> Node delivers SIGINT on Windows and that the drain could be measured with it.
+> It cannot: `kill -INT` from Git Bash left the worker running with no hook
+> firing at all. A real Ctrl+C in an interactive console does deliver SIGINT; a
+> script cannot.
+>
+> The drain was measured by calling `app.close()` directly, which is what a
+> signal handler would call anyway — `close()` invoked three seconds into a
+> ten-second job resolved 7.05 s later, immediately after the job finished. The
+> mechanism is sound; only the trigger is unavailable on this platform.
 
 What that demonstrates is the mechanism — hooks fire, BullMQ drains, connections
 close. Whether the orchestrator's SIGTERM reaches the process is a platform

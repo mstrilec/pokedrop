@@ -112,6 +112,21 @@ Each user's `currency` is computed from their ledger rather than written beside 
 > wrong server and migrations would land in the wrong database. Both ports are
 > settable in `.env` (`POSTGRES_PORT`, `REDIS_PORT`) if they clash on yours.
 
+### Run the API and the worker
+
+```bash
+pnpm --filter @pokedrop/api dev          # API on 4000
+pnpm --filter @pokedrop/api dev:worker   # background worker, no port
+```
+
+The worker is a second entrypoint into the same codebase (`src/worker.ts`). It
+consumes the BullMQ queues in Redis db 1 and holds no port of its own, so
+killing it leaves the API serving — enqueued jobs simply wait. It registers no
+processors yet; PD-42 adds the first. See
+[`apps/api/src/queue/README.md`](apps/api/src/queue/README.md) for the retry and
+dead-letter behaviour, and for the one trap: `defaultJobOptions` is applied by
+the producer, so anything that enqueues must use the injected queue.
+
 ### Connect
 
 ```bash

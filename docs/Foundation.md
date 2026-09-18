@@ -171,11 +171,11 @@ Versions are never repeated in YAML: `pnpm/action-setup` reads `packageManager` 
 - **`getOrSet` cannot cache `null`.** A stored `null` reads back as a miss, so a loader that legitimately returns `null` re-runs on every request. None of the current entries can be null; represent absence some other way if that changes.
 - **`packages/shared/dist` is a build input, not only an output.** `typecheck` and `lint` build it first. A new script that lints or typechecks without that step will pass locally and fail in CI.
 - **ESLint is held at 9.** ESLint 10 crashes `eslint-plugin-react` (`contextOrFilename.getFilename is not a function`) through `eslint-config-next`. npm now marks ESLint 9 deprecated; the upgrade waits on the plugin, not on us.
-- **ioredis is held at 5.8.2.** Version 6 is recent, and BullMQ declares only `ioredis >=5.0.0` — which admits it without testing it. Revisit at PD-41, with BullMQ, together.
+- **ioredis is held at 5.8.2, and there are now two copies of it.** The revisit promised here happened in PD-41, and the premise was wrong: bullmq 5 declares no `ioredis` peer at all — it pins an exact `ioredis: 5.11.1` as a direct dependency, so there is no version negotiation to get wrong. The `>=5.0.0` peer is bullmq **6**, where ioredis became pluggable. We are on bullmq 5.81.5, so `node_modules/.pnpm` holds both 5.8.2 (ours) and 5.11.1 (bullmq's) — verified. The duplication is accepted: BullMQ never shares a connection with the cache anyway, because a blocking read needs `maxRetriesPerRequest: null` and the cache needs the opposite. The condition for moving to bullmq 6 is that it earns a maintenance dist-tag of its own, the way 3, 4 and 5 each did.
 
 ### Platform
 
-- **SIGTERM does not run shutdown hooks on Windows.** Node has no real POSIX signal delivery there, so the process is killed before `onModuleDestroy`. The mechanism itself is sound — `app.close()` closes Redis and Postgres cleanly and exits 0 — and it will behave in Docker. Do not read a missing shutdown log on Windows as a bug.
+- **No signal runs shutdown hooks on Windows.** Node has no real POSIX signal delivery there, so the process is killed before `onModuleDestroy`. PD-41 assumed SIGINT was the exception and measured otherwise: `kill -INT` from Git Bash left the worker running with no hook firing at all. A real Ctrl+C in an interactive console does deliver it; a script cannot. The mechanism itself is sound — `app.close()` drains BullMQ and closes Redis and Postgres cleanly, measured in PD-41 — and SIGTERM behaves in Docker. Do not read a missing shutdown log on Windows as a bug.
 - **Line endings.** Git reports CRLF normalisation on `docs/*.md` for every commit made from Windows. Harmless, but it makes diffs noisier than they need to be.
 
 ---
