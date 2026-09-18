@@ -14,6 +14,41 @@ import tseslint from 'typescript-eslint';
  * Formatting is Prettier's job alone: `eslint-config-prettier` goes last and
  * switches off every stylistic rule the two would otherwise fight over.
  */
+
+/**
+ * Shared so the two `apps/api` blocks below cannot drift. Flat config resolves
+ * a rule by last match rather than by merging, so the block that re-states
+ * `no-restricted-imports` for the providers folder has to repeat this group or
+ * it would silently switch the workspace boundary off for those files.
+ */
+const apiMustNotImportWeb = {
+  // These match the import specifier as written, not the resolved path, so the
+  // relative form has to be listed too.
+  group: ['@pokedrop/web', '@pokedrop/web/**', '**/apps/web/**', '**/web/app/**', '../**/web/**'],
+  message:
+    'apps/api must not import from apps/web. Share types and schemas through @pokedrop/shared.',
+};
+
+/**
+ * PD-38's provider seam. Everything outside sync/providers/ goes through the
+ * folder's index.ts, which exports the interface, the DTOs, the errors and the
+ * tokens - never a provider's own client, raw schema or mapper.
+ *
+ * Same caveat as above: the patterns match the specifier as written, so both
+ * the `./providers/...` form used from inside sync/ and the
+ * `.../sync/providers/...` form used from elsewhere are listed.
+ */
+const providerInternalsAreSealed = {
+  group: [
+    '**/sync/providers/*/**',
+    './providers/*/**',
+    '../providers/*/**',
+    '../**/sync/providers/*/**',
+  ],
+  message:
+    'Provider internals stay behind apps/api/src/sync/providers/index.ts. Import the interface, DTOs, errors and tokens from there.',
+};
+
 export default tseslint.config(
   {
     ignores: [
@@ -102,22 +137,18 @@ export default tseslint.config(
     rules: {
       'no-restricted-imports': [
         'error',
-        {
-          patterns: [
-            {
-              group: [
-                '@pokedrop/web',
-                '@pokedrop/web/**',
-                '**/apps/web/**',
-                '**/web/app/**',
-                '../**/web/**',
-              ],
-              message:
-                'apps/api must not import from apps/web. Share types and schemas through @pokedrop/shared.',
-            },
-          ],
-        },
+        { patterns: [apiMustNotImportWeb, providerInternalsAreSealed] },
       ],
+    },
+  },
+  // The providers folder is what the seal protects, not what it constrains: a
+  // client imports its own raw schema and mapper, and may reach a sibling
+  // provider by a long path. Last match wins, so this restates the workspace
+  // boundary rather than only dropping the seal.
+  {
+    files: ['apps/api/src/sync/providers/**/*.ts'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [apiMustNotImportWeb] }],
     },
   },
 
