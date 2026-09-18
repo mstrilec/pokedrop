@@ -72,6 +72,15 @@ export const EnvSchema = z
     POKEMONTCG_BASE_URL: z.url().default('https://api.pokemontcg.io/v2'),
     TCGDEX_BASE_URL: z.url().default('https://api.tcgdex.net/v2'),
 
+    // Which provider the sync layer reads from. pokemontcg.io is primary per
+    // docs/PRD.md section 15, and stays primary despite answering 500 on
+    // /v2/cards on 2026-09-18: it is the only one of the two with a bulk path
+    // to full card data - up to 250 cards per request against TCGdex's one,
+    // which is roughly 80 requests for a full catalog against 20 000.
+    //
+    // Changing this value is the whole of "changing provider". No code moves.
+    CARD_SOURCE_PROVIDER: z.enum(['pokemontcg', 'tcgdex']).default('pokemontcg'),
+
     QUEUE_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(4),
 
     // How many proxies sit in front of this process. Express uses it to decide

@@ -70,6 +70,12 @@ export function buildAppConfig(env: Env) {
       resetTtlSeconds: env.AUTH_RESET_TTL,
     },
     providers: {
+      /**
+       * The active card source. `CardSourceName` in sync/providers is inferred
+       * from this field, so adding a provider means editing the enum in
+       * env.schema.ts and nothing else.
+       */
+      active: env.CARD_SOURCE_PROVIDER,
       /** Null is valid: the provider serves anonymous callers at a lower rate limit. */
       pokemonTcgApiKey: env.POKEMONTCG_API_KEY ?? null,
       pokemonTcgBaseUrl: env.POKEMONTCG_BASE_URL,
