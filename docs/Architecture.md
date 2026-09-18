@@ -70,12 +70,15 @@ All external sources implement a common `CardSourceProvider` interface:
 
 ```
 CardSourceProvider
+  name: CardSourceName
   fetchSets(): Promise<SetDTO[]>
-  fetchCards(params): Promise<CardDTO[]>
+  fetchCards(params): Promise<CardPage>
   fetchPrices(cardIds): Promise<PriceDTO[]>
 ```
 
-`PokemonTcgClient` is the default; `TcgdexClient` is a fallback the sync layer switches to on repeated failures. The rest of the app is source-agnostic.
+`fetchCards` returns a page — `{ items, skipped, page, pageSize, total, hasMore }` — rather than a flat array. The catalog sync has to resume after a crash and has to page across the whole catalog, and a provider that loops internally makes both impossible: the caller never sees a page boundary to resume from, and an entire catalog lands in memory before anything returns. `skipped` carries items that failed to parse, so one malformed card does not discard the good ones beside it.
+
+`PokemonTcgClient` is the default; `TcgdexClient` is a fallback the sync layer switches to on repeated failures. The rest of the app is source-agnostic, and `CARD_SOURCE_PROVIDER` in the environment is the whole of choosing between them. The seam lives in `apps/api/src/sync/providers/`, and an ESLint rule keeps provider internals behind its `index.ts`.
 
 ## 4. Backend module structure (NestJS)
 
