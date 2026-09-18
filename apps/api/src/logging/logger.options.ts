@@ -18,10 +18,29 @@ const LOGGED_REQUEST_HEADERS = [
   'x-request-id',
 ] as const;
 
+export function buildBaseLoggerOptions(config: AppConfig) {
+  return {
+    level: config.logging.level,
+
+    // pino-pretty is a devDependency: production emits JSON and never loads it.
+    transport: config.app.isProduction
+      ? undefined
+      : {
+          target: 'pino-pretty',
+          options: {
+            colorize: true,
+            singleLine: true,
+            translateTime: 'SYS:HH:MM:ss.l',
+            ignore: 'pid,hostname',
+          },
+        },
+  };
+}
+
 export function buildLoggerOptions(config: AppConfig): Params {
   return {
     pinoHttp: {
-      level: config.logging.level,
+      ...buildBaseLoggerOptions(config),
 
       genReqId: (request) => {
         const { id } = request as { id?: string };
@@ -74,20 +93,20 @@ export function buildLoggerOptions(config: AppConfig): Params {
         ],
         censor: '[redacted]',
       },
-
-      transport: config.app.isProduction
-        ? undefined
-        : {
-            target: 'pino-pretty',
-            options: {
-              colorize: true,
-              singleLine: true,
-              translateTime: 'SYS:HH:MM:ss.l',
-              ignore: 'pid,hostname',
-            },
-          },
     },
   };
+}
+
+/**
+ * The worker's options: the shared base and nothing else. nestjs-pino takes
+ * pino's options under `pinoHttp` in both cases; with createApplicationContext
+ * there is no HTTP adapter, so its middleware is never mounted.
+ *
+ * The worker's equivalent of a request id is the job id, and that belongs on a
+ * child logger inside a processor - pino-http has no hook to generate one.
+ */
+export function buildWorkerLoggerOptions(config: AppConfig): Params {
+  return { pinoHttp: buildBaseLoggerOptions(config) };
 }
 
 function pick(
