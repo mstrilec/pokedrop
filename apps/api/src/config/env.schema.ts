@@ -120,6 +120,11 @@ export const EnvSchema = z
     // path measurable without forging a token.
     AUTH_VERIFICATION_TTL: z.coerce.number().int().min(1).default(3600),
 
+    // How long a password-reset link is good for. Shorter than the
+    // verification link on purpose: a reset token in the wrong hands takes
+    // over an account, while a verification token only proves an address.
+    AUTH_RESET_TTL: z.coerce.number().int().min(1).default(900),
+
     // Per-address floor between two verification mails. PD-36's limiter is
     // keyed by the address of the *caller*; this one is keyed by the address
     // of the recipient, which is what stops a distributed flood of somebody

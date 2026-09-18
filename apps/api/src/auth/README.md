@@ -100,6 +100,36 @@ The hook catches and logs rather than raising, because it runs after `emailVerif
 
 Note that the Prisma client logs the caught unique violation at `error` level, because its log configuration is warn+error. `WelcomeGrantService`'s `debug` line is the authoritative outcome — the expected path is not a failure.
 
+### Password reset
+
+Almost all of it is the provider's. `consumeVerificationValue` (`password.mjs:29`) consumes rather than reads, so a token is single-use by construction — a replay answers `INVALID_TOKEN`, measured. `revokeSessionsOnPasswordReset: true` is one flag and does the rest: two live sessions went to zero, and both cookies answered `null`.
+
+`AUTH_RESET_TTL` is 15 minutes, deliberately shorter than the verification link's hour. A stolen reset token takes over an account; a stolen verification token only proves an address.
+
+#### The request endpoint was a timing oracle, and the body had nothing to do with it
+
+Both branches of `request-password-reset` already returned the same sentence, and the unknown-address branch already did decoy work. What it had no answer for was the clock. `runInBackgroundOrAwait` (`create-context.mjs:215`) **awaits** unless `advanced.backgroundTasks.handler` is configured, so the branch that found a user paid for a full SMTP exchange:
+
+```
+known    1081.0 ms
+unknown     7.2 ms      (15 samples each, all 200)
+```
+
+Configuring a handler detaches the send:
+
+```
+known      12.5 ms
+unknown     7.3 ms
+```
+
+**The residual, stated rather than rounded away:** roughly 5 ms still separates them — the real branch writes a verification row where the decoy branch reads one. That is a 200-fold reduction, not a closure. Removing it entirely would need a constant-time floor across *both* branches, and the only place to impose one is a wrapper around a route this application does not own, which means buffering a third-party handler's responses — rejected three times now, for the reasons in `docs/API.md`.
+
+#### Detaching the send exposed a missing connection pool
+
+`MailService` opened one SMTP connection per message. While sends were awaited one request at a time that was merely wasteful; detached, fifteen concurrent resets opened fifteen connections and **ten died** with `Greeting never received`. Ten mails lost, and nothing in the response said so — a detached send reports only to the log.
+
+`pool: true` with `maxConnections: 3` fixed it: 15 of 15 delivered, zero failures. Worth knowing that this is the shape of every detached-send bug — the response is already 200 by the time the failure happens.
+
 ### Two limits on the resend path
 
 `POST /api/auth/send-verification-email` is the provider's own, and is already enumeration-safe: decoy work for an unknown address plus a 500 ms constant-time floor, always answering `{ status: true }`.
