@@ -115,11 +115,14 @@ reason a catalog is.
 | Method | Path | Notes |
 | --- | --- | --- |
 | GET | `/api/v1/cards` | `q`, `set`, `rarity`, `type`, `sort`, `page`, `pageSize` |
-
-`type` takes one value and matches with containment (`types @> ARRAY[type]`), not a list. A card carries at most two types and the FilterBar in `docs/ComponentSpecs.md` is a single dropdown, so a multi-value filter would be surface nobody asked for.
 | GET | `/api/v1/cards/:id` | 404 when absent |
 | GET | `/api/v1/sets` | all 176, unpaginated |
 | GET | `/api/v1/sets/:id` | the set plus its card count |
+
+`type` takes one value and matches with containment (`types @> ARRAY[type]`),
+not a list. A card carries at most two types, and the FilterBar in
+`docs/ComponentSpecs.md` is a single dropdown — a multi-value filter would be
+surface nobody asked for.
 
 `/sets` is unpaginated on purpose. There are 176 rows and the number grows by a
 handful a year; paginating it would add a page control to every consumer for a
