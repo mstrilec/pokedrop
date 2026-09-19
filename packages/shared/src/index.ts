@@ -7,6 +7,7 @@ export * from './primitives/error.js';
 export * from './entities/user.js';
 export * from './entities/set.js';
 export * from './entities/card.js';
+export * from './entities/catalog.js';
 export * from './entities/price.js';
 export * from './entities/inventory.js';
 export * from './entities/pack.js';
