@@ -100,7 +100,7 @@ until 3 exists.
 **Interfaces:**
 - Consumes: `CardSourceName`, `ProviderRateLimitError`, `ProviderUnavailableError` from `../card-source-provider.js` and `../provider.errors.js`
 - Produces:
-  - `getJson(path: string, options: TcgdexHttpOptions): Promise<unknown | null>` — `null` means 404
+  - `getJson(path: string, options: TcgdexHttpOptions): Promise<unknown>` — resolves to `null` for a 404
   - `interface TcgdexHttpOptions { baseUrl: string; language: string; timeoutMs: number; maxAttempts: number; onRetry?: (attempt: number, reason: string) => void }`
   - `RawSetBriefSchema`, `RawSetSchema`, `RawCardBriefSchema`, `RawCardSchema` and the types `RawSetBrief`, `RawSet`, `RawCardBrief`, `RawCard`
 
@@ -156,8 +156,13 @@ const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
  * A 404 returns null instead of throwing. The brief index and the detail
  * endpoint are separate views of the same catalog and can disagree, and one
  * absent card must cost one card rather than the page it sits in.
+ *
+ * The return type is `unknown` rather than `unknown | null`, because those are
+ * the same type - `unknown` already admits null, and writing the union earns an
+ * eslint no-redundant-type-constituents error. Callers still test `=== null`,
+ * which TypeScript permits on `unknown`.
  */
-export async function getJson(path: string, options: TcgdexHttpOptions): Promise<unknown | null> {
+export async function getJson(path: string, options: TcgdexHttpOptions): Promise<unknown> {
   const url = `${options.baseUrl}/${options.language}${path}`;
   let lastReason = 'no attempt was made';
 
@@ -282,13 +287,6 @@ const RawAbilitySchema = z.looseObject({
 const RawTypeValueSchema = z.looseObject({
   type: z.string(),
   value: z.string(),
-});
-
-const RawPricePointSchema = z.looseObject({
-  lowPrice: z.number().optional(),
-  midPrice: z.number().optional(),
-  highPrice: z.number().optional(),
-  marketPrice: z.number().optional(),
 });
 
 export const RawCardSchema = z.looseObject({
@@ -983,7 +981,7 @@ export class TcgdexClient implements CardSourceProvider {
 
   /** `exu-%3F` is a real id. encodeURIComponent turns it into `exu-%253F`, which
    * is the URL that answers 200 - the double encoding is correct, not a bug. */
-  private get(path: string): Promise<unknown | null> {
+  private get(path: string): Promise<unknown> {
     return getJson(path, this.http);
   }
 
