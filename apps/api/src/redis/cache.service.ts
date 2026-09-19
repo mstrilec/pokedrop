@@ -16,6 +16,18 @@ export class CacheService {
 
   private readonly inFlight = new Map<string, Promise<unknown>>();
 
+  /**
+   * Per-process, in memory, and reset by a restart.
+   *
+   * Redis counters would survive and would aggregate across replicas, at the
+   * cost of an INCR on every read - doubling the round trips of the thing the
+   * cache exists to make cheap. There is one API process today; when PD-129
+   * runs replicas, an admin dashboard summing these will be reading one of
+   * them, and that is the moment to move them into Redis.
+   */
+  private hits = 0;
+  private misses = 0;
+
   readonly ttl: AppConfig['cache']['ttl'];
 
   constructor(
@@ -32,10 +44,12 @@ export class CacheService {
       raw = await this.redis.client.get(key);
     } catch (error) {
       this.logger.warn(`Cache read failed for ${key}: ${describe(error)}`);
+      this.misses += 1;
       return null;
     }
 
     if (raw === null) {
+      this.misses += 1;
       return null;
     }
 
@@ -45,10 +59,12 @@ export class CacheService {
     } catch {
       this.logger.warn(`Cached value at ${key} is not valid JSON; dropping it`);
       await this.drop(key);
+      this.misses += 1;
       return null;
     }
 
     if (!schema) {
+      this.hits += 1;
       return parsed as T;
     }
 
@@ -56,10 +72,24 @@ export class CacheService {
     if (!result.success) {
       this.logger.warn(`Cached value at ${key} no longer matches its schema; dropping it`);
       await this.drop(key);
+      this.misses += 1;
       return null;
     }
 
+    this.hits += 1;
     return result.data;
+  }
+
+  /**
+   * Hit and miss totals since this process started.
+   *
+   * A miss is counted once per `get` that did not return a value - including a
+   * Redis failure and a value dropped for not matching its schema, because from
+   * a caller's point of view all three are the same thing: the database has to
+   * be asked.
+   */
+  stats(): { hits: number; misses: number } {
+    return { hits: this.hits, misses: this.misses };
   }
 
   async set(key: string, value: unknown, ttlSeconds: number): Promise<void> {
