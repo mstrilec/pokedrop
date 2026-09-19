@@ -118,12 +118,24 @@ The endpoint that *requests* a reset email does not exist yet — it appears onc
 
 ## Catalog
 
+Served entirely from the mirror. No route here can reach an external API — `CatalogModule` imports nothing, and the provider tokens live in `SyncModule`, which it does not import. Verified by pointing `POKEMONTCG_BASE_URL` at an unroutable host and watching all four routes answer 200 in single-digit milliseconds.
+
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| GET | `/cards` | public | Search/filter/sort (`set`, `rarity`, `type`, `q`) |
-| GET | `/cards/:id` | public | Detail (from mirror + cached price) |
-| GET | `/sets` | public | Set list |
-| GET | `/sets/:id` | public | Set detail |
+| GET | `/cards` | public | `q`, `set`, `rarity`, `type`, `sort`, `page`, `pageSize` |
+| GET | `/cards/:id` | public | 404 when absent |
+| GET | `/sets` | public | all 176, unpaginated |
+| GET | `/sets/:id` | public | the set plus `cardCount` |
+
+**Sorting is `name_asc` or `name_desc`, and `id` always rides along.** 16 216 of the 20 670 cards share a name — `Pikachu` alone appears 134 times — so an order by name alone lets PostgreSQL return ties differently between requests, and offset pagination then shows one row twice and another never. `ORDER BY name, id` plans as an `Incremental Sort` with `Presorted Key: name`, so the btree still does the work. Verified: two pages of 50 share no ids and cover 100 distinct cards.
+
+**`q` is a case-insensitive substring match and is not index-backed.** The database uses a `C` collation, under which only a case-*sensitive* prefix gets an index condition; every case-insensitive form degrades to a filter. Measured on the full catalog: 0.84 ms for a matching query, and 9.0 ms worst case for one matching nothing, which is the only shape that reads all 20 670 rows. `pg_trgm` is the recorded upgrade and is deliberately not taken, because the operator-class index it needs is one Prisma cannot declare — see `DataModel.md` on why a hand-added index reads as schema drift.
+
+`set` and `rarity` are index-backed, and the two together plan as a `BitmapAnd` of both btrees — confirmed against the SQL Prisma actually generates, not a hand-written approximation. `type` matches with array containment and the planner treats it as a filter, because a common type covers a sixth of the table.
+
+**`pageSize` above 100 is rejected, not clamped** — a 400 naming the field. `total` and `totalPages` are always present, and the count that produces them costs about as much as the search itself.
+
+**`cardCount` on a set detail is what the mirror holds**, which is not necessarily `total`, what the provider says the set contains. They differ while a sync is still filling in pages that failed.
 
 ## Inventory
 
