@@ -135,6 +135,12 @@ Served entirely from the mirror. No route here can reach an external API — `Ca
 
 **`pageSize` above 100 is rejected, not clamped** — a 400 naming the field. `total` and `totalPages` are always present, and the count that produces them costs about as much as the search itself.
 
+**Card detail, the set list and a set detail are cached for 24 hours**; search is not. The TTL table in `Architecture.md` §8 names no search key, because a filter combination has high cardinality and a low hit rate, so caching one mostly fills Redis with entries nobody asks for twice. The catalog sync invalidates all three on every run that writes.
+
+**Prices are numbers, not strings.** Prisma returns `Decimal` for `latestPriceUsd` and `latestPriceEur`, which `JSON.stringify` turns into a string; the service converts at the boundary so the response matches `CardSchema`. `Decimal(10,2)` fits a JS number exactly, so nothing is lost. This was caught by PD-46's cold-versus-warm check — before it, `CardSchema` rejected every cached card and the cache silently never served one.
+
+**With Redis unavailable every route still answers from the database.** Measured by stopping the container: all four returned 200 in under 70 ms, each logging one warning. That needs `enableOfflineQueue: false` on the client — ioredis otherwise queues commands while disconnected and waits for a reconnection, so the read hangs instead of degrading.
+
 **`cardCount` on a set detail is what the mirror holds**, which is not necessarily `total`, what the provider says the set contains. They differ while a sync is still filling in pages that failed.
 
 ## Inventory
