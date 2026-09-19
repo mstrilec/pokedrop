@@ -25,6 +25,12 @@ export const CardSearchQuerySchema = PaginationQuerySchema.extend({
    * FilterBar is a single dropdown.
    */
   type: z.string().trim().min(1).max(32).optional(),
+  /**
+   * Added by the facets ticket rather than by the search ticket. The facets
+   * endpoint has to return supertypes, and a facet nobody can filter by is a
+   * list of values the API advertises and then rejects.
+   */
+  supertype: z.string().trim().min(1).max(32).optional(),
   sort: CardSortSchema,
 });
 export type CardSearchQuery = z.infer<typeof CardSearchQuerySchema>;
@@ -47,3 +53,30 @@ export const SetDetailSchema = CardSetSchema.extend({
   cardCount: z.number().int().min(0),
 });
 export type SetDetail = z.infer<typeof SetDetailSchema>;
+
+/**
+ * One shape for all four facets, so a filter dropdown has one renderer.
+ *
+ * `label` differs from `value` only for sets, where the value is an id like
+ * `base1` and nobody wants that in a dropdown. Keeping the field on the other
+ * three costs a duplicated string and saves the frontend a special case.
+ */
+export const FacetValueSchema = z.object({
+  value: z.string(),
+  label: z.string(),
+  count: z.number().int().min(0),
+});
+export type FacetValue = z.infer<typeof FacetValueSchema>;
+
+/**
+ * Global counts over the whole mirror, not counts conditional on the filters
+ * already applied. Conditional facets cannot share one cache key, and
+ * docs/Architecture.md section 8 gives this one key with a 24h TTL.
+ */
+export const CatalogFacetsSchema = z.object({
+  sets: z.array(FacetValueSchema),
+  rarities: z.array(FacetValueSchema),
+  types: z.array(FacetValueSchema),
+  supertypes: z.array(FacetValueSchema),
+});
+export type CatalogFacets = z.infer<typeof CatalogFacetsSchema>;

@@ -4,11 +4,14 @@ import { z } from 'zod';
 import {
   CardSchema,
   CardSetSchema,
+  CatalogFacetsSchema,
   SetDetailSchema,
   type Card,
   type CardSearchQuery,
   type CardSearchResult,
   type CardSet,
+  type CatalogFacets,
+  type FacetValue,
   type SetDetail,
 } from '@pokedrop/shared';
 import { PrismaService } from '../prisma/index.js';
@@ -60,6 +63,7 @@ export class CatalogService {
       ...(query.set === undefined ? {} : { setId: query.set }),
       ...(query.rarity === undefined ? {} : { rarity: query.rarity }),
       ...(query.type === undefined ? {} : { types: { has: query.type } }),
+      ...(query.supertype === undefined ? {} : { supertype: query.supertype }),
       ...(query.q === undefined ? {} : { name: { contains: query.q, mode: 'insensitive' } }),
     };
 
@@ -158,5 +162,99 @@ export class CatalogService {
     // `cardCount` is what the mirror holds; `total` is what the provider says
     // the set contains. They differ while a sync is still filling in pages.
     return SetDetailSchema.parse({ ...rest, cardCount: _count.cards });
+  }
+
+  /**
+   * Counts over the whole mirror, not counts narrowed by the filters already
+   * applied. Conditional facets would be keyed by a filter combination and
+   * could not live under the single `facets` key that
+   * docs/Architecture.md section 8 gives a 24h TTL.
+   */
+  async getFacets(): Promise<CatalogFacets> {
+    return this.cache.getOrSet(
+      cacheKeys.facets(),
+      this.cache.ttl.facets,
+      () => this.loadFacets(),
+      CatalogFacetsSchema,
+    );
+  }
+
+  private async loadFacets(): Promise<CatalogFacets> {
+    const [sets, rarities, types, supertypes] = await Promise.all([
+      this.setFacets(),
+      this.rarityFacets(),
+      this.typeFacets(),
+      this.supertypeFacets(),
+    ]);
+
+    return { sets, rarities, types, supertypes };
+  }
+
+  /**
+   * Grouped over cards rather than listed from sets. A set the mirror holds no
+   * cards for is a filter that returns an empty page, and offering one is worse
+   * than omitting it - all 176 sets currently qualify, so the two agree today.
+   */
+  private async setFacets(): Promise<FacetValue[]> {
+    const sets = await this.prisma.cardSet.findMany({
+      where: { cards: { some: {} } },
+      select: { id: true, name: true, _count: { select: { cards: true } } },
+      orderBy: [{ releaseDate: 'desc' }, { id: 'asc' }],
+    });
+
+    return sets.map((set) => ({ value: set.id, label: set.name, count: set._count.cards }));
+  }
+
+  /**
+   * Nulls are excluded, and not as tidying: 303 cards carry no rarity and
+   * CardSearchQuerySchema has no way to ask for them, so a null facet would
+   * advertise a value the filter cannot express.
+   */
+  private async rarityFacets(): Promise<FacetValue[]> {
+    const groups = await this.prisma.card.groupBy({
+      by: ['rarity'],
+      where: { rarity: { not: null } },
+      _count: { _all: true },
+      orderBy: [{ _count: { rarity: 'desc' } }, { rarity: 'asc' }],
+    });
+
+    return groups.flatMap((group) =>
+      group.rarity === null
+        ? []
+        : [{ value: group.rarity, label: group.rarity, count: group._count._all }],
+    );
+  }
+
+  private async supertypeFacets(): Promise<FacetValue[]> {
+    const groups = await this.prisma.card.groupBy({
+      by: ['supertype'],
+      _count: { _all: true },
+      orderBy: [{ _count: { supertype: 'desc' } }, { supertype: 'asc' }],
+    });
+
+    return groups.map((group) => ({
+      value: group.supertype,
+      label: group.supertype,
+      count: group._count._all,
+    }));
+  }
+
+  /**
+   * The only raw SQL in this module. `types` is a `text[]` and a facet needs one
+   * row per element; Prisma's query layer has no `unnest`, and the alternative -
+   * reading 20 670 arrays into this process to count them - is worse.
+   *
+   * `::int` is load-bearing. `count(*)` is a bigint, Prisma hands that back as a
+   * BigInt, and JSON.stringify throws on one rather than returning a number.
+   */
+  private async typeFacets(): Promise<FacetValue[]> {
+    const rows = await this.prisma.$queryRaw<{ value: string; count: number }[]>`
+      SELECT t AS value, count(*)::int AS count
+      FROM cards, unnest(types) AS t
+      GROUP BY t
+      ORDER BY count(*) DESC, t ASC
+    `;
+
+    return rows.map((row) => ({ value: row.value, label: row.value, count: row.count }));
   }
 }

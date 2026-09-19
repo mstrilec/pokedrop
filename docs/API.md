@@ -118,14 +118,15 @@ The endpoint that *requests* a reset email does not exist yet — it appears onc
 
 ## Catalog
 
-Served entirely from the mirror. No route here can reach an external API — `CatalogModule` imports nothing, and the provider tokens live in `SyncModule`, which it does not import. Verified by pointing `POKEMONTCG_BASE_URL` at an unroutable host and watching all four routes answer 200 in single-digit milliseconds.
+Served entirely from the mirror. No route here can reach an external API — `CatalogModule` imports nothing, and the provider tokens live in `SyncModule`, which it does not import. Verified by pointing `POKEMONTCG_BASE_URL` at an unroutable host and watching every route answer 200 in single-digit milliseconds.
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| GET | `/cards` | public | `q`, `set`, `rarity`, `type`, `sort`, `page`, `pageSize` |
+| GET | `/cards` | public | `q`, `set`, `rarity`, `type`, `supertype`, `sort`, `page`, `pageSize` |
 | GET | `/cards/:id` | public | 404 when absent |
 | GET | `/sets` | public | all 176, unpaginated |
 | GET | `/sets/:id` | public | the set plus `cardCount` |
+| GET | `/facets` | public | selectable values for every filter, with counts |
 
 **Sorting is `name_asc` or `name_desc`, and `id` always rides along.** 16 216 of the 20 670 cards share a name — `Pikachu` alone appears 134 times — so an order by name alone lets PostgreSQL return ties differently between requests, and offset pagination then shows one row twice and another never. `ORDER BY name, id` plans as an `Incremental Sort` with `Presorted Key: name`, so the btree still does the work. Verified: two pages of 50 share no ids and cover 100 distinct cards.
 
@@ -140,6 +141,22 @@ Served entirely from the mirror. No route here can reach an external API — `Ca
 **Prices are numbers, not strings.** Prisma returns `Decimal` for `latestPriceUsd` and `latestPriceEur`, which `JSON.stringify` turns into a string; the service converts at the boundary so the response matches `CardSchema`. `Decimal(10,2)` fits a JS number exactly, so nothing is lost. This was caught by PD-46's cold-versus-warm check — before it, `CardSchema` rejected every cached card and the cache silently never served one.
 
 **With Redis unavailable every route still answers from the database.** Measured by stopping the container: all four returned 200 in under 70 ms, each logging one warning. That needs `enableOfflineQueue: false` on the client — ioredis otherwise queues commands while disconnected and waits for a reconnection, so the read hangs instead of degrading.
+
+**`/facets` returns the selectable values for every filter, with counts.** Four arrays — `sets`, `rarities`, `types`, `supertypes` — each of `{ value, label, count }`. `label` differs from `value` only for sets, where the value is an id like `base1`; carrying the field on all four costs a duplicated string and saves a consumer one special case. Sets are ordered by release date, the rest by count descending with the value as a tiebreak.
+
+**Every value the endpoint advertises is one search accepts, and the counts agree.** Verified exhaustively rather than by sample: all 234 values were sent back through `/cards`, all 234 were accepted, and every `count` matched that search's `total`. Three consequences follow from holding that property:
+
+- A set with no mirrored cards is omitted. The facet is grouped over cards, not listed from sets, because a set the mirror holds nothing for is a filter that returns an empty page. All 176 sets qualify today.
+- Cards with no rarity are excluded from the rarity facet — 303 of them. `CardSearchQuerySchema` cannot express "no rarity", so a null facet would name a value the filter rejects.
+- `supertype` was added to `/cards` by this ticket. The facet was in scope and a facet nobody can filter by is a list of values the API advertises and then refuses.
+
+**Facet counts are global, not narrowed by the filters already applied.** Conditional facets would be keyed by a filter combination and could not live under the single `facets` key `Architecture.md` §8 gives a 24-hour TTL.
+
+**The four aggregates are cheap and run about once a day.** Measured against the full catalog: 7.2 ms for rarities (an `Index Only Scan` on `cards_rarity_idx`), 15.5 ms for types, 5.0 ms for supertypes, 9.0 ms for sets. Only the rarity facet is index-backed; the other three read every row, which is correct for an aggregate over the whole table. Cold 24 ms, warm 6 ms, byte-identical.
+
+**The types facet is the only raw SQL outside the sync writer.** `types` is a `text[]` and a facet needs one row per element, which Prisma's query layer has no way to express; the alternative is reading 20 670 arrays into the process to count them. The `count(*)::int` cast is load-bearing — a bare `count(*)` is a bigint, Prisma returns a BigInt, and `JSON.stringify` throws on one.
+
+**A newly synced set appears without a manual flush**, because the catalog sync deletes `cache:facets` at the end of every run that wrote. Verified end to end: inserting a set alone left the facet at 176 even after invalidation, adding a card to it and invalidating again produced 177 with the right count, and the `Fire` count moved 1 589 → 1 590 with it.
 
 **`cardCount` on a set detail is what the mirror holds**, which is not necessarily `total`, what the provider says the set contains. They differ while a sync is still filling in pages that failed.
 
