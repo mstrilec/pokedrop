@@ -9,6 +9,7 @@ import { RolesGuard } from './common/guards/roles.guard.js';
 import { SessionGuard } from './common/guards/session.guard.js';
 import { ZodValidationPipe } from './common/pipes/zod-validation.pipe.js';
 import { AuthModule } from './auth/index.js';
+import { CatalogModule } from './catalog/index.js';
 import { AppConfigModule } from './config/index.js';
 import { HealthModule } from './health/health.module.js';
 import { AppLoggingModule } from './logging/index.js';
@@ -30,6 +31,7 @@ import { ThrottleModule } from './throttle/index.js';
     MailModule,
     EconomyModule,
     AuthModule,
+    CatalogModule,
     HealthModule,
     QueueModule,
     SyncModule,
