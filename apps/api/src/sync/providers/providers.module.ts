@@ -8,6 +8,7 @@ import {
   type CardSourceRegistry,
 } from './card-source-provider.js';
 import { PokemonTcgClient } from './pokemon-tcg/pokemon-tcg.client.js';
+import { TcgdexClient } from './tcgdex/tcgdex.client.js';
 
 /**
  * Registration lives inside this folder on purpose.
@@ -20,12 +21,15 @@ import { PokemonTcgClient } from './pokemon-tcg/pokemon-tcg.client.js';
 @Module({
   providers: [
     PokemonTcgClient,
+    TcgdexClient,
     {
       provide: CARD_SOURCE_REGISTRY,
-      inject: [PokemonTcgClient],
-      // PD-40 adds TcgdexClient beside it.
-      useFactory: (pokemonTcg: PokemonTcgClient): CardSourceRegistry =>
-        new Map<CardSourceName, CardSourceProvider>([[pokemonTcg.name, pokemonTcg]]),
+      inject: [PokemonTcgClient, TcgdexClient],
+      useFactory: (pokemonTcg: PokemonTcgClient, tcgdex: TcgdexClient): CardSourceRegistry =>
+        new Map<CardSourceName, CardSourceProvider>([
+          [pokemonTcg.name, pokemonTcg],
+          [tcgdex.name, tcgdex],
+        ]),
     },
     {
       provide: CARD_SOURCE_PROVIDER,
@@ -36,7 +40,7 @@ import { PokemonTcgClient } from './pokemon-tcg/pokemon-tcg.client.js';
         if (!provider) {
           throw new Error(
             `No card source provider is registered for "${config.providers.active}". ` +
-              'Providers are registered by PD-39 (pokemontcg) and PD-40 (tcgdex).',
+              'Registration lives in this module, beside the clients themselves.',
           );
         }
 
