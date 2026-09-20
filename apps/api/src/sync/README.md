@@ -193,6 +193,12 @@ between shift the boundaries. Harmless: the guarded upsert absorbs a repeat, and
 a missed card is picked up by the next sweep — which is how this mirror already
 converges.
 
+The TTL is checked on every page fetch, not only on a resume, so a single run
+lasting over an hour also refetches mid-run — reachable, since the sync
+processor sets `hasMore` on any page failure and keeps going with no page
+ceiling. `total` and `hasMore` are recomputed against the new index afterward,
+so a shrunken index can end the page loop early.
+
 ### Mapping rules, and four that are silent when wrong
 
 | Target | Source | Note |
@@ -247,10 +253,15 @@ What it did prove, on real rows rather than on a probe's return value:
 | image URLs are well formed | rows not ending `/low.webp` and `/high.webp` : **0** |
 | the third-party ids landed | 1 537 TCGplayer, 1 489 Cardmarket |
 
-What it did not prove is that the remaining 65 pages complete. The pages are
-homogeneous — the same slice-and-hydrate path for every one — so the risk is
-low, but it is untested and this paragraph is where a future reader should find
-that out rather than assume otherwise.
+What it did not prove is that the remaining 65 pages complete, and that gap was
+real: page 45 fails. `pop1-9`, `pop1-11` and `pop2-6` publish a weakness with no
+`value`, `WeaknessSchema` requires one, and the mapper threw a raw `ZodError`
+that nothing caught — costing the whole page rather than the three cards. The
+sweep never reached page 45, so it did not catch this; the final review did,
+by reading the schemas rather than by running further. It is fixed:
+`RawTypeValueSchema.value` is required, so a card like this is skipped on its
+own, and `hydrate` now catches any throw out of `toCardDTO` so no other
+DTO-only constraint can take a page down with it.
 
 ### The ids diverge from the primary's, and that is PD-43's problem
 

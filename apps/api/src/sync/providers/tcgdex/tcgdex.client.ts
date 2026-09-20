@@ -191,6 +191,12 @@ export class TcgdexClient implements CardSourceProvider {
    * some cards are fetched twice, which the guarded upsert absorbs, and some are
    * missed, which the next sweep picks up. That is how this mirror already
    * converges across runs.
+   *
+   * The TTL is checked on every `fetchCards` call, not only on a resume, so a
+   * single run lasting over an hour refetches mid-run - reachable, because the
+   * sync processor sets `hasMore` on any page failure and keeps going with no
+   * page ceiling. `total` and `hasMore` are then recomputed against the new
+   * index, so a shrunken index can end the page loop early.
    */
   private async loadIndex(): Promise<CardIndex> {
     const now = Date.now();
@@ -250,7 +256,30 @@ export class TcgdexClient implements CardSourceProvider {
       };
     }
 
-    return { item: toCardDTO({ ...parsed.data, image }) };
+    // RawCardSchema and CardDTOSchema are two different contracts: a payload
+    // satisfying the raw one is not guaranteed to satisfy the DTO one, because
+    // the raw schema exists to describe what TCGdex sends, not to mirror every
+    // constraint the DTO imposes. A weakness with no `value` was exactly this
+    // gap - RawTypeValueSchema.value used to be optional, so such a card passed
+    // safeParse here and then threw a raw ZodError out of toCardDTO, which
+    // nothing caught: the pool worker rejected, Promise.all rejected, and
+    // fetchCards rejected - costing the whole 250-card page rather than the one
+    // card (pop1-9, pop1-11, pop2-6 on page 45). That specific hole is closed,
+    // but rarity being `''` against RaritySchema's min(1), a dexId below 1, a
+    // non-integer hp, or a non-URL image would all fail the same way, so this
+    // catch is what keeps any future DTO-only constraint from taking its page
+    // down with it.
+    try {
+      return { item: toCardDTO({ ...parsed.data, image }) };
+    } catch (error) {
+      return {
+        error: {
+          provider: this.name,
+          itemId: brief.id,
+          message: error instanceof Error ? error.message : 'failed to map card to the DTO shape',
+        },
+      };
+    }
   }
 
   /** `exu-%3F` is a real id. encodeURIComponent turns it into `exu-%253F`, which

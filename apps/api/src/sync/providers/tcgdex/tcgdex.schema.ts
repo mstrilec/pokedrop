@@ -54,7 +54,7 @@ const RawAbilitySchema = z.looseObject({
 
 const RawTypeValueSchema = z.looseObject({
   type: z.string(),
-  value: z.string().optional(),
+  value: z.string(),
 });
 
 export const RawCardSchema = z.looseObject({

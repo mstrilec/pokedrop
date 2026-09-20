@@ -9,6 +9,15 @@ const SERVER_ERROR_FLOOR = 500;
 const BACKOFF_BASE_MS = 250;
 const RATE_LIMIT_BACKOFF_MS = 5_000;
 
+/**
+ * No 429 has ever been observed from this provider - this client answered 10
+ * of 10 and 64 of 64 under concurrency with no rate limiting seen at any
+ * level. So this cap is insurance against a `Retry-After` that would otherwise
+ * park a pool worker indefinitely (the 20-second `AbortSignal.timeout` covers
+ * only the fetch, not the sleep), not a limit shaped by a measured need.
+ */
+const MAX_RETRY_AFTER_MS = 60_000;
+
 export interface TcgdexHttpOptions {
   baseUrl: string;
   language: string;
@@ -83,21 +92,24 @@ export async function getJson(path: string, options: TcgdexHttpOptions): Promise
     }
 
     if (response.status === NOT_FOUND) {
+      await response.body?.cancel();
       return null;
     }
 
     if (response.status === RATE_LIMITED) {
       const wait = retryAfterMs(response);
+      await response.body?.cancel();
       if (attempt === options.maxAttempts) {
         throw new ProviderRateLimitError(PROVIDER, `${path} is rate limited`, wait);
       }
       options.onRetry?.(attempt, 'HTTP 429');
-      await sleep(wait ?? RATE_LIMIT_BACKOFF_MS);
+      await sleep(Math.min(wait ?? RATE_LIMIT_BACKOFF_MS, MAX_RETRY_AFTER_MS));
       continue;
     }
 
     if (response.status >= SERVER_ERROR_FLOOR) {
       lastReason = `HTTP ${response.status}`;
+      await response.body?.cancel();
       if (attempt === options.maxAttempts) break;
       options.onRetry?.(attempt, lastReason);
       await sleep(backoffMs(attempt));
