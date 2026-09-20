@@ -1,5 +1,5 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { SyncKind, SyncStatus } from '@prisma/client';
 import type { Job } from 'bullmq';
 import { PrismaService } from '../prisma/index.js';
@@ -7,9 +7,12 @@ import { QUEUE } from '../queue/index.js';
 import { CacheService, cacheKeys, cachePatterns } from '../redis/index.js';
 import { CatalogWriter } from './catalog.writer.js';
 import {
-  CARD_SOURCE_PROVIDER,
+  ProviderBreakerService,
   ProviderContractError,
-  type CardSourceProvider,
+  ProviderRateLimitError,
+  ProviderSelectorService,
+  type CardDTO,
+  type ProviderChoice,
 } from './providers/index.js';
 import { SyncRunService } from './sync-run.service.js';
 
@@ -24,7 +27,8 @@ export class CatalogSyncProcessor extends WorkerHost {
   private readonly logger = new Logger(CatalogSyncProcessor.name);
 
   constructor(
-    @Inject(CARD_SOURCE_PROVIDER) private readonly provider: CardSourceProvider,
+    private readonly selector: ProviderSelectorService,
+    private readonly breaker: ProviderBreakerService,
     private readonly prisma: PrismaService,
     private readonly writer: CatalogWriter,
     private readonly runs: SyncRunService,
@@ -34,12 +38,20 @@ export class CatalogSyncProcessor extends WorkerHost {
   }
 
   async process(job: Job): Promise<void> {
-    const run = await this.runs.startOrResume(SyncKind.CATALOG, this.provider.name, job.id ?? '');
+    const choice: ProviderChoice = await this.selector.select();
+    const provider = choice.provider;
+
+    const run = await this.runs.startOrResume(SyncKind.CATALOG, provider.name, job.id ?? '');
     const log = (message: string): void =>
       this.logger.log(`run ${run.id} job ${job.id}: ${message}`);
 
+    if (choice.isFallback) {
+      log(`fallback run via ${provider.name} (${choice.reason}); sets will not be written`);
+    }
+
     let processed = run.processed;
     let failed = run.failed;
+    let unwritable = 0;
     let page = this.runs.readCursor(run).page;
 
     // Sets first, always. cards."setId" references sets(id) with onDelete
@@ -48,12 +60,13 @@ export class CatalogSyncProcessor extends WorkerHost {
     // Skipped on a resume: the sets were written before the cursor advanced
     // past page 1, and re-fetching them would spend requests on a rate limit
     // we cannot observe.
-    if (page === 1) {
+    if (page === 1 && !choice.isFallback) {
       try {
-        const sets = await this.provider.fetchSets();
+        const sets = await provider.fetchSets();
         const written = await this.prisma.withTransaction((tx) => this.writer.upsertSets(tx, sets));
         log(`${sets.length} sets fetched, ${written} rows written`);
       } catch (error) {
+        await this.breaker.recordFailure(provider.name);
         await this.runs.close(run.id, SyncStatus.FAILED, describe(error));
         throw error;
       }
@@ -63,13 +76,29 @@ export class CatalogSyncProcessor extends WorkerHost {
       let hasMore = false;
 
       try {
-        const result = await this.provider.fetchCards({ page, pageSize: PAGE_SIZE });
+        const result = await provider.fetchCards({ page, pageSize: PAGE_SIZE });
+
+        // Rule two. A fallback run may only write a card whose id is ALREADY in
+        // the mirror. It refreshes; it never introduces.
+        //
+        // Checking the set instead of the card is not enough, and that was
+        // measured the expensive way: TCGdex zero-pads card numbers inside sets
+        // both providers share, so `sv10-060` and `sv10-60` are one physical
+        // card under two ids. A set-level filter passes both, and a real
+        // failover run put 593 duplicates into the mirror before this was
+        // caught. The set rule survives as rule one; this is what makes it
+        // sufficient.
+        const writable = choice.isFallback
+          ? await this.alreadyMirrored(result.items)
+          : result.items;
+
+        unwritable += result.items.length - writable.length;
 
         // A page is fetched in full before a transaction opens. Fetching inside
         // one would hold write locks for as long as the client spends retrying,
         // which against this upstream is seconds per page.
         const written = await this.prisma.withTransaction((tx) =>
-          this.writer.upsertCards(tx, result.items),
+          this.writer.upsertCards(tx, writable),
         );
 
         processed += result.items.length;
@@ -85,16 +114,33 @@ export class CatalogSyncProcessor extends WorkerHost {
         log(
           `page ${page}: ${result.items.length} cards, ${written} rows written, ${result.skipped.length} skipped`,
         );
+
+        // Consecutive is what makes the threshold mean an outage. One good page
+        // is evidence the provider is serving.
+        await this.breaker.recordSuccess(provider.name);
       } catch (error) {
         if (error instanceof ProviderContractError) {
           // The upstream changed shape. Continuing would fill the mirror with
           // nonsense, which is worse than stopping.
+          await this.breaker.recordFailure(provider.name);
           await this.runs.close(run.id, SyncStatus.FAILED, describe(error));
           throw error;
         }
 
         failed += 1;
-        this.logger.warn(`run ${run.id}: page ${page} failed - ${describe(error)}`);
+
+        // A 429 says the upstream is healthy and we are asking too fast.
+        // Counting it would move the load onto the fallback and rate-limit that
+        // one too - the rule sync/README.md and http.ts both already state.
+        if (!(error instanceof ProviderRateLimitError)) {
+          const count = await this.breaker.recordFailure(provider.name);
+          this.logger.warn(
+            `run ${run.id}: page ${page} failed (${count} consecutive) - ${describe(error)}`,
+          );
+        } else {
+          this.logger.warn(`run ${run.id}: page ${page} rate limited - ${describe(error)}`);
+        }
+
         // Keep going. A page that exhausted its retry budget is one page, and
         // the next may well succeed - this upstream fails about 70% of
         // individual requests.
@@ -110,10 +156,42 @@ export class CatalogSyncProcessor extends WorkerHost {
       }
     }
 
-    const status = failed === 0 ? SyncStatus.SUCCEEDED : SyncStatus.PARTIAL;
+    // A fallback run is partial by definition: it refreshed the 73.6% of the
+    // mirror whose set ids both providers share and deliberately left the rest.
+    // Reporting SUCCEEDED would be a lie told to the one person reading the
+    // admin page during an outage.
+    const status = choice.isFallback || failed > 0 ? SyncStatus.PARTIAL : SyncStatus.SUCCEEDED;
+
+    const reason = choice.isFallback
+      ? `fallback via ${provider.name} (${choice.reason}); no set written, ` +
+        `${unwritable} cards skipped as not already mirrored`
+      : undefined;
+
     await this.invalidate();
-    await this.runs.close(run.id, status);
-    log(`finished ${status}: ${processed} processed, ${failed} failed`);
+    await this.runs.close(run.id, status, reason);
+    log(`finished ${status}: ${processed} processed, ${failed} failed, ${unwritable} unwritable`);
+  }
+
+  /**
+   * Which of this page's cards the mirror already holds.
+   *
+   * One indexed primary-key lookup of at most 250 ids per page, rather than
+   * loading all 20 670 ids once: the per-page query is bounded in memory and
+   * reflects the table as it is now, and 83 such queries across a sweep is
+   * noise beside the upserts they guard.
+   */
+  private async alreadyMirrored(items: CardDTO[]): Promise<CardDTO[]> {
+    if (items.length === 0) {
+      return items;
+    }
+
+    const rows = await this.prisma.card.findMany({
+      where: { id: { in: items.map((card) => card.id) } },
+      select: { id: true },
+    });
+
+    const known = new Set(rows.map((row) => row.id));
+    return items.filter((card) => known.has(card.id));
   }
 
   /**
