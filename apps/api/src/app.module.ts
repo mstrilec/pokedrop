@@ -8,6 +8,7 @@ import { CsrfGuard } from './common/guards/csrf.guard.js';
 import { RolesGuard } from './common/guards/roles.guard.js';
 import { SessionGuard } from './common/guards/session.guard.js';
 import { ZodValidationPipe } from './common/pipes/zod-validation.pipe.js';
+import { AdminModule } from './admin/index.js';
 import { AuthModule } from './auth/index.js';
 import { CatalogModule } from './catalog/index.js';
 import { AppConfigModule } from './config/index.js';
@@ -35,6 +36,7 @@ import { ThrottleModule } from './throttle/index.js';
     HealthModule,
     QueueModule,
     SyncModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [

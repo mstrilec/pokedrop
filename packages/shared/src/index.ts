@@ -16,3 +16,4 @@ export * from './entities/trade.js';
 export * from './entities/currency.js';
 export * from './entities/audit.js';
 export * from './entities/notification.js';
+export * from './entities/sync.js';
