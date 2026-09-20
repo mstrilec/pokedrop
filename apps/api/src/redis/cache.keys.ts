@@ -48,3 +48,20 @@ export const throttleKeys = {
 
   resend: (email: string) => `${THROTTLE_NAMESPACE}:resend:${email.toLowerCase()}`,
 } as const;
+
+/**
+ * Outside the `cache:` namespace for the same reason `throttleKeys` is: a
+ * routine cache flush must not reset a breaker, which would hand a failing
+ * provider a fresh budget at the worst possible moment.
+ *
+ * Read through RedisService directly and never through CacheService - that one
+ * turns a Redis failure into a miss, which for a counter means silently
+ * forgetting an outage during the incident that caused it.
+ */
+export const BREAKER_NAMESPACE = 'breaker';
+
+export const breakerKeys = {
+  failures: (provider: string) => `${BREAKER_NAMESPACE}:fail:${provider}`,
+
+  open: (provider: string) => `${BREAKER_NAMESPACE}:open:${provider}`,
+} as const;

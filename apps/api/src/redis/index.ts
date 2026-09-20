@@ -1,6 +1,8 @@
 export {
+  BREAKER_NAMESPACE,
   CACHE_NAMESPACE,
   THROTTLE_NAMESPACE,
+  breakerKeys,
   cacheKeys,
   cachePatterns,
   lockKeys,

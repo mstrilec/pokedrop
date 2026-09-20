@@ -18,4 +18,7 @@ export {
 } from './provider.errors.js';
 export type { ProviderItemError } from './provider.errors.js';
 
+export { ProviderBreakerService } from './provider-breaker.service.js';
+export type { BreakerState } from './provider-breaker.service.js';
+
 export { ProvidersModule } from './providers.module.js';
