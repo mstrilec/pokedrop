@@ -45,19 +45,28 @@ mirror of the same data.
 
 64 full-card fetches at four concurrency levels, every response a 200:
 
-| Concurrency | Elapsed | Rate | Full catalog |
+| Concurrency | Elapsed | Rate | HTTP time for 23 736 |
 | --- | --- | --- | --- |
 | 1 | 5 104 ms | 12.5 req/s | 27.5 min |
 | 4 | 1 001 ms | 63.9 req/s | 5.4 min |
 | **8** | **559 ms** | **114.5 req/s** | **3.0 min** |
 | 16 | 361 ms | 177.3 req/s | 1.9 min |
 
+**That last column is HTTP time only, and it is not how long a sweep takes.**
+Measured end to end on 2026-09-20: a real catalog sync wrote 220 sets and 7 007
+cards before it was stopped, at roughly 1 400 cards a minute — so a full catalog
+is **15 to 25 minutes**, not three. The gap is everything the throughput probe
+left out: the sweep opens a transaction and upserts 250 rows between pages, and
+walks the pages one at a time. Concurrency 8 is still the right choice; what was
+wrong was extrapolating an HTTP rate to a job that also writes a database.
+
 **Concurrency 8.** Not because 16 failed — nothing failed at any level, and no
 `429` was seen at all. Because TCGdex is a free, community-run service with no
 API key, and `docs/PRD.md` §2 commits this project to free infrastructure. Being
-a guest on it is a constraint, not a courtesy. Three minutes for a full sweep is
-already faster than the primary manages, and the remaining 1.1 minutes are not
-worth spending someone else's bandwidth on.
+a guest on it is a constraint, not a courtesy. Doubling to 16 would save about
+half the HTTP time, which the correction above shows is a minority of a sweep's
+wall clock anyway - so the saving is smaller than it looks and is not worth
+spending someone else's bandwidth on.
 
 ---
 
@@ -454,7 +463,8 @@ means an empty mirror.
 **TCGdex publishes the third-party ids the primary does not.** `tcgplayerId` and
 `cardmarketId` are null for all 20 670 rows today because pokemontcg.io does not
 publish them. M4 may find that a single TCGdex pass over the catalog is the
-cheapest way to fill them, and that pass costs 20 000 requests and three minutes.
+cheapest way to fill them, and that pass costs 20 000 requests and 15 to 25
+minutes.
 
 **1 749 image-less cards are a schema question, not a provider one.** If the
 catalog UI ever wants them, `CardDTO.imageSmall` becomes nullable and the card

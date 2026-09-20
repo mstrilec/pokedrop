@@ -26,8 +26,10 @@ const MAX_ATTEMPTS = 3;
  * not a limit the service imposed - it is one this project chose. TCGdex is
  * free and keyless and docs/PRD.md section 2 commits this project to free
  * infrastructure; being a guest on it is a constraint. Eight sweeps the catalog
- * in three minutes against the primary's far longer, and the remaining minute
- * is not ours to take.
+ * far faster than the primary manages, and the remaining headroom is not ours
+ * to take. Note that 8 is an HTTP rate, not a sweep rate: a full catalog takes
+ * 15 to 25 minutes, because each page also opens a transaction and upserts 250
+ * rows between fetches.
  */
 const HYDRATION_CONCURRENCY = 8;
 

@@ -754,7 +754,7 @@ const MAX_ATTEMPTS = 3;
  * not a limit the service imposed - it is one this project chose. TCGdex is
  * free and keyless and docs/PRD.md section 2 commits this project to free
  * infrastructure; being a guest on it is a constraint. Eight sweeps the catalog
- * in three minutes against the primary's far longer, and the remaining minute
+ * far faster than the primary manages, and the remaining headroom
  * is not ours to take.
  */
 const HYDRATION_CONCURRENCY = 8;
@@ -1176,7 +1176,9 @@ The process will not exit promptly: it consumes what it enqueued and
 `app.close()` drains the job in flight, which for a full sweep is minutes. That
 is PD-41's graceful shutdown working, not a hang — the same note
 `sync/README.md` already carries. Let it run; the sweep is roughly 221 set
-requests plus 23 736 card requests at 114 req/s, so about four minutes.
+requests plus 23 736 card requests, and takes 15 to 25 minutes end to end -
+the HTTP rate is not the sweep rate, because each page also opens a transaction
+and upserts 250 rows.
 
 If TCGdex starts answering 429 — it did not once in any measurement — stop the
 run, record it, and report it rather than lowering the concurrency to push
@@ -1272,12 +1274,20 @@ level. What it lacks is bulk: every filtered endpoint — `?set=`, `?id=`,
 pagination — returns briefs of `{id, localId, name, image}`, and a full card is
 one request each.
 
-| Concurrency | Rate | Full catalog |
+| Concurrency | Rate | HTTP time for 23 736 |
 | --- | --- | --- |
 | 1 | 12.5 req/s | 27.5 min |
 | 4 | 63.9 req/s | 5.4 min |
 | **8** | **114.5 req/s** | **3.0 min** |
 | 16 | 177.3 req/s | 1.9 min |
+
+**That last column is HTTP time only, and it is not how long a sweep takes.**
+Measured end to end on 2026-09-20: a real catalog sync wrote 220 sets and 7 007
+cards before it was stopped, at roughly 1 400 cards a minute — so a full catalog
+is **15 to 25 minutes**, not three. The gap is everything the throughput probe
+left out: the sweep opens a transaction and upserts 250 rows between pages, and
+walks the pages one at a time. Concurrency 8 is still the right choice; what was
+wrong was extrapolating an HTTP rate to a job that also writes a database.
 
 Eight, and not because sixteen failed. This is a free keyless community service
 and `docs/PRD.md` §2 commits the project to free infrastructure; the extra
@@ -1356,8 +1366,8 @@ with:
 Both are implemented. They fail in opposite directions, which is the point:
 pokemontcg.io is cheap in requests and answered 6 of 20 when measured, TCGdex is
 one request per card and answered 10 of 10. A full TCGdex sweep is 23 736
-requests against the primary's 83, and takes three minutes at the concurrency of
-8 the client holds to.
+requests against the primary's 83, and takes 15 to 25 minutes end to end at the
+concurrency of 8 the client holds to.
 
 **Their set ids diverge on newer sets** — `sv3pt5` against `sv03.5` — so 73.6%
 of the mirror shares an id with TCGdex and 26.4% does not. Switching providers
