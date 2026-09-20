@@ -78,6 +78,44 @@ export class ProviderSelectorService {
     );
   }
 
+  /**
+   * The provider a resumed run must keep using.
+   *
+   * Asking select() again would let a BullMQ retry continue a run on a
+   * different source than the one its row names. The breaker can flip during a
+   * sweep, and the two providers' page numbers are unrelated - a cursor at page
+   * 41 means 10 000 cards into one provider's list and something else entirely
+   * in the other's, so the resumed half would skip what it was meant to refresh
+   * and the run's `provider` column would name a source that did not write it.
+   *
+   * Returns null when that provider's breaker has opened in the meantime: the
+   * caller closes the run rather than continuing against a source known to be
+   * down.
+   */
+  async resume(providerName: string): Promise<ProviderChoice | null> {
+    // The column is a free string by design, so a name that is no longer
+    // registered reads as a miss here rather than as a type error.
+    const name = providerName as CardSourceName;
+    const provider = this.registry.get(name);
+
+    if (!provider) {
+      throw new Error(
+        `A run recorded provider "${providerName}", which is not registered. ` +
+          'Registration lives in providers.module.ts, beside the clients themselves.',
+      );
+    }
+
+    if (await this.breaker.isOpen(name)) {
+      return null;
+    }
+
+    return {
+      provider,
+      isFallback: name !== this.primary,
+      reason: `resuming a run recorded against ${name}`,
+    };
+  }
+
   private mustResolve(name: CardSourceName): CardSourceProvider {
     const provider = this.registry.get(name);
 

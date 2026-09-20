@@ -422,6 +422,46 @@ during exactly the incident that caused it. With Redis unreachable the breaker
 reports closed and the run uses the configured primary — failing toward the
 source the operator chose, rather than switching on no evidence.
 
+**A page's `catch` also runs `alreadyMirrored()` and the upsert transaction, and
+only a `ProviderUnavailableError` out of that block counts toward the breaker.**
+A Prisma error, a constraint violation or a lock timeout is counted into the
+run's `failed` total like any other bad page, but never toward failover: it is
+this application's failure, not evidence the provider is down, and counting it
+would open the breaker against a healthy primary over a database hiccup —
+paying the fallback's rarity and image-URL churn on ~15 000 rows for something
+that had nothing to do with either provider.
+
+**The breaker opening mid-run is what stops the page loop while a provider is
+down.** Every failed page sets `hasMore = true` with no ceiling on `page`, so
+without this a fully unavailable provider would page for ever. After a
+`ProviderUnavailableError` is recorded, the processor checks whether that
+recording just opened the breaker; if it did, the loop breaks — after the
+cursor and progress for that page are written, so the run resumes from the
+right place — and the run closes `PARTIAL`. The next scheduled run picks up
+from the cursor, served by whichever provider the selector then chooses.
+
+### A resumed run keeps the provider its row names
+
+`process()` looks for a `RUNNING` row this job already owns *before* it asks
+`ProviderSelectorService` for anything. If one exists, the run calls
+`selector.resume(row.provider)` instead of `selector.select()` — it does not
+ask the selector to choose again.
+
+That matters because a `SyncRun.cursor` page number means something different
+to each provider: pokemontcg.io paginates its own catalog and TCGdex paginates
+a differently-ordered index of a differently-sized one, so page 41 on one
+provider is not page 41 on the other. A breaker can flip between a job's
+attempts — that is the whole point of a breaker — so a BullMQ retry that asked
+`select()` again could resume a cursor cut on one provider's list against the
+other's, silently skipping or re-reading the wrong slice. It would also leave
+`sync_runs.provider` naming a source that did not write the pages recorded
+under it, which breaks the admin endpoint's whole purpose.
+
+`resume()` returns `null` when the row's own provider has an open breaker by
+the time the retry runs. The processor then closes that row `PARTIAL` and
+returns without starting a page loop, rather than resuming on a different
+source with a cursor that means nothing there.
+
 ### Two rules keep a failover from forking the mirror
 
 The providers disagree about set ids on 50 of the mirror's 176 sets — `sv3pt5`
@@ -504,11 +544,6 @@ so that is a cost the architecture already absorbs; a forked catalog is not.
 | selection with Redis unreachable, breaker open | `pokemontcg`, isFallback false, with a warning |
 | `/admin/sync/status` no session / admin / member | 401 / 200 / 403 |
 | `/admin/sync/status` with Redis stopped | 200 in 26 ms, every breaker reported closed |
-
-When every registered provider's breaker is open, the selector throws before a
-`SyncRun` is created, so the job fails in BullMQ and no row is written to
-`sync_runs` — the spec's failure table says such a run closes `FAILED`, and this
-is where that is corrected.
 
 ### What a failover costs beyond freshness
 

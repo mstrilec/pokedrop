@@ -11,6 +11,7 @@ import {
   ProviderContractError,
   ProviderRateLimitError,
   ProviderSelectorService,
+  ProviderUnavailableError,
   type CardDTO,
   type ProviderChoice,
 } from './providers/index.js';
@@ -38,7 +39,33 @@ export class CatalogSyncProcessor extends WorkerHost {
   }
 
   async process(job: Job): Promise<void> {
-    const choice: ProviderChoice = await this.selector.select();
+    const resumable = await this.runs.findResumable(SyncKind.CATALOG, job.id ?? '');
+
+    let choice: ProviderChoice;
+
+    if (resumable === null) {
+      choice = await this.selector.select();
+    } else {
+      const resumed = await this.selector.resume(resumable.provider);
+
+      if (resumed === null) {
+        // Continuing on a different source would carry a cursor that means
+        // nothing there. Stopping leaves the mirror exactly as it is, and the
+        // next scheduled run starts clean.
+        await this.runs.close(
+          resumable.id,
+          SyncStatus.PARTIAL,
+          `resume abandoned: the breaker for ${resumable.provider} opened while this run was in flight`,
+        );
+        this.logger.warn(
+          `run ${resumable.id}: abandoned on resume, ${resumable.provider} is now breaking`,
+        );
+        return;
+      }
+
+      choice = resumed;
+    }
+
     const provider = choice.provider;
 
     const run = await this.runs.startOrResume(SyncKind.CATALOG, provider.name, job.id ?? '');
@@ -74,6 +101,7 @@ export class CatalogSyncProcessor extends WorkerHost {
 
     for (;;) {
       let hasMore = false;
+      let providerDown = false;
 
       try {
         const result = await provider.fetchCards({ page, pageSize: PAGE_SIZE });
@@ -129,16 +157,36 @@ export class CatalogSyncProcessor extends WorkerHost {
 
         failed += 1;
 
-        // A 429 says the upstream is healthy and we are asking too fast.
-        // Counting it would move the load onto the fallback and rate-limit that
-        // one too - the rule sync/README.md and http.ts both already state.
-        if (!(error instanceof ProviderRateLimitError)) {
+        // Only a failure that says the provider itself is unusable counts
+        // toward the breaker. A 429 says the upstream is healthy and we are
+        // asking too fast - counting it would move the load onto the fallback
+        // and rate-limit that one too, the rule sync/README.md and http.ts both
+        // already state. A Prisma error, a constraint violation or a lock
+        // timeout is ours, not the provider's, and must not open a breaker
+        // against a source that never failed to answer.
+        if (error instanceof ProviderUnavailableError) {
           const count = await this.breaker.recordFailure(provider.name);
           this.logger.warn(
-            `run ${run.id}: page ${page} failed (${count} consecutive) - ${describe(error)}`,
+            `run ${run.id}: page ${page} failed, provider failure (${count} consecutive) - ${describe(error)}`,
           );
-        } else {
+
+          if (await this.breaker.isOpen(provider.name)) {
+            // The breaker opening mid-run is the loop's only stopping
+            // condition while a provider is down: without it, a fully
+            // unavailable source produces pages for ever, since every failure
+            // sets hasMore. The next scheduled run picks up from the cursor,
+            // served by whichever provider the selector then chooses.
+            this.logger.warn(
+              `run ${run.id}: stopping, ${provider.name} breaker opened after ${count} consecutive failures`,
+            );
+            providerDown = true;
+          }
+        } else if (error instanceof ProviderRateLimitError) {
           this.logger.warn(`run ${run.id}: page ${page} rate limited - ${describe(error)}`);
+        } else {
+          this.logger.warn(
+            `run ${run.id}: page ${page} failed locally, not counted toward the breaker - ${describe(error)}`,
+          );
         }
 
         // Keep going. A page that exhausted its retry budget is one page, and
@@ -151,7 +199,7 @@ export class CatalogSyncProcessor extends WorkerHost {
       await this.runs.recordProgress(run.id, processed, failed, { page });
       await job.updateProgress({ processed, failed, page });
 
-      if (!hasMore) {
+      if (providerDown || !hasMore) {
         break;
       }
     }

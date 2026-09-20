@@ -40,6 +40,19 @@ export class SyncRunService {
   }
 
   /**
+   * The RUNNING row this job already owns, if there is one.
+   *
+   * Separate from startOrResume because the caller has to know *before* it
+   * chooses a provider: a resumed run must keep the one its row names.
+   */
+  async findResumable(kind: SyncKind, jobId: string): Promise<SyncRun | null> {
+    return this.prisma.syncRun.findFirst({
+      where: { kind, status: SyncStatus.RUNNING, jobId },
+      orderBy: { startedAt: 'desc' },
+    });
+  }
+
+  /**
    * Written once per page rather than buffered. 83 small updates a sweep is
    * immaterial beside 20 670 upserts, and buffering means a crash loses exactly
    * the cursor that made resuming possible.

@@ -46,9 +46,18 @@ export class ProviderBreakerService {
    */
   async recordFailure(provider: CardSourceName): Promise<number> {
     try {
+      // Pipelined into one round trip rather than two calls: a crash between
+      // an incr and a separate expire would leave a counter with no TTL, and
+      // "consecutive" would quietly become "ever" - the exact failure
+      // FAILURE_WINDOW_SECONDS exists to prevent.
       const key = breakerKeys.failures(provider);
-      const failures = await this.redis.client.incr(key);
-      await this.redis.client.expire(key, FAILURE_WINDOW_SECONDS);
+      const [incremented] = (await this.redis.client
+        .multi()
+        .incr(key)
+        .expire(key, FAILURE_WINDOW_SECONDS)
+        .exec()) as [[Error | null, number], [Error | null, number]];
+
+      const failures = incremented[1];
 
       if (failures >= FAILURE_THRESHOLD) {
         await this.redis.client.set(breakerKeys.open(provider), '1', 'EX', COOLDOWN_SECONDS);
