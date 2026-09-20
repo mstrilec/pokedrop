@@ -687,8 +687,6 @@ it, since the block below calls `log` — add:
     //
     // Rule two is below, in the page loop. Neither mentions a provider by name:
     // this is a property of failing over, so a third source inherits it.
-    const mirroredSetIds = choice.isFallback ? await this.mirroredSetIds() : null;
-
     if (choice.isFallback) {
       log(`fallback run via ${provider.name} (${choice.reason}); sets will not be written`);
     }
@@ -703,16 +701,19 @@ Change the sets guard from `if (page === 1) {` to:
 Inside the page loop, after `const result = await this.provider.fetchCards(...)` — now `provider.fetchCards(...)` — and **before** the transaction, insert the second rule:
 
 ```ts
-        // Rule two. A card whose set is not already mirrored cannot be written
-        // by a fallback run: its id belongs to the other provider's vocabulary,
-        // and the row would be a duplicate of a card already present under a
-        // different id. 73.6% of the mirror survives this filter; the other
-        // 26.4% simply does not refresh while the primary is down, which is
-        // what a mirror is for.
-        const writable =
-          mirroredSetIds === null
-            ? result.items
-            : result.items.filter((card) => mirroredSetIds.has(card.setId));
+        // Rule two. A fallback run may only write a card whose id is ALREADY in
+        // the mirror. It refreshes; it never introduces.
+        //
+        // Checking the set instead of the card is not enough, and that was
+        // measured the expensive way: TCGdex zero-pads card numbers inside sets
+        // both providers share, so `sv10-060` and `sv10-60` are one physical
+        // card under two ids. A set-level filter passes both, and a real
+        // failover run put 593 duplicates into the mirror before this was
+        // caught. The set rule survives as rule one; this is what makes it
+        // sufficient.
+        const writable = choice.isFallback
+          ? await this.alreadyMirrored(result.items)
+          : result.items;
 
         unwritable += result.items.length - writable.length;
 
@@ -727,13 +728,25 @@ Add the helper method at the end of the class:
 
 ```ts
   /**
-   * One query per run, not per page. 176 ids is a few kilobytes, and re-reading
-   * them 83 times would be 83 round trips to answer a question whose answer
-   * cannot change during a run - a fallback run writes no sets.
+   * Which of this page's cards the mirror already holds.
+   *
+   * One indexed primary-key lookup of at most 250 ids per page, rather than
+   * loading all 20 670 ids once: the per-page query is bounded in memory and
+   * reflects the table as it is now, and 83 such queries across a sweep is
+   * noise beside the upserts they guard.
    */
-  private async mirroredSetIds(): Promise<Set<string>> {
-    const sets = await this.prisma.cardSet.findMany({ select: { id: true } });
-    return new Set(sets.map((set) => set.id));
+  private async alreadyMirrored(items: CardDTO[]): Promise<CardDTO[]> {
+    if (items.length === 0) {
+      return items;
+    }
+
+    const rows = await this.prisma.card.findMany({
+      where: { id: { in: items.map((card) => card.id) } },
+      select: { id: true },
+    });
+
+    const known = new Set(rows.map((row) => row.id));
+    return items.filter((card) => known.has(card.id));
   }
 ```
 
@@ -1367,7 +1380,15 @@ forks: every foreign key holds, nothing raises, and the mirror quietly grows a
 second copy of 50 sets.
 
 1. **A fallback run never writes a set.** `fetchSets()` is not called.
-2. **A fallback run skips any card whose `setId` is not already in the mirror.**
+2. **A fallback run may only write a card whose `id` is already in the mirror.**
+   It refreshes; it never introduces.
+
+Rule two checks the card and not its set, and that distinction was measured the
+expensive way. TCGdex zero-pads card numbers **inside sets both providers
+share** — `sv10-060` against `sv10-60` is one physical card under two ids — so a
+set-level filter passes both. A real failover run wrote 593 such duplicates into
+the mirror before this was caught, with every other rule holding and nothing
+raising an error.
 
 Neither rule names a provider, because this is a property of failing over rather
 than of one source — a third provider inherits the protection without a line of
