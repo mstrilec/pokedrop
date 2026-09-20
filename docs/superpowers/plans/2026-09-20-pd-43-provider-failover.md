@@ -514,7 +514,6 @@ const selector = app.get(ProviderSelectorService);
 const breaker = app.get(ProviderBreakerService);
 
 const open = async (p) => { for (let i = 0; i < 5; i += 1) await breaker.recordFailure(p); };
-const clear = async (p) => { await breaker.recordSuccess(p); await app.get(ProviderSelectorService); };
 
 await breaker.recordSuccess('pokemontcg');
 await breaker.recordSuccess('tcgdex');
@@ -549,23 +548,50 @@ Expected:
 
 - [ ] **Step 5: Prove the selector fails toward the primary when Redis is down**
 
-The spec's failure table ends with this row, and it is the one that decides what
-happens in the worst case: with no breaker state readable, the run must use the
-provider the operator configured rather than a fallback nobody asked for.
+The spec's failure table ends with this row, and it is the one that decides the
+worst case: with no breaker state readable, the run must use the provider the
+operator configured rather than a fallback nobody asked for.
+
+**Do not stop the Redis container for this.** `RedisService.onModuleInit` calls
+`connect()` and `ping()`, so a Nest context cannot boot without Redis at all —
+the probe would die before reaching the selector and prove nothing. Boot first,
+then break the connection from inside:
 
 ```bash
-docker compose stop redis
-cd apps/api && node dist/selector-probe.mjs; cd ../..
-docker compose start redis
+cat > apps/api/dist/selector-offline-probe.mjs <<'EOF'
+import { NestFactory } from '@nestjs/core';
+import { WorkerModule } from './worker.module.js';
+import { ProviderSelectorService, ProviderBreakerService } from './sync/providers/index.js';
+import { RedisService } from './redis/index.js';
+
+const app = await NestFactory.createApplicationContext(WorkerModule, { logger: ['warn', 'error'] });
+const breaker = app.get(ProviderBreakerService);
+
+// Open the primary's breaker while Redis still works, so that if the selector
+// were able to read state it would choose the fallback. Then take Redis away.
+for (let i = 0; i < 5; i += 1) await breaker.recordFailure('pokemontcg');
+console.log('primary breaker open while redis is up:', await breaker.isOpen('pokemontcg'), '| expect true');
+
+app.get(RedisService).client.disconnect();
+
+const choice = await app.get(ProviderSelectorService).select();
+console.log('redis down    :', choice.provider.name, '| isFallback', choice.isFallback, '|', choice.reason,
+  '| expect pokemontcg false');
+
+process.exit(0);
+EOF
+cd apps/api && node dist/selector-offline-probe.mjs; cd ../..
 ```
 
-Expected: the first selection still returns **`pokemontcg` with `isFallback
-false`**, and a warning is logged saying the breaker could not be read. The
-later assertions in that probe will not be meaningful with Redis down — ignore
-them; this step is only about the first line.
+Expected: the breaker reads **open** while Redis is up, and then — with the
+connection gone — the selector still returns **`pokemontcg`, `isFallback
+false`**, logging a warning that it could not read the breaker.
 
-A crash here, or a selection of `tcgdex`, is a finding: switching sources on the
-strength of a Redis outage is acting on no evidence at all.
+That contrast is the whole measurement. A selection of `tcgdex` on the second
+line would mean the state was cached somewhere it should not be; a crash would
+mean the `catch` in `isOpen` is not covering the failure ioredis actually
+raises. `process.exit(0)` rather than `app.close()`, because shutting down
+cleanly needs the Redis connection this probe just destroyed.
 
 Then clear the keys before moving on, since they are shared with the running stack:
 
@@ -576,7 +602,7 @@ $REDIS DEL breaker:fail:pokemontcg breaker:open:pokemontcg breaker:fail:tcgdex b
 - [ ] **Step 6: Gates and commit**
 
 ```bash
-rm -f apps/api/dist/selector-probe.mjs
+rm -f apps/api/dist/selector-probe.mjs apps/api/dist/selector-offline-probe.mjs
 pnpm -s typecheck && pnpm -s lint && pnpm -s format:check
 ```
 
@@ -625,6 +651,10 @@ In `apps/api/src/sync/catalog-sync.processor.ts`, replace the `CARD_SOURCE_PROVI
   }
 ```
 
+**Every `this.provider` reference in the file moves to the local `provider`** —
+`fetchSets()`, `fetchCards()` and `.name` all read from it. Grep for
+`this.provider` after editing; there must be none left.
+
 Update the imports from `./providers/index.js` accordingly: `ProviderContractError`, `ProviderRateLimitError`, `ProviderSelectorService`, `ProviderBreakerService`, and the type `ProviderChoice`. `CARD_SOURCE_PROVIDER` and `CardSourceProvider` are no longer used here — remove them, and remember `@Inject` may become unused too.
 
 At the top of `process`, replace the first two statements with:
@@ -646,7 +676,8 @@ rather than inventing a row to satisfy the sentence.
 
 - [ ] **Step 2: Add the two rules that make failover safe**
 
-Immediately after the `run` is obtained, add:
+Immediately after the existing `const log = ...` arrow function — not before
+it, since the block below calls `log` — add:
 
 ```ts
     // Rule one of two. A fallback run never writes a set, because the providers
