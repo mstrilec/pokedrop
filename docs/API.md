@@ -210,8 +210,24 @@ Served entirely from the mirror. No route here can reach an external API — `Ca
 |---|---|---|---|
 | POST | `/admin/sync/catalog` | admin | Enqueue catalog sync |
 | POST | `/admin/sync/prices` | admin | Enqueue price sync |
-| GET | `/admin/sync/status` | admin | Last-run metrics, queue depth |
+| GET | `/admin/sync/status` | admin | Last run per `SyncKind`, plus breaker state per provider |
 | GET | `/admin/metrics` | admin | DAU, packs opened, trade volume, freshness |
+
+**`GET /admin/sync/status` is read only and returns two things**: the last run
+of each `SyncKind` — provider, status, timestamps, processed and failed counts,
+and the error or reason — and the breaker state per provider, as `failures` and
+an `openUntil` that says when the primary will be tried again.
+
+`openUntil` rather than "opened at", because it answers the question an operator
+is actually asking during an outage.
+
+**With Redis unavailable it still answers 200**, reporting every breaker as
+closed. A breaker that cannot be read is the same to this endpoint as one that
+is shut, which is also what the selector assumes.
+
+Triggering a sync and clearing a breaker are PD-81's half of this surface, in
+M10. This exists now because PD-43's third acceptance criterion is a statement
+about an endpoint.
 
 ## Health
 

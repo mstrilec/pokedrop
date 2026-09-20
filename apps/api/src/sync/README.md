@@ -64,10 +64,6 @@ TCGdex set map to `SetDTO`s equal to the millisecond, from `1999/01/09` and
 existed, because Nest builds providers eagerly and wiring an empty registry
 would have made the boot refusal fire on every start.
 
-| Ticket | Adds |
-| --- | --- |
-| PD-43 | failover and the circuit breaker, reading the error taxonomy |
-
 ## The pokemontcg.io provider
 
 Registered as `pokemontcg` and the default. `providers/pokemon-tcg/` holds the
@@ -394,3 +390,147 @@ own context, and the scheduler will not boot without the import.
 worker consumes what it enqueued, and `app.close()` drains the job in flight —
 which for a catalog sync is minutes. That is PD-41's graceful shutdown working,
 not a hang.
+
+## Failover
+
+`ProviderSelectorService` answers which provider a run uses. The processor asks
+it **once per run**, never per page.
+
+### The breaker
+
+| | |
+| --- | --- |
+| counts | `ProviderUnavailableError`, `ProviderContractError` |
+| never counts | `ProviderRateLimitError` |
+| threshold | 5 **consecutive** escaped failures |
+| cooldown | 30 minutes, expressed as the open key's TTL |
+| state | `breaker:fail:{provider}`, `breaker:open:{provider}` in Redis db 0 |
+
+Five, because four real sweeps against the primary failed 3 pages out of 83,
+scattered rather than clustered — five in a row at that rate is an event of
+roughly 6 × 10⁻⁸. Consecutive is what makes that true: any successful page
+deletes the counter.
+
+An individual 5xx never reaches the breaker. `http.ts` retries internally, so a
+`ProviderUnavailableError` means the whole attempt budget was spent — which is
+what makes the signal mean "unusable" rather than "a request failed".
+
+**The state is not in the cache namespace and is not read through
+`CacheService`.** That service turns a Redis failure into a miss, which is right
+for a cache and catastrophic for a counter: the breaker would forget an outage
+during exactly the incident that caused it. With Redis unreachable the breaker
+reports closed and the run uses the configured primary — failing toward the
+source the operator chose, rather than switching on no evidence.
+
+### Two rules keep a failover from forking the mirror
+
+The providers disagree about set ids on 50 of the mirror's 176 sets — `sv3pt5`
+against `sv03.5`, `me1` against `me01`. **15 222 of the 20 670 cards (73.6%)
+share an id with TCGdex; 5 448 do not.** A naive failover does not fail, it
+forks: every foreign key holds, nothing raises, and the mirror quietly grows a
+second copy of 50 sets.
+
+1. **A fallback run never writes a set.** `fetchSets()` is not called.
+2. **A fallback run may only write a card whose `id` is already in the mirror.**
+   It refreshes; it never introduces.
+
+Rule two checks the card and not its set, and that distinction was measured the
+expensive way. TCGdex zero-pads card numbers **inside sets both providers
+share** — `sv10-060` against `sv10-60` is one physical card under two ids — so a
+set-level filter passes both. A real failover run wrote 593 such duplicates into
+the mirror before this was caught, with every other rule holding and nothing
+raising an error.
+
+Neither rule names a provider, because this is a property of failing over rather
+than of one source — a third provider inherits the protection without a line of
+new code. The 50 divergent sets simply do not refresh while the primary is down;
+they stay as they were, which is what a mirror is for.
+
+**A fallback run always closes `PARTIAL`**, with the provider, the reason and the
+skipped count in `SyncRun.error`.
+
+### The set rule alone was not enough, and a real run proved it
+
+The first implementation filtered on `setId`, and a live failover sweep ran with
+every rule doing exactly what it was told: no set written, 7 160 cards skipped,
+the run closed `PARTIAL` with its reason recorded. The catalog forked anyway.
+
+**TCGdex zero-pads card numbers inside sets both providers already share.**
+
+```
+sv10-060  vs  sv10-60     Abomasnow
+sv10-092  vs  sv10-92     Annihilape
+sv10-023  vs  sv10-23     Arboliva ex
+```
+
+`sv10` is in the mirror, so a set-level filter passed both spellings. **593
+physical cards ended up under two ids each**, with no error raised and every
+foreign key intact.
+
+It was quiet for a reason worth knowing: card numbers from 100 upward are
+identical in both schemes, because there is nothing left to pad. Only 1–99
+diverge, so roughly a third of each modern set forked — few enough to miss,
+many enough to break search.
+
+Measured after the fix, against TCGdex's `sv10` page: 244 ids fetched, 145
+already in the mirror, so rule two writes 145 and blocks 99. The 99 are exactly
+the forks.
+
+### It switches at the next run, not mid-run
+
+The ticket's scope line says the sync layer should switch "that batch". It does
+not, deliberately. A mid-run switch would put two id vocabularies inside one
+`SyncRun` — pages 1–40 as `sv4-25`, 41–83 as `sv04-25` — and the run's
+`provider` column could then name only one of the two sources that wrote it.
+The fork would arrive through the door marked resilience.
+
+The cost is one sync cycle of staleness on the sets the fallback could have
+served. The scheduler runs daily and the catalog gains a set a few times a year,
+so that is a cost the architecture already absorbs; a forked catalog is not.
+
+### Measured
+
+| Measured | Result |
+| --- | --- |
+| provider recorded by the failover run | `tcgdex` |
+| the failover run's close | `PARTIAL`, reason `fallback via tcgdex (breaker open for pokemontcg); no set written, 7160 cards skipped as not already mirrored` — 21 947 processed, 1 789 failed |
+| sets before / after | 176 / 176 — rule one held |
+| cards in sets absent from the mirror | 0 |
+| sets matching the TCGdex id scheme (`30th`, `A1`, `sv04`…) | 0 |
+| breaker after 10 consecutive 429s | failures 0, openUntil null |
+| breaker after 5 consecutive 5xx | failures 5, openUntil set |
+| four failures then a success | counter back to 0 — the measurement that proves "consecutive" |
+| selection once the cooldown key expired | `pokemontcg`, isFallback false |
+| selection with Redis unreachable, breaker open | `pokemontcg`, isFallback false, with a warning |
+| `/admin/sync/status` no session / admin / member | 401 / 200 / 403 |
+| `/admin/sync/status` with Redis stopped | 200 in 26 ms, every breaker reported closed |
+
+When every registered provider's breaker is open, the selector throws before a
+`SyncRun` is created, so the job fails in BullMQ and no row is written to
+`sync_runs` — the spec's failure table says such a run closes `FAILED`, and this
+is where that is corrected.
+
+### What a failover costs beyond freshness
+
+A fallback run refreshes the cards it is allowed to write **with TCGdex's field
+values**. Measured on the run above: 14 787 rows were rewritten, and the rarity
+vocabulary moved with them — 2 401 cards came back reading `Ultra Rare` and
+`Holo Rare` where pokemontcg.io writes `Rare Ultra` and `Rare Holo`. Image URLs
+moved to TCGdex's CDN for the same rows.
+
+Nothing is lost and nothing forks, but it is visible: after an outage day a
+filter on `?rarity=Rare Ultra` stops matching those cards until the primary
+sweeps them again.
+
+A rarity translation table is the same brittle construct rejected for set ids,
+and it would break in the same silent way. `RarityTier` in M12 is a
+presentation-layer concept that already has to normalise rarity for display, and
+that is where this belongs.
+
+### When every provider is down, no run is recorded
+
+If every registered provider's breaker is open, the selector throws before a
+`SyncRun` row is created, so the job fails in BullMQ's failed set and nothing
+is written to `sync_runs`. A row would have nothing truthful to put in its
+`provider` column. An operator looking for the event finds it in the queue, not
+in the table.

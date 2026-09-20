@@ -212,7 +212,13 @@ Prices are **never fetched on the user request path.** `@nestjs/schedule` cron t
 
 **Write path per card:** fetch latest → `UPDATE Card` price fields → `INSERT PriceSnapshot` (≤1/card/day) → `DEL price:card:{id}` in Redis.
 
-**Failure handling:** retry with backoff; after N failures switch to fallback provider for that batch. Sync status + last-run timestamps surface on the admin dashboard; stale prices show an "updated X ago" label rather than being hidden.
+**Failure handling:** retry with backoff; five consecutive *escaped* failures —
+those that survived the client's own retry budget — open a per-provider circuit
+breaker for 30 minutes, and the **next** run is served by the fallback. Not the
+same batch: the two providers disagree about set ids on 50 of 176 sets, so a
+mid-run switch would fork the catalog rather than rescue it. A rate limit never
+counts toward the breaker. Sync status, the provider that served the last run
+and the breaker state surface on `GET /admin/sync/status`.
 
 ## 8. Caching strategy (Redis)
 
