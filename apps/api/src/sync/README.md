@@ -229,6 +229,14 @@ acceptance criterion — absent fields become explicit nulls — holds for `hp`,
 `rarity`, `logoUrl`, `symbolUrl` and the two third-party ids, and cannot hold
 here. `hgss1-1`'s Sharp Fang is the card to look at.
 
+**`weaknesses[].value` and `resistances[].value` become `""` when absent**, for
+the same reason: `WeaknessSchema` and `ResistanceSchema` declare `value`
+non-nullable, so a weakness whose type is published without a multiplier has
+nowhere to put a null. This is not rare noise — 30 of 151 POP-series cards with
+images are in this state, including all 17 of `pop1` — so the mapper defaults
+the string and keeps the card rather than requiring `value` in the raw schema
+and losing the card (and, at that concentration, most of two sets) instead.
+
 ### Two ids need encoding
 
 `exu-!` and `exu-%3F`. The second already carries a percent escape, so
@@ -254,14 +262,19 @@ What it did prove, on real rows rather than on a probe's return value:
 | the third-party ids landed | 1 537 TCGplayer, 1 489 Cardmarket |
 
 What it did not prove is that the remaining 65 pages complete, and that gap was
-real: page 45 fails. `pop1-9`, `pop1-11` and `pop2-6` publish a weakness with no
-`value`, `WeaknessSchema` requires one, and the mapper threw a raw `ZodError`
-that nothing caught — costing the whole page rather than the three cards. The
-sweep never reached page 45, so it did not catch this; the final review did,
-by reading the schemas rather than by running further. It is fixed:
-`RawTypeValueSchema.value` is required, so a card like this is skipped on its
-own, and `hydrate` now catches any throw out of `toCardDTO` so no other
-DTO-only constraint can take a page down with it.
+real: page 45 fails. `pop1-9`, `pop1-11` and `pop2-6` — in fact all 17 of
+`pop1` and 13 of `pop2` — publish a weakness with a `type` and no `value`, and
+the mapper threw a raw `ZodError` when it built a `WeaknessSchema` object that
+requires one, a throw nothing caught: the pool worker rejected, `Promise.all`
+rejected, `fetchCards` rejected, and the whole page was lost rather than the
+one card. The sweep never reached page 45, so it did not catch this; the final
+review did, by reading the schemas rather than by running further. It is fixed
+two ways: `hydrate` now catches any throw out of `toCardDTO`, so no DTO-only
+constraint the raw schema doesn't mirror can take a page down with it, and the
+mapper defaults the missing `value` to `""` rather than the raw schema
+requiring it — a card whose weakness has no printed multiplier is kept, not
+dropped, which matters at this concentration because requiring it would have
+emptied `pop1` and most of `pop2` out of the mirror.
 
 ### The ids diverge from the primary's, and that is PD-43's problem
 

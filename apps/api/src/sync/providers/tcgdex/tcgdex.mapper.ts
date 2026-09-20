@@ -94,8 +94,14 @@ export function toCardDTO(raw: RawCard & { image: string }): CardDTO {
     // TCGdex publishes a count, not a cost. Expanding it is not invention:
     // retreat cost is colourless by the rules of the game.
     retreatCost: Array.from({ length: raw.retreat ?? 0 }, () => 'Colorless'),
-    weaknesses: raw.weaknesses ?? [],
-    resistances: raw.resistances ?? [],
+    // WeaknessSchema and ResistanceSchema declare `value` a non-nullable
+    // string, so a weakness with no printed multiplier has nowhere to put a
+    // null - `''` is the contract speaking, not the mapper being careless.
+    // 30 of 151 POP-series cards with images are in this state, all 17 of
+    // `pop1` among them: the type (`Water`) is published, the multiplier is
+    // not, and the card is kept rather than dropped.
+    weaknesses: (raw.weaknesses ?? []).map((w) => ({ type: w.type, value: w.value ?? '' })),
+    resistances: (raw.resistances ?? []).map((r) => ({ type: r.type, value: r.value ?? '' })),
     attacks: (raw.attacks ?? []).map((attack) => ({
       name: attack.name,
       cost: attack.cost ?? [],
