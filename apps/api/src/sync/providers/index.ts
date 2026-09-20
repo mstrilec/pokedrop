@@ -21,4 +21,7 @@ export type { ProviderItemError } from './provider.errors.js';
 export { ProviderBreakerService } from './provider-breaker.service.js';
 export type { BreakerState } from './provider-breaker.service.js';
 
+export { ProviderSelectorService } from './provider-selector.service.js';
+export type { ProviderChoice } from './provider-selector.service.js';
+
 export { ProvidersModule } from './providers.module.js';
