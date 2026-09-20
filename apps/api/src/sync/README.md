@@ -60,9 +60,9 @@ TCGdex set map to `SetDTO`s equal to the millisecond, from `1999/01/09` and
 
 ## What is not here yet
 
-`SyncModule` is not imported into `AppModule`. Nest builds providers eagerly, so
-wiring an empty registry would make the boot refusal fire on every start. PD-39
-wires it together with the first provider.
+`SyncModule` waited to be imported into `AppModule` until the first provider
+existed, because Nest builds providers eagerly and wiring an empty registry
+would have made the boot refusal fire on every start.
 
 | Ticket | Adds |
 | --- | --- |
