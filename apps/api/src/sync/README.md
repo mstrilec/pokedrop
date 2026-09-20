@@ -66,10 +66,6 @@ wires it together with the first provider.
 
 | Ticket | Adds |
 | --- | --- |
-| PD-39 | `providers/pokemon-tcg/` — client, raw schema, mapper |
-| PD-40 | `providers/tcgdex/` — the same against the fallback |
-| PD-41 | BullMQ queues and the worker entrypoint |
-| PD-42 | `catalog-sync.processor.ts` and the `SyncRun` model |
 | PD-43 | failover and the circuit breaker, reading the error taxonomy |
 
 ## The pokemontcg.io provider
@@ -148,6 +144,125 @@ The catalog is 20 670 cards, so a full sweep is 83 pages — roughly 275 request
 once retries are counted. Well inside the anonymous rate limit. The free API key
 raises it further and should be set before the first production sweep; v1 uses
 no paid services, and this key is free.
+
+## The TCGdex provider
+
+Registered as `tcgdex` and used as the fallback. `providers/tcgdex/` holds the
+same four files as the primary, and `http.ts` is deliberately a parallel of the
+other rather than shared code: the mechanism matches, the policy does not.
+
+### It fails in the opposite direction to the primary
+
+Measured 2026-09-19. pokemontcg.io answered **6 of 20** requests; TCGdex
+answered **10 of 10**, then **64 of 64** under concurrency, with no `429` at any
+level. What it lacks is bulk: every filtered endpoint — `?set=`, `?id=`,
+pagination — returns briefs of `{id, localId, name, image}`, and a full card is
+one request each.
+
+| Concurrency | Rate | HTTP time for 23 736 |
+| --- | --- | --- |
+| 1 | 12.5 req/s | 27.5 min |
+| 4 | 63.9 req/s | 5.4 min |
+| **8** | **114.5 req/s** | **3.0 min** |
+| 16 | 177.3 req/s | 1.9 min |
+
+**That last column is HTTP time only, and it is not how long a sweep takes.**
+Measured end to end: a real catalog sync wrote 220 sets and 7 007 cards at
+roughly 1 400 cards a minute, so a full catalog is **15 to 25 minutes**. The gap
+is everything the throughput probe left out — every page opens a transaction and
+upserts 250 rows, and the pages are walked one at a time.
+
+Eight, and not because sixteen failed. This is a free keyless community service
+and `docs/PRD.md` §2 commits the project to free infrastructure; doubling to 16
+would only halve the HTTP time, which the correction above shows is a minority
+of a sweep's wall clock.
+
+### A page is a slice of the brief index
+
+The whole index is **one request — 23 736 entries, 2.3 MB, 960 ms**. The client
+holds it for an hour, **sorted by `id`**, and a page is a slice hydrated through
+a pool of eight.
+
+The sort is load-bearing. `SyncRun.cursor` stores a page number, and a page
+number only means something if it names the same cards twice. Without it the
+order is whatever the endpoint answered with, and every resumed sync writes some
+cards twice and misses others.
+
+A resume more than an hour later refetches the index, and cards published in
+between shift the boundaries. Harmless: the guarded upsert absorbs a repeat, and
+a missed card is picked up by the next sweep — which is how this mirror already
+converges.
+
+### Mapping rules, and four that are silent when wrong
+
+| Target | Source | Note |
+| --- | --- | --- |
+| `supertype` | `category` | **`Pokemon` → `Pokémon`.** One character. Without it the supertype facet grows a fourth value and `?supertype=Pokémon` misses every row this provider wrote |
+| `subtypes` | `stage` | **`Stage2` → `["Stage 2"]`**, one word upstream and two here |
+| `retreatCost` | `retreat` | a count upstream, a cost here — expanded to that many `Colorless`, which is what the rules of the game say it is |
+| `symbolUrl` | `symbol` | **the published URL answers 400.** It points at `assets.tcgdex.net/univ/…`; the asset lives under the language prefix. Verified across 8 sets: `univ` 0/8, `en` 8/8. `z.url()` accepts a dead URL, so dropping the rewrite is silent |
+| `logoUrl` | `logo` | `+ ".png"`; 63 of 220 sets publish none |
+| `legalities` | `legal` | booleans → `Legal`/`Illegal`. `unlimited` is **omitted**, not guessed |
+| `attacks[].convertedEnergyCost` | — | `cost.length`, which is the definition |
+| `tcgplayerId`, `cardmarketId` | `variants_detailed[].thirdParty` | **the one place this provider beats the primary**, which publishes neither |
+
+### Two gaps that are the contract's, not the mapper's
+
+**1 749 of 23 736 cards carry no image**, across 68 sets, confirmed on the full
+object rather than the index. The first page of the sorted index is unusually
+affected — 84 items and 166 skipped out of 250 — because digits sort before
+letters, so the earliest ids are all promo-era sets whose image coverage is far
+below the catalog's 7.4% average. `CardDTO.imageSmall` is a non-nullable
+`z.url()`, so such a card cannot be represented; it goes to `CardPage.skipped`
+without a request being spent on it. Making images optional is a schema
+decision the catalog UI has to answer first.
+
+**`attacks[].text` and `attacks[].damage` become `""` when absent**, because
+`AttackSchema` in `@pokedrop/shared` declares both non-nullable. PD-40's second
+acceptance criterion — absent fields become explicit nulls — holds for `hp`,
+`rarity`, `logoUrl`, `symbolUrl` and the two third-party ids, and cannot hold
+here. `hgss1-1`'s Sharp Fang is the card to look at.
+
+### Two ids need encoding
+
+`exu-!` and `exu-%3F`. The second already carries a percent escape, so
+`encodeURIComponent` produces `exu-%253F` — and that is the URL that answers
+200. The double encoding is correct.
+
+### What the first real sweep proved, and what it did not
+
+Run 2026-09-20 against a throwaway database, deliberately not the mirror. It
+wrote **220 sets and 7 007 cards across roughly 30 of 95 pages** before the
+process was stopped, so the catalog was not swept to completion.
+
+What it did prove, on real rows rather than on a probe's return value:
+
+| Check | Result |
+| --- | --- |
+| `supertype` carries the accent | `Pokémon` 6 210, `Trainer` 663, `Energy` 134 — rows saying `Pokemon` : **0** |
+| the symbol rewrite held | symbol URLs containing `/univ/` : **0**, across 169 sets that publish one |
+| `subtypes` gained its space | `30th-002` is `{"Stage 1"}` |
+| `retreatCost` became a cost | `30th-002` is four `Colorless` |
+| no legality was invented | rows carrying an `unlimited` key : **0** |
+| image URLs are well formed | rows not ending `/low.webp` and `/high.webp` : **0** |
+| the third-party ids landed | 1 537 TCGplayer, 1 489 Cardmarket |
+
+What it did not prove is that the remaining 65 pages complete. The pages are
+homogeneous — the same slice-and-hydrate path for every one — so the risk is
+low, but it is untested and this paragraph is where a future reader should find
+that out rather than assume otherwise.
+
+### The ids diverge from the primary's, and that is PD-43's problem
+
+TCGdex publishes 220 sets to the primary's 176, and the two disagree about
+naming on the newer ones: `sv3pt5` against `sv03.5`, `me1` against `me01`. Card
+ids inherit the set prefix, so **15 222 of the mirror's 20 670 cards (73.6%)
+share an id with TCGdex and 5 448 do not**.
+
+Switching providers on a populated database therefore forks the catalog rather
+than failing — every foreign key holds and nothing raises. PD-43 carries the two
+rules that make failover safe; until then, a TCGdex sweep belongs in its own
+database.
 
 ## The catalog sync
 

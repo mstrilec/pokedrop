@@ -80,6 +80,17 @@ CardSourceProvider
 
 `PokemonTcgClient` is the default; `TcgdexClient` is a fallback the sync layer switches to on repeated failures. The rest of the app is source-agnostic, and `CARD_SOURCE_PROVIDER` in the environment is the whole of choosing between them. The seam lives in `apps/api/src/sync/providers/`, and an ESLint rule keeps provider internals behind its `index.ts`.
 
+Both are implemented. They fail in opposite directions, which is the point:
+pokemontcg.io is cheap in requests and answered 6 of 20 when measured, TCGdex is
+one request per card and answered 10 of 10. A full TCGdex sweep is 23 736
+requests against the primary's 83, and takes 15 to 25 minutes end to end at the
+concurrency of 8 the client holds to.
+
+**Their set ids diverge on newer sets** — `sv3pt5` against `sv03.5` — so 73.6%
+of the mirror shares an id with TCGdex and 26.4% does not. Switching providers
+on a populated database forks the catalog silently; PD-43 carries the rules that
+make failing over safe.
+
 ## 4. Backend module structure (NestJS)
 
 ```
