@@ -341,6 +341,12 @@ const stored = await prisma.priceSnapshot.findFirst({ where: { cardId: 'base1-4'
 console.log('stored market     :', String(stored.market), '| expect exactly 882.02');
 console.log('stored capturedOn :', stored.capturedOn.toISOString());
 
+// base1-4 is one of twelve cards the seed gives a price to, so its row is
+// captured and put back exactly rather than nulled. Nulling it would destroy
+// a fixture PD-27 created, silently and without an error.
+const original = await prisma.card.findUnique({ where: { id: 'base1-4' } });
+console.log('original usd      :', String(original.latestPriceUsd), '| will be restored');
+
 const updated = await prisma.withTransaction((tx) =>
   writer.updateLatest(tx, [{ cardId: 'base1-4', usd: 882.02, eur: null, capturedAt: at }]),
 );
@@ -351,9 +357,15 @@ console.log('updateLatest wrote:', updated, '| usd', String(card.latestPriceUsd)
 await prisma.priceSnapshot.deleteMany({ where: { cardId: 'base1-4' } });
 await prisma.card.update({
   where: { id: 'base1-4' },
-  data: { latestPriceUsd: null, latestPriceEur: null, priceUpdatedAt: null },
+  data: {
+    latestPriceUsd: original.latestPriceUsd,
+    latestPriceEur: original.latestPriceEur,
+    priceUpdatedAt: original.priceUpdatedAt,
+  },
 });
-console.log('cleaned up        :', await prisma.priceSnapshot.count(), 'snapshots left');
+const restored = await prisma.card.findUnique({ where: { id: 'base1-4' } });
+console.log('restored usd      :', String(restored.latestPriceUsd), '| must equal the original');
+console.log('snapshots left    :', await prisma.priceSnapshot.count(), '| expect 0');
 process.exit(0);
 EOF
 cd apps/api && node dist/writer-probe.mjs; cd ..
@@ -609,9 +621,11 @@ const queue = app.get(getQueueToken(QUEUE.priceSync));
 const ids = (await prisma.card.findMany({ where: { setId: 'base1' }, select: { id: true }, take: 100 })).map(c => c.id);
 console.log('batch size        :', ids.length);
 
-// A card the probe can watch for the untouched rule: give it a distinctive
-// price and an old timestamp, then check it survives if unpriced.
-await redis.set('cache:price:card:' + ids[0], 'sentinel');
+// A sentinel on every asked-for card, plus one on a card nobody asked about.
+// Watching a single id would prove nothing: if that one card came back
+// unpriced its key would correctly survive, and the check would read as a
+// failure. The assertion below is over counts instead.
+for (const id of ids) await redis.set('cache:price:card:' + id, 'sentinel');
 await redis.set('cache:price:card:base2-1', 'neighbour');
 
 const t0 = Date.now();
@@ -628,13 +642,22 @@ const settled = async () => {
 console.log('first run         :', await settled(), `in ${Date.now() - t0}ms`);
 
 const count1 = await prisma.priceSnapshot.count();
-const priced = await prisma.card.count({ where: { id: { in: ids }, priceUpdatedAt: { not: null } } });
+// Written by THIS run, not merely carrying a timestamp: six base1 cards were
+// given a price by the seed on 2026-09-15, and counting those would make the
+// sentinel arithmetic below wrong.
+const startedAt = new Date(t0);
+const priced = await prisma.card.count({ where: { id: { in: ids }, priceUpdatedAt: { gte: startedAt } } });
 console.log('snapshots         :', count1);
 console.log('cards with a price:', priced, 'of', ids.length);
-console.log('sentinel key      :', await redis.get('cache:price:card:' + ids[0]), '| expect null');
+let sentinelsLeft = 0;
+for (const id of ids) if (await redis.get('cache:price:card:' + id) !== null) sentinelsLeft += 1;
+console.log('sentinels surviving:', sentinelsLeft, '| expect exactly', ids.length - priced,
+  '- one per card that came back unpriced, and none for a card that was written');
 console.log('neighbour key     :', await redis.get('cache:price:card:base2-1'), '| expect neighbour');
 
-const sample = await prisma.card.findFirst({ where: { id: { in: ids }, latestPriceUsd: { not: null } } });
+const sample = await prisma.card.findFirst({
+  where: { id: { in: ids }, priceUpdatedAt: { gte: startedAt }, latestPriceUsd: { not: null } },
+});
 console.log('sample card       :', sample.id, '| usd', String(sample.latestPriceUsd),
   '| eur', String(sample.latestPriceEur), '| at', sample.priceUpdatedAt.toISOString());
 
@@ -660,6 +683,7 @@ const perCard = await prisma.priceSnapshot.groupBy({
 console.log('max rows for one card today:', perCard[0]?._count, '| expect at most 2, one per source');
 
 await redis.del('cache:price:card:base2-1');
+for (const id of ids) await redis.del('cache:price:card:' + id);
 process.exit(0);
 EOF
 cd apps/api && node dist/price-sync-probe.mjs 2>&1 | grep -vE "^\[Nest\] .*(InstanceLoader|NestFactory)"; cd ..
@@ -694,24 +718,66 @@ WHERE \"setId\" = 'base1' AND \"priceUpdatedAt\" IS NULL LIMIT 3;
 ```
 
 Any row listed was asked for and came back unpriced, and its three columns are
-still `NULL` — untouched, exactly as the criterion requires. If the count is 0,
-every `base1` card was priced; say so and note that this criterion was checked
-by the absent-currency case in Task 2 instead.
+still `NULL` — untouched, exactly as the criterion requires.
 
-Then put the mirror back the way this plan found it:
+**There is a stronger form of this evidence available, and you should look for
+it too.** Six `base1` cards were given a price by the seed on 2026-09-15. Any of
+those that this run did *not* price should still carry its seeded value and its
+seeded timestamp — which demonstrates "keeps its previous values and stale
+timestamp" far better than a row that was null to begin with:
+
+```bash
+$PSQL -c "
+SELECT id, \"latestPriceUsd\", \"priceUpdatedAt\"
+FROM cards
+WHERE id IN ('base1-15','base1-2','base1-4','base1-46','base1-58','base1-63')
+ORDER BY id;
+"
+```
+
+Record which of the six the run refreshed and which it left alone. A row still
+reading `2026-09-15 03:00:00` was asked for, came back unpriced, and kept
+everything — that is the third acceptance criterion in its clearest form.
+
+Then put the mirror back the way this plan found it — **which is not the same
+as emptying it.** Twelve cards carry prices the seed wrote on 2026-09-15, six of
+them in `base1`, so a blanket `SET NULL` would destroy PD-27 fixtures rather
+than undo this probe. Capture first, restore after:
+
+**Run this BEFORE Step 3's probe**, so the backup reflects the seeded state:
+
+```bash
+$PSQL -c "
+CREATE TABLE _pd48_backup AS
+SELECT id, \"latestPriceUsd\", \"latestPriceEur\", \"priceUpdatedAt\"
+FROM cards WHERE \"priceUpdatedAt\" IS NOT NULL;
+SELECT count(*) AS backed_up FROM _pd48_backup;
+"
+```
+
+Expected: **12**. If it is not 12, the seeded state differs from what this plan
+measured — stop and report it rather than proceeding.
+
+And this after:
 
 ```bash
 $PSQL -c "
 DELETE FROM price_snapshots;
 UPDATE cards SET \"latestPriceUsd\" = NULL, \"latestPriceEur\" = NULL, \"priceUpdatedAt\" = NULL
   WHERE \"priceUpdatedAt\" IS NOT NULL;
-SELECT count(*) AS snapshots, (SELECT count(*) FROM cards WHERE \"priceUpdatedAt\" IS NOT NULL) AS priced
-FROM price_snapshots;
+UPDATE cards c SET \"latestPriceUsd\" = b.\"latestPriceUsd\",
+                   \"latestPriceEur\" = b.\"latestPriceEur\",
+                   \"priceUpdatedAt\" = b.\"priceUpdatedAt\"
+FROM _pd48_backup b WHERE c.id = b.id;
+DROP TABLE _pd48_backup;
+SELECT (SELECT count(*) FROM price_snapshots) AS snapshots,
+       (SELECT count(*) FROM cards WHERE \"priceUpdatedAt\" IS NOT NULL) AS priced;
 "
 ```
 
-Both must read 0. PD-49 is what fills this table for real; leaving one batch of
-`base1` behind would make its first measurement ambiguous.
+Expected: **0 snapshots and 12 priced** — the twelve seeded rows back exactly as
+they were. PD-49 is what fills this table for real; leaving a batch of `base1`
+behind would make its first measurement ambiguous.
 
 - [ ] **Step 5: Gates and commit**
 
