@@ -265,8 +265,24 @@ model PriceSnapshot {
   high       Decimal?    @db.Decimal(10, 2)
   capturedAt DateTime
 
+  /// The UTC day of `capturedAt`, materialised so the one-snapshot-per-card-
+  /// per-day cap can be a unique index instead of a convention.
+  ///
+  /// docs/DataModel.md used to say this cap could not live in the schema,
+  /// because expressing it needs an index over `capturedAt::date` and Prisma
+  /// cannot declare expression indexes. That is true and it is not the only
+  /// way to state the constraint: materialise the day and the index becomes an
+  /// ordinary composite one that Prisma declares natively, with no drift.
+  ///
+  /// Derived in UTC by the price sync processor. Prisma has no generated
+  /// columns, so nothing in the database enforces that it matches
+  /// `capturedAt` - the processor is the only writer, and it computes both
+  /// from one instant per job.
+  capturedOn DateTime @db.Date
+
   card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
 
+  @@unique([cardId, source, capturedOn])
   @@index([cardId, capturedAt])
   @@map("price_snapshots")
 }
