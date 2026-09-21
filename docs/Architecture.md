@@ -58,7 +58,7 @@
 
 | Concern | Decision |
 |---|---|
-| Primary card + price source | **pokemontcg.io API v2** — free, ~20k req/day with key; card object embeds TCGPlayer (USD) + Cardmarket (EUR) prices |
+| Primary card + price source | **pokemontcg.io API v2** — free. Anonymous ceiling 1 000 req/day, 30/min (documented, not observed — no rate-limit header on any response, verified 2026-09-21); a key raises the daily figure to 20 000, but **registration is closed** — the API is deprecated and existing keys work only through 2027-03-01. Card object embeds TCGPlayer (USD) + Cardmarket (EUR) prices |
 | Fallback / multilingual / self-host | **TCGdex** — free, no key, REST + GraphQL, 14 languages, Docker-self-hostable |
 | Documented production upgrade, **not used in v1** — but see below | **Scrydex** — commercial successor of pokemontcg.io, credit-based, SLA-backed. Paid, and v1 uses no paid services (`docs/PRD.md` §2, API strategy); kept as the escape hatch this adapter makes cheap |
 | Optional species enrichment | **PokéAPI** — Pokédex base stats/flavor for the card detail page only |
@@ -234,7 +234,7 @@ No user read ever calls an external API. See [caching](#8-caching-strategy).
 
 Prices are **never fetched on the user request path.** `@nestjs/schedule` cron triggers enqueue BullMQ jobs:
 
-- **Nightly full sweep** — refresh prices for the whole catalog in batches, respecting rate limits (bounded concurrency + exponential backoff on 429).
+- **Nightly full sweep** — refresh prices for the whole catalog in batches, respecting rate limits (bounded concurrency + exponential backoff on 429). It counts every request against the daily allowance in §3 and stops for the night while a reserve remains unspent, rather than trusting the batch arithmetic to stay under the ceiling.
 - **Frequent "active" refresh** (every few hours) — prioritize cards that are *owned*, *in a deck*, *recently traded*, or *trending/viewed*. Keeps user-visible prices fresh without burning quota on the long tail.
 - **On-demand** — admin "Sync prices now" and per-card refresh with a cooldown.
 

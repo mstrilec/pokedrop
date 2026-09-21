@@ -39,7 +39,7 @@ The system uses a **local catalog-mirror architecture**: card metadata and price
 
 | Concern | Decision |
 |---|---|
-| Primary card + price source | **pokemontcg.io API v2** — free; the key is free too and only raises the daily ceiling (~20k with it, lower anonymously). The card object embeds TCGPlayer (USD) + Cardmarket (EUR) prices |
+| Primary card + price source | **pokemontcg.io API v2** — free. The anonymous ceiling is 1 000 requests a day and 30 a minute, documented rather than observed (no rate-limit header on any response, verified 2026-09-21). A key raises the daily figure to 20 000, but **registration is closed**: the API is deprecated and existing keys work only through 2027-03-01. The card object embeds TCGPlayer (USD) + Cardmarket (EUR) prices |
 | Fallback / multilingual / self-host insurance | **TCGdex** — free, no key, REST + GraphQL, 14 languages, open-source & Docker-self-hostable, also carries Cardmarket/TCGplayer prices |
 | Documented production upgrade, **not used in v1** | **Scrydex** — commercial successor of pokemontcg.io, credit-based, SLA-backed. Paid, therefore out of scope; kept here only as the escape hatch the provider adapter makes cheap |
 | Optional species enrichment | **PokéAPI** — video-game Pokédex base stats/flavor for the card detail page only |

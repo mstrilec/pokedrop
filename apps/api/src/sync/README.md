@@ -137,9 +137,16 @@ Corrupting one card in a captured page keeps the other four and reports the bad
 one by id — one malformed card costs one card.
 
 The catalog is 20 670 cards, so a full sweep is 83 pages — roughly 275 requests
-once retries are counted. Well inside the anonymous rate limit. The free API key
-raises it further and should be set before the first production sweep; v1 uses
-no paid services, and this key is free.
+once retries are counted.
+
+**The anonymous ceiling is 1 000 requests a day and 30 a minute**, documented
+rather than observed: no response carries a rate-limit header, verified again
+2026-09-21 on both a 200 and a 500. A key would raise the daily figure to 20 000
+and **there is no longer a key to get** — pokemontcg.io closed registration when
+it deprecated the API. Existing keys work through 2027-03-01.
+
+So a sweep and a price sweep together spend roughly half the day's allowance,
+and PD-49 counts what it spends rather than trusting the arithmetic.
 
 ## The TCGdex provider
 
@@ -573,8 +580,10 @@ in the table.
 ## The price write path
 
 `price-sync.processor.ts` on `QUEUE.priceSync`. It is handed card ids and does
-not choose them — PD-49 enqueues batches covering the catalog, PD-50 the active
-set, PD-52 a single card. Three producers, one consumer.
+not choose them — PD-50 enqueues the active set, PD-52 a single card. Two
+producers, one consumer. PD-49's sweep is not the third: it calls
+`PriceBatchService` directly from its own coordinator job on `QUEUE.priceSweep`
+rather than filling this queue — see "The nightly price sweep" below.
 
 ### Per batch
 
@@ -582,18 +591,34 @@ set, PD-52 a single card. Three producers, one consumer.
 2. `fetchPrices(cardIds)` once for the whole batch.
 3. `UPDATE cards` for every card the response carried.
 4. `createMany` the snapshots with `skipDuplicates`.
-5. `DEL cache:price:card:{id}` per card, **after the commit**.
+5. `DEL cache:price:card:{id}` and `cache:card:{id}` per card, **after the commit**.
 
 **Batch size is 100.** Measured against the primary: 100 cards in 3.9 s, 250 in
 19.2 s — five times the wall clock for two and a half times the work, because
 the provider's `OR`-query cost grows faster than linearly. At 100 the catalog is
 207 jobs and a failed one costs 100 cards.
 
-The cache deletes run after the transaction commits, not inside it — a crash in
-that gap leaves a stale price readable for up to the price TTL of one hour.
-Doing the deletes after commit is still the right trade, since the alternative
-holds row locks across a network call, and today the window is unobservable
-because nothing in `apps/api/src` populates `cacheKeys.cardPrice` yet.
+**Re-measured 2026-09-21, and the curve is not what this says.** Through the
+same code path: 100 cards cost 4.53 s (fetch 4.37, write 0.16) and 250 cost
+12.57 s (fetch 12.21, write 0.36) — 2.77× the time for 2.5× the work, which is
+roughly linear. A single 19.9 s observation for 250 did appear, and a 21.4 s
+*success* appears in a 20-request sample of single cards, so the original 19.2 s
+looks like this distribution's tail rather than its shape.
+
+The batch of 100 stands for PD-52 and PD-50, where a failed batch should be
+small. **PD-49's sweep uses 250**, because against a ceiling of 1 000 requests a
+day the 83-request pass beats the 207-request one and the two minutes of wall
+clock between them buy nothing.
+
+**Two keys are deleted per card, after the transaction commits, not inside
+it** — a crash in that gap leaves a stale price readable for up to the price
+TTL of one hour. Doing the deletes after commit is still the right trade, since
+the alternative holds row locks across a network call. `cache:price:card:{id}`
+is the obvious one; `cache:card:{id}` is the second, and it is not incidental —
+`CatalogService.getCard` caches the whole card, price columns included, for 24
+hours, so leaving that key behind serves the pre-sweep price from
+`GET /cards/:id` for up to a day while `GET /cards/:id/price` serves the new
+one. `PriceBatchService.invalidate` deletes both.
 
 ### Two rules that look similar and are not
 
@@ -664,3 +689,108 @@ empty to begin with.
 | neighbouring card's cache key | survived |
 | maximum snapshot rows for one card in a day | 2, one per source |
 | a sample card's USD and EUR | both populated |
+
+## The nightly price sweep
+
+`price-sweep.processor.ts` on `QUEUE.priceSweep`, triggered by
+`price-sweep.scheduler.ts` at 4am. It is the fourth producer PD-48 named and
+never enqueued — this is where it lives, and it calls `PriceBatchService`
+directly rather than filling `price-sync` with 83 jobs.
+
+### One coordinator, not a fan-out
+
+The sweep is a single job that walks `cards` itself, batch after batch, inside
+one `process()` call. A fan-out — 83 `price-sync` jobs, one per batch — buys
+BullMQ's own retries per job, and costs a run-tracking problem with no good
+answer: 83 jobs closing one `SyncRun` row have no natural order, and the row
+would need to decide which job's failure, if any, decides the run's status. One
+coordinator keeps the row's lifecycle exactly as legible as the catalog sync's.
+
+### The rolling cursor and the wrap
+
+`SyncRun.cursor` holds `{ lastCardId }`, walked with `id > lastCardId` in
+ascending order, `BATCH_SIZE` (250) rows at a time — keyset pagination over our
+own table, not a provider's list.
+
+A nightly sweep that always started over at the first card would starve
+whatever lies near the end of a 20 670-row catalog: a truncated night — the
+budget or a stall cutting it short — would mean the tail never gets swept at
+all. So a fresh run does not start at the beginning; it starts from where the
+last **finished** run stopped (`SyncRunService.lastClosedCursor`), and when the
+walk reaches the end of the table it wraps once, to `id > ''`, and continues
+until it crosses its own starting point. That is what makes "full sweep"
+something the aggregate of runs achieves rather than something one run must
+prove — reaching the end of the table is not the same as covering the catalog,
+and the loop tracks both separately (`wrapped`, `startedFrom`, `lastOfPass`).
+
+A second wrap is refused: a run that reaches the end of the table twice would
+sweep for ever rather than stop.
+
+### Two resumptions, kept apart
+
+They look alike and are not. Within a run, a BullMQ retry of the same job
+continues from that row's own cursor — `SyncRunService.findResumable` matches
+on `jobId`, the same guard the catalog sync uses, so a retry picks up exactly
+where its own attempt left off. Between runs, a fresh job (a new `jobId`) has
+no row of its own yet, so it continues from the last **finished** run's
+cursor instead. Conflating the two would let a retry re-derive "the last
+finished run's position" and skip whatever its own failed attempt had already
+priced — the row that exists for exactly that job is the one source of truth
+for it.
+
+### The budget counter
+
+`RequestBudgetService` counts every request against `POKEMONTCG_DAILY_REQUEST_BUDGET`,
+keyed `budget:{provider}:{day}` (UTC day) — outside the `cache:` namespace, for
+the same reason the breaker's keys are: a routine cache flush must not hand a
+sweep a fresh allowance against a provider it has already asked hundreds of
+times today. `hasHeadroom(provider, reserve)` is checked before every batch,
+not only once, and the sweep stops while `reserve` (`PRICE_SWEEP_RESERVE`,
+300) is still unspent, leaving room for PD-50 and PD-52 on the same day.
+
+**It fails open.** A Redis error makes `stateOf` report nothing spent, so
+`hasHeadroom` answers true and the sweep proceeds. Failing closed would stop
+every sync on a Redis blip; the cost of failing open is at worst a 429, which
+the sweep already has to handle, because this counter is our own accounting
+and never the provider's — no response carries a rate-limit header.
+
+### The 429 stall
+
+A `ProviderRateLimitError` does not advance the cursor and is not counted into
+`failed`: the batch is asked for again on the next turn of the loop, after a
+wait sized against the documented per-minute ceiling (30 s base, doubling,
+capped at 5 min) rather than `http.ts`'s 250 ms 5xx backoff. Five consecutive
+stalls (`PRICE_SWEEP_MAX_STALLS`) stop the run for the night rather than wait
+indefinitely.
+
+As with the catalog sync's `Retry-After` path, **this is verified by reading
+the code, not in the field.** A deliberate 60-request burst on 2026-09-21
+produced 29×200, 23×500, 8×502 and zero 429s — the per-minute ceiling could not
+be provoked, because this upstream fails faster than it rate-limits. The two
+claims that matter — a stall does not touch `failed`, and the cursor does not
+move across one — hold by inspection (`runBatch` returns before any mutation
+of `lastCardId`), and remain unconfirmed against a real 429.
+
+### A `PARTIAL` run with no error is the ordinary outcome, not a fault
+
+A completed pass — the walk reached its own starting point — closes `PARTIAL`
+whenever any batch failed along the way, and it closes with `error = NULL`
+whenever nothing else stopped it early: no budget message, no breaker message,
+no fallback note. Against this upstream that is the *ordinary* nightly result,
+not a degraded one — roughly one batch in six dies outright, scattered rather
+than clustered, the same shape the catalog sync's pages fail in. An operator
+reading `/admin/sync/status` sees `PARTIAL` and must read the `failed` count
+beside it to know why; the design deliberately does not synthesise a reason
+string for "some batches failed, the rest of the catalog got priced."
+
+### Measured, 2026-09-21
+
+| Measured | Result |
+| --- | --- |
+| a full pass, 83 batches of 250 | 874.6 s, closed `PARTIAL`, 18 193 processed, 1 500 failed |
+| batches that died outright (5xx/timeout, not a 429) | 6 of 83 |
+| the breaker | never opened during the pass |
+| the budget stop | `daily request budget exhausted: 900 of 1000 spent, reserve 300`, cursor unmoved |
+| a second run re-pricing 249 already-priced cards the same day | 0 new snapshots |
+| maximum rows per `(cardId, source, capturedOn)` | 1 |
+| 60-request burst, provoking the per-minute ceiling | 29×200, 23×500, 8×502, **0×429** |

@@ -115,6 +115,18 @@ times the wall clock for two and a half times the work, because the provider's
 `OR`-query cost grows faster than linearly. At 100 the catalog is 207 jobs, and
 a failed job costs 100 cards rather than 250.
 
+**Re-measured 2026-09-21, and the curve is not what this says.** Through the
+same code path: 100 cards cost 4.53 s (fetch 4.37, write 0.16) and 250 cost
+12.57 s (fetch 12.21, write 0.36) — 2.77× the time for 2.5× the work, which is
+roughly linear. A single 19.9 s observation for 250 did appear, and a 21.4 s
+*success* appears in a 20-request sample of single cards, so the original 19.2 s
+looks like this distribution's tail rather than its shape.
+
+The batch of 100 stands for PD-52 and PD-50, where a failed batch should be
+small. **PD-49's sweep uses 250**, because against a ceiling of 1 000 requests a
+day the 83-request pass beats the 207-request one and the two minutes of wall
+clock between them buy nothing.
+
 ---
 
 ## The write path per card

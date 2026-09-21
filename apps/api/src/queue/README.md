@@ -14,8 +14,14 @@ because it declares no processor. Nothing else distinguishes them.
 | Name | Filled by | Consumed by |
 | --- | --- | --- |
 | `catalog-sync` | PD-42's cron, PD-81's admin endpoint | PD-42 |
-| `price-sync` | PD-49's nightly sweep, PD-50, PD-52 | PD-48 |
+| `price-sync` | PD-50, PD-52 | PD-48 |
+| `price-sweep` | PD-49's nightly cron | PD-49 |
 | `trade-expiry` | PD-74 | PD-74 |
+
+`price-sweep` is not `price-sync` filled by a fourth producer. PD-49's sweep is
+its own coordinator job on its own queue, calling `PriceBatchService` directly
+rather than enqueuing 83 `price-sync` jobs — see `apps/api/src/sync/README.md`,
+"The nightly price sweep".
 
 Names live in `queue.constants.ts` and nowhere else. A mistyped literal does not
 fail — it creates a second queue that nothing consumes, and the jobs appear to
