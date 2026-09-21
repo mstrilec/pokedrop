@@ -569,3 +569,88 @@ If every registered provider's breaker is open, the selector throws before a
 is written to `sync_runs`. A row would have nothing truthful to put in its
 `provider` column. An operator looking for the event finds it in the queue, not
 in the table.
+
+## The price write path
+
+`price-sync.processor.ts` on `QUEUE.priceSync`. It is handed card ids and does
+not choose them — PD-49 enqueues batches covering the catalog, PD-50 the active
+set, PD-52 a single card. Three producers, one consumer.
+
+### Per batch
+
+1. Ask the selector for a provider — the same breaker the catalog sync feeds.
+2. `fetchPrices(cardIds)` once for the whole batch.
+3. `UPDATE cards` for every card the response carried.
+4. `createMany` the snapshots with `skipDuplicates`.
+5. `DEL cache:price:card:{id}` per card, **after the commit**.
+
+**Batch size is 100.** Measured against the primary: 100 cards in 3.9 s, 250 in
+19.2 s — five times the wall clock for two and a half times the work, because
+the provider's `OR`-query cost grows faster than linearly. At 100 the catalog is
+207 jobs and a failed one costs 100 cards.
+
+### Two rules that look similar and are not
+
+**A currency the response did not carry is written as `null`.** There is one
+`priceUpdatedAt` for both columns, so keeping a stale EUR beside a fresh USD
+would make that timestamp true of one column and false of the other with no way
+for a reader to tell which. The older value is still in `PriceSnapshot`.
+
+**A card the response did not carry at all is not touched** — not its columns,
+not its timestamp, not a snapshot. The two are told apart by whether the card
+appears in the response, not by whether a particular currency does.
+
+### The cap is a database invariant
+
+`skipDuplicates` against the unique index on `(cardId, source, capturedOn)`.
+The database decides, so a second run in a day inserts nothing and two
+concurrent workers get the same answer as one. See `docs/DataModel.md` for why
+this is a materialised date column rather than an expression index.
+
+### Prices cannot fork the catalog
+
+PD-43 needed two rules to stop a failover forking the mirror. This path needs
+none, and not by carefulness: it only ever `UPDATE`s rows whose ids came out of
+our own database and never inserts a card.
+
+**The known cost of a fallback price run:** TCGdex cannot address roughly 10–15%
+of our card ids — the zero-padding divergence PD-43 documents. Measured: 8 of 10
+`sv10` cards priced, against 10 of 10 from the primary. Those cards keep their
+previous values, which is indistinguishable from "the provider has no price for
+this card". Recorded rather than solved, for the same reason the id translation
+table was rejected twice.
+
+### "A card the provider has no price for" is a fallback-only state
+
+The primary prices essentially everything in this mirror. Measured across four
+sets — `base1`, `basep`, `si1`, `mcd19` — **143 of 143 cards came back priced**,
+so a batch against pokemontcg.io cannot produce an unpriced card to observe.
+
+The state is reachable through the fallback, and that is its real production
+shape. Measured by opening the primary's breaker and running 40 `sv10` cards
+through the processor on TCGdex:
+
+| | |
+| --- | --- |
+| refreshed | 35 — the ids at 100 and above, which TCGdex can address |
+| **untouched** | **5** — `sv10-1`, `sv10-10`, `sv10-11` and two more |
+
+Each untouched card kept both its previous values and its previous timestamp
+exactly: `1.11 usd / 2.22 eur at 2026-01-01T00:00:00.000Z`, seeded before the
+run. That is "keeps its previous values and stale timestamp" demonstrated in
+the circumstance that actually produces it, rather than against a row that was
+empty to begin with.
+
+### Measured
+
+| Measured | Result |
+| --- | --- |
+| batch size, elapsed for the first run | 100 cards, completed |
+| cards asked / cards the provider priced | 100 / 100 |
+| snapshots after the first run | 199 — one card in the batch was priced by a single marketplace rather than both, not a rounding error |
+| snapshots after a second run the same day | **199** — unchanged |
+| `priceUpdatedAt` on the second run | moved, `11:50:17.797Z` → `11:50:21.553Z` |
+| sentinel cache key on a written card | gone; 0 of 100 sentinels survived, matching 100 − 100 priced |
+| neighbouring card's cache key | survived |
+| maximum snapshot rows for one card in a day | 2, one per source |
+| a sample card's USD and EUR | both populated |

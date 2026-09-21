@@ -238,7 +238,7 @@ Prices are **never fetched on the user request path.** `@nestjs/schedule` cron t
 - **Frequent "active" refresh** (every few hours) — prioritize cards that are *owned*, *in a deck*, *recently traded*, or *trending/viewed*. Keeps user-visible prices fresh without burning quota on the long tail.
 - **On-demand** — admin "Sync prices now" and per-card refresh with a cooldown.
 
-**Write path per card:** fetch latest → `UPDATE Card` price fields → `INSERT PriceSnapshot` (≤1/card/day) → `DEL price:card:{id}` in Redis.
+**Write path per card:** fetch latest → `UPDATE Card` price fields → `INSERT PriceSnapshot` (≤1/card/day) → `DEL price:card:{id}` in Redis. The ≤1/card/day cap is a unique index on `(cardId, source, capturedOn)`, not a job behaviour — a second run in a day still refreshes the card's latest columns even though it writes no new snapshot.
 
 **Failure handling:** retry with backoff; five consecutive *escaped* failures —
 those that survived the client's own retry budget — open a per-provider circuit

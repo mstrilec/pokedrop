@@ -54,9 +54,28 @@ Measured on 20 000 synthetic cards: a `setId + rarity` filter plans as a `Bitmap
 
 ### PriceSnapshot — *time-series*
 `id, cardId, source(TCGPLAYER|CARDMARKET), currency, market, low, mid, high, capturedAt`
-**Index:** `(cardId, capturedAt)`. Cascades from `Card` — snapshots are derived data. Fastest-growing table → partition by time / downsample old data.
+**Indexes:** `(cardId, capturedAt)`, and a unique index on `(cardId, source, capturedOn)`. Cascades from `Card` — snapshots are derived data. Fastest-growing table, now bounded at two rows per card per day by a constraint rather than by a job behaving correctly → partition by time / downsample old data.
 
-The **≤ 1 snapshot/card/day** cap is enforced by the price sync job, not by the schema. Expressing it needs a unique index over `capturedAt::date`, and Prisma cannot declare expression indexes; adding one by hand would read as schema drift and Prisma would try to drop it on every subsequent migration.
+The **≤ 1 snapshot/card/day** cap is a unique index on
+`(cardId, source, capturedOn)`, where `capturedOn` is the UTC day of
+`capturedAt`, materialised as a `date` column.
+
+This section used to say the cap could not live in the schema, because
+expressing it needs a unique index over `capturedAt::date` and Prisma cannot
+declare expression indexes. The premise is true; the conclusion was not.
+Materialising the day makes the index an ordinary composite one, which Prisma
+declares natively — no hand-written SQL, no drift, nothing for a later
+`migrate dev` to try to drop.
+
+Prisma has no generated columns, so nothing in the database forces `capturedOn`
+to agree with `capturedAt`. The price sync processor is the only writer and
+derives both from one instant per job. **In UTC** — local time would make a day
+mean different things on different machines, and the cap would admit a second
+row the first time a clock crossed a DST boundary.
+
+The cap is on history, not on freshness: a second run the same day writes no
+snapshot and still refreshes `latestPriceUsd`, `latestPriceEur` and
+`priceUpdatedAt`.
 
 
 ### SyncRun — *operational*
@@ -170,6 +189,15 @@ Prisma has no syntax for them, so they live in a hand-written migration. That is
 The third is the one that stops a card being promised to two trades at once, and it holds on `UPDATE` as well as `INSERT` — which is the path escrow actually takes. The first is logically implied by the other two and is kept as an explicit statement of intent. The fourth is not in the original specification; a negative cost would pay a user for opening a pack.
 
 > **Editing a `--create-only` migration:** Prisma writes its placeholder comment with no trailing newline, so appending to the file turns your first statement into part of that comment and it is skipped in silence.
+
+> **`prisma migrate dev` refuses to run in a non-interactive shell.** It exits
+> before any prompt with "environment is non-interactive", so an agent or a CI
+> step cannot use it at all. The working path is to generate the SQL with
+> `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script`,
+> write it into a timestamped folder under `prisma/migrations/`, and apply it
+> with `prisma migrate deploy`. Verified equivalent: `_prisma_migrations`
+> bookkeeping is consistent afterwards and `prisma migrate status` reports
+> "Database schema is up to date!".
 
 ### Deletes
 
