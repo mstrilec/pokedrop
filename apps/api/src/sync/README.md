@@ -614,11 +614,11 @@ none, and not by carefulness: it only ever `UPDATE`s rows whose ids came out of
 our own database and never inserts a card.
 
 **The known cost of a fallback price run:** TCGdex cannot address roughly 10–15%
-of our card ids — the zero-padding divergence PD-43 documents. Measured: 8 of 10
-`sv10` cards priced, against 10 of 10 from the primary. Those cards keep their
-previous values, which is indistinguishable from "the provider has no price for
-this card". Recorded rather than solved, for the same reason the id translation
-table was rejected twice.
+of our card ids — the zero-padding divergence PD-43 documents. Measured through
+the real processor: of 40 `sv10` cards, TCGdex could address 35 and could not
+address 5. Those cards keep their previous values, which is indistinguishable
+from "the provider has no price for this card". Recorded rather than solved,
+for the same reason the id translation table was rejected twice.
 
 ### "A card the provider has no price for" is a fallback-only state
 
