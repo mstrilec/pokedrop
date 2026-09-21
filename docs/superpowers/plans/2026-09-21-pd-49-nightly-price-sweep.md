@@ -174,17 +174,27 @@ In `apps/api/src/config/app.config.ts`, extend the `providers` block and add a `
     },
 ```
 
-`CardSourceName` is already exported from `env.schema.ts`'s neighbour; import the type at the top of `app.config.ts`:
+`app.config.ts` needs the `CardSourceName` type, and it must come from `env.schema.ts` — **never** from `sync/providers/`. The providers' own definition is `AppConfig['providers']['active']`, so importing that one here closes a type cycle: `AppConfig` → `CardSourceName` → `AppConfig`.
+
+Add it to `apps/api/src/config/env.schema.ts`, beside `CARD_SOURCE_NAMES`, which is the list it derives from:
+
+```ts
+export type CardSourceName = (typeof CARD_SOURCE_NAMES)[number];
+```
+
+Export it from `apps/api/src/config/index.ts` on the existing type line:
+
+```ts
+export type { CardSourceName, Env } from './env.schema.js';
+```
+
+Then import it at the top of `app.config.ts`:
 
 ```ts
 import type { CardSourceName } from './env.schema.js';
 ```
 
-If `env.schema.ts` does not export that type, add it there beside `CARD_SOURCE_NAMES`:
-
-```ts
-export type CardSourceName = (typeof CARD_SOURCE_NAMES)[number];
-```
+The union this produces is identical to the one `sync/providers/card-source-provider.ts` already declares, so a `Record<CardSourceName, number | null>` built here is assignable to the one `RequestBudgetService` reads. Leave the providers' declaration alone: editing the seam to break a cycle in the config layer would be the wrong end of the problem.
 
 In `.env.example`, under the provider section:
 
