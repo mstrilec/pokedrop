@@ -777,11 +777,16 @@ A completed pass — the walk reached its own starting point — closes `PARTIAL
 whenever any batch failed along the way, and it closes with `error = NULL`
 whenever nothing else stopped it early: no budget message, no breaker message,
 no fallback note. Against this upstream that is the *ordinary* nightly result,
-not a degraded one — roughly one batch in six dies outright, scattered rather
-than clustered, the same shape the catalog sync's pages fail in. An operator
-reading `/admin/sync/status` sees `PARTIAL` and must read the `failed` count
-beside it to know why; the design deliberately does not synthesise a reason
-string for "some batches failed, the rest of the catalog got priced."
+not a degraded one — batches die outright, scattered rather than clustered,
+the same shape the catalog sync's pages fail in. (The design spec predicted
+one in six, 0.7⁵ ≈ 17%, from the measured 30% per-request success rate; the
+real sweep measured 6 of 83, about 7%, one in fourteen. The measurement wins —
+likely because that prediction came from a probe retrying in a tight loop with
+no backoff, while the real client waits on a jittered exponential backoff and
+so lands in healthier moments than a burst does.) An operator reading
+`/admin/sync/status` sees `PARTIAL` and must read the `failed` count beside it
+to know why; the design deliberately does not synthesise a reason string for
+"some batches failed, the rest of the catalog got priced."
 
 ### Measured, 2026-09-21
 
