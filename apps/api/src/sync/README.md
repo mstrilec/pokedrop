@@ -693,7 +693,7 @@ empty to begin with.
 ## The nightly price sweep
 
 `price-sweep.processor.ts` on `QUEUE.priceSweep`, triggered by
-`price-sweep.scheduler.ts` at 4am. It is the fourth producer PD-48 named and
+`price-sweep.scheduler.ts` at 4am. It is the third producer PD-48 named and
 never enqueued — this is where it lives, and it calls `PriceBatchService`
 directly rather than filling `price-sync` with 83 jobs.
 

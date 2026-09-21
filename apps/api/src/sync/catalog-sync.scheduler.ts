@@ -23,7 +23,7 @@ export class CatalogSyncScheduler {
    * work here would run it outside the queue and lose every retry, backoff and
    * failure record the queue provides.
    */
-  @Cron(CronExpression.EVERY_DAY_AT_3AM, { name: 'catalog-sync' })
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, { name: 'catalog-sync', timeZone: 'UTC' })
   async enqueue(): Promise<void> {
     const job = await this.queue.add('catalog-sync', {});
     this.logger.log(`Enqueued catalog sync as job ${job.id}`);

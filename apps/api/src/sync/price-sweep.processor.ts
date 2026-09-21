@@ -21,7 +21,8 @@ import { SyncRunService } from './sync-run.service.js';
  * 250, measured 2026-09-21: a batch of 100 costs 4.53 s and a batch of 250
  * costs 12.57 s, so the cost is roughly linear in cards and the catalog is 83
  * requests at 250 against 207 at 100. Against a ceiling of 1 000 requests a day
- * that difference is the whole argument; two minutes of wall clock is not.
+ * that difference is the whole argument; wall clock is not - a full pass at 250
+ * measured 874.6 s (14.6 min), 18 193 processed, 1 500 failed.
  */
 const BATCH_SIZE = 250;
 
@@ -161,7 +162,13 @@ export class PriceSweepProcessor extends WorkerHost {
       // Everything at or below it belongs to this pass; everything above it was
       // already swept before the wrap. Ids sort lexicographically and the query
       // walks them in that order, so the comparison is the order the cursor
-      // advances in.
+      // advances in. That equivalence depends on docker-compose.yml initialising
+      // the cluster with --locale=C, which makes `ORDER BY id` byte order; a
+      // default en_US.UTF-8 cluster's ICU collation ignores the hyphen at
+      // primary strength, so ids like "sm3-9" and "sm35-1" would order
+      // differently in Postgres than in JS. If that ever changes, the cost is
+      // bounded to a handful of cards near the wrap boundary re-priced or
+      // skipped once per wrap, not a termination problem.
       const ids = wrapped
         ? rows.map((row) => row.id).filter((id) => id <= startedFrom)
         : rows.map((row) => row.id);
@@ -180,7 +187,7 @@ export class PriceSweepProcessor extends WorkerHost {
       let outcome: BatchOutcome;
 
       try {
-        outcome = await this.runBatch(ids, choice, run.id);
+        outcome = await this.runBatch(ids, choice, run.id, stalls);
       } catch (error) {
         // A contract error is the only thing runBatch lets out: the upstream
         // changed shape, and continuing would fill the mirror with nonsense.
@@ -222,6 +229,13 @@ export class PriceSweepProcessor extends WorkerHost {
       }
     }
 
+    // Not a redundant rewrite: this is the only cursor write for three exit
+    // paths - the budget exhausted or the stall ceiling reached before any
+    // batch ran, and a completed wrap, where `lastCardId = startedFrom` is
+    // assigned above in the `ids.length === 0` branch and never written inside
+    // the loop. That last path is the consequential one - without this write,
+    // tomorrow's run would read a smaller post-wrap cursor from
+    // `lastClosedCursor` and re-sweep the whole region below `startedFrom`.
     await this.runs.recordProgress(run.id, processed, failed, { lastCardId });
 
     const status =
@@ -250,13 +264,22 @@ export class PriceSweepProcessor extends WorkerHost {
     ids: string[],
     choice: ProviderChoice,
     runId: string,
+    stalls: number,
   ): Promise<BatchOutcome> {
     try {
       const result = await this.batch.refreshBatch(ids, choice.provider);
       return { processed: result.priced, failed: 0, stalled: false, down: false };
     } catch (error) {
       if (error instanceof ProviderRateLimitError) {
-        const wait = Math.min(error.retryAfterMs ?? STALL_BASE_MS, STALL_CAP_MS);
+        // Honour a Retry-After when the provider sends one; this upstream never
+        // does, so in practice this is always the escalation below. `stalls` is
+        // the count of consecutive stalls *before* this one (the loop increments
+        // it after runBatch returns), so the first stall doubles from 0 and waits
+        // the base 30 s, the second waits 60 s, and so on up to STALL_CAP_MS.
+        const wait =
+          error.retryAfterMs !== null
+            ? Math.min(error.retryAfterMs, STALL_CAP_MS)
+            : Math.min(STALL_BASE_MS * 2 ** stalls, STALL_CAP_MS);
         this.logger.warn(`run ${runId}: rate limited, waiting ${wait}ms - ${describe(error)}`);
         await sleep(wait);
         return { processed: 0, failed: 0, stalled: true, down: false };
