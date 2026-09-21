@@ -63,8 +63,23 @@ export class PriceSyncProcessor extends WorkerHost {
     const capturedAt = new Date();
     const capturedOn = startOfUtcDay(capturedAt);
 
+    // Only ids this job asked for. The response's cardId is whatever the
+    // provider chose to call the card, and under failover that is TCGdex's own
+    // vocabulary - `sv04-25` where this mirror holds `sv4-25`. Writing one
+    // would raise P2025 out of the transaction and cost the whole batch of 100
+    // rather than the single row that caused it.
+    //
+    // This is also what makes the README's claim true as written: the ids that
+    // reach the writer came out of our own database, because this job put them
+    // in the payload.
+    const asked = new Set(cardIds);
+
     const byCard = new Map<string, PriceDTO[]>();
     for (const point of points) {
+      if (!asked.has(point.cardId)) {
+        continue;
+      }
+
       const existing = byCard.get(point.cardId);
       if (existing) {
         existing.push(point);

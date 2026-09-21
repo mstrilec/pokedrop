@@ -48,12 +48,16 @@ export class PriceWriter {
    * guard against here - no dead tuples to avoid, no reason to compare before
    * writing. At a batch of 100 inside one transaction this is 100 statements on
    * an already-open connection, which the provider call in front of it dwarfs.
+   *
+   * `updateMany` rather than `update` is deliberate: a card deleted between a
+   * job being enqueued and being processed then costs zero rows instead of
+   * `update` raising P2025 and aborting the whole batch's transaction.
    */
   async updateLatest(tx: TransactionClient, rows: LatestPrice[]): Promise<number> {
     let written = 0;
 
     for (const row of rows) {
-      await tx.card.update({
+      const result = await tx.card.updateMany({
         where: { id: row.cardId },
         data: {
           latestPriceUsd: row.usd,
@@ -62,7 +66,7 @@ export class PriceWriter {
         },
       });
 
-      written += 1;
+      written += result.count;
     }
 
     return written;

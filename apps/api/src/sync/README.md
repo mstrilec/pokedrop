@@ -589,6 +589,12 @@ set, PD-52 a single card. Three producers, one consumer.
 the provider's `OR`-query cost grows faster than linearly. At 100 the catalog is
 207 jobs and a failed one costs 100 cards.
 
+The cache deletes run after the transaction commits, not inside it — a crash in
+that gap leaves a stale price readable for up to the price TTL of one hour.
+Doing the deletes after commit is still the right trade, since the alternative
+holds row locks across a network call, and today the window is unobservable
+because nothing in `apps/api/src` populates `cacheKeys.cardPrice` yet.
+
 ### Two rules that look similar and are not
 
 **A currency the response did not carry is written as `null`.** There is one
@@ -610,8 +616,12 @@ this is a materialised date column rather than an expression index.
 ### Prices cannot fork the catalog
 
 PD-43 needed two rules to stop a failover forking the mirror. This path needs
-none, and not by carefulness: it only ever `UPDATE`s rows whose ids came out of
-our own database and never inserts a card.
+none, and not by carefulness: the response is intersected against `cardIds`
+before anything is grouped, so the only ids that reach the writer are the ones
+this job put in its own payload — which came out of our own database, not the
+provider's. The path does insert rows, `price_snapshots` among them, but every
+snapshot is keyed by a card id that already passed that intersection, so a
+snapshot can never reference a card the mirror does not hold.
 
 **The known cost of a fallback price run:** TCGdex cannot address roughly 10–15%
 of our card ids — the zero-padding divergence PD-43 documents. Measured through
