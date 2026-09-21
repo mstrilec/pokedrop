@@ -60,9 +60,37 @@
 |---|---|
 | Primary card + price source | **pokemontcg.io API v2** — free, ~20k req/day with key; card object embeds TCGPlayer (USD) + Cardmarket (EUR) prices |
 | Fallback / multilingual / self-host | **TCGdex** — free, no key, REST + GraphQL, 14 languages, Docker-self-hostable |
-| Documented production upgrade, **not used in v1** | **Scrydex** — commercial successor of pokemontcg.io, credit-based, SLA-backed. Paid, and v1 uses no paid services (`docs/PRD.md` §2, API strategy); kept as the escape hatch this adapter makes cheap |
+| Documented production upgrade, **not used in v1** — but see below | **Scrydex** — commercial successor of pokemontcg.io, credit-based, SLA-backed. Paid, and v1 uses no paid services (`docs/PRD.md` §2, API strategy); kept as the escape hatch this adapter makes cheap |
 | Optional species enrichment | **PokéAPI** — Pokédex base stats/flavor for the card detail page only |
 | Rejected | Direct TCGPlayer API (closed) and scraping TCGPlayer/eBay (ToS-prohibited) |
+
+### Scrydex is already in the mirror, as an image host
+
+Measured 2026-09-21, against the live catalog: **852 of 20 670 cards (4%) carry
+image URLs on `images.scrydex.com` rather than `images.pokemontcg.io`.** They
+are newer sets — `me5` and its neighbours.
+
+This is not a decision anyone took. It is what the primary provider serves:
+
+```
+GET api.pokemontcg.io/v2/cards/me5-108
+  → images.small = https://images.scrydex.com/pokemon/me5-108/small
+```
+
+Nothing here is paid and no Scrydex API is called; pokemontcg.io simply hands
+out URLs on its commercial successor's CDN, and the mirror stores what it is
+given. So the "no paid services" rule in `docs/PRD.md` §2 is intact.
+
+**What is not intact is the assumption that v1 depends only on the sources
+listed above.** If Scrydex starts hotlink-protecting or metering that CDN, 4% of
+the catalog renders broken images, and the cause will not be obvious from
+anything in this repository — the URLs look like ordinary provider data.
+
+Recorded rather than fixed. The fix is mirroring images to storage we control,
+which is a real piece of work with its own cost, and the right time to take it
+is when images are being served for real rather than now. Whoever plans that
+should know the count is growing: it covers the newest sets, so it rises with
+every release pokemontcg.io ingests.
 
 ### Provider adapter pattern
 
