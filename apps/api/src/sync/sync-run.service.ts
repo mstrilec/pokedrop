@@ -10,6 +10,24 @@ export type CatalogCursor = {
   page: number;
 };
 
+/**
+ * Keyset pagination over our own `cards` table, not a provider's list.
+ *
+ * `{ lastCardId }` rather than `{ offset }`: it rides the primary key, stays
+ * correct when cards are inserted or removed between runs, and does not degrade
+ * at the far end of a 20 670-row catalog the way OFFSET does. The catalog sync's
+ * cursor is a page number because it paginates a provider's list and has no
+ * stable key to hold; this one does.
+ *
+ * The empty string is the start. Every card id sorts above it, so `id > ''`
+ * is the first page with no special case in the query.
+ */
+export type PriceCursor = {
+  lastCardId: string;
+};
+
+export type SyncCursor = CatalogCursor | PriceCursor;
+
 @Injectable()
 export class SyncRunService {
   private readonly logger = new Logger(SyncRunService.name);
@@ -61,7 +79,7 @@ export class SyncRunService {
     id: string,
     processed: number,
     failed: number,
-    cursor: CatalogCursor,
+    cursor: SyncCursor,
   ): Promise<void> {
     await this.prisma.syncRun.update({
       where: { id },
@@ -80,5 +98,33 @@ export class SyncRunService {
   readCursor(run: SyncRun): CatalogCursor {
     const cursor = run.cursor as CatalogCursor | null;
     return cursor && typeof cursor.page === 'number' ? cursor : { page: 1 };
+  }
+
+  /** The price cursor a resumed run left behind, defaulting to the start. */
+  readPriceCursor(run: SyncRun): PriceCursor {
+    const cursor = run.cursor as PriceCursor | null;
+    return cursor && typeof cursor.lastCardId === 'string' ? cursor : { lastCardId: '' };
+  }
+
+  /**
+   * Where the previous *finished* run stopped - the position tonight's run
+   * continues from.
+   *
+   * This is not resumption. A run that is still RUNNING is either in flight or
+   * was abandoned by a killed process, and adopting either one's position would
+   * mean two runs sweeping the same cards while a third of the catalog goes
+   * untouched. Resuming a run this job already owns is `findResumable`'s job and
+   * keys on the job id; this keys on nothing but recency.
+   *
+   * Defaults to the start, which is what an empty sync_runs table means: the
+   * first sweep this project has ever run begins at the first card.
+   */
+  async lastClosedCursor(kind: SyncKind): Promise<PriceCursor> {
+    const previous = await this.prisma.syncRun.findFirst({
+      where: { kind, status: { not: SyncStatus.RUNNING } },
+      orderBy: { startedAt: 'desc' },
+    });
+
+    return previous === null ? { lastCardId: '' } : this.readPriceCursor(previous);
   }
 }
