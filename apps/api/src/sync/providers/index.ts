@@ -24,4 +24,7 @@ export type { BreakerState } from './provider-breaker.service.js';
 export { ProviderSelectorService } from './provider-selector.service.js';
 export type { ProviderChoice } from './provider-selector.service.js';
 
+export { RequestBudgetService, utcDay } from './request-budget.service.js';
+export type { BudgetState } from './request-budget.service.js';
+
 export { ProvidersModule } from './providers.module.js';

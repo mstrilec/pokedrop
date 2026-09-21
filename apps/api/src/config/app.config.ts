@@ -1,3 +1,4 @@
+import type { CardSourceName } from './env.schema.js';
 import type { Env } from './env.schema.js';
 
 export const APP_CONFIG = Symbol('APP_CONFIG');
@@ -53,6 +54,24 @@ export function buildAppConfig(env: Env) {
       pokemonTcgApiKey: env.POKEMONTCG_API_KEY ?? null,
       pokemonTcgBaseUrl: env.POKEMONTCG_BASE_URL,
       tcgdexBaseUrl: env.TCGDEX_BASE_URL,
+
+      // Per provider, because the ceilings are not comparable. pokemontcg.io
+      // documents 1 000 a day anonymously and sends no header to check it
+      // against; TCGdex documents no limit at all and answered 64 of 64 under
+      // concurrency, so null means uncapped rather than unknown.
+      dailyRequestBudget: {
+        pokemontcg: env.POKEMONTCG_DAILY_REQUEST_BUDGET,
+        tcgdex: null,
+      } as Record<CardSourceName, number | null>,
+    },
+    priceSweep: {
+      // What the sweep leaves behind for everything else - principally the
+      // catalog sync, which spends roughly 250 of the same allowance on its own
+      // 83 pages.
+      reserve: env.PRICE_SWEEP_RESERVE,
+
+      // Consecutive 429 waits before the run gives up for the night.
+      maxStalls: env.PRICE_SWEEP_MAX_STALLS,
     },
     queue: {
       concurrency: env.QUEUE_CONCURRENCY,

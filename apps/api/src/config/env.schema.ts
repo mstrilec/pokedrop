@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 export const CARD_SOURCE_NAMES = ['pokemontcg', 'tcgdex'] as const;
 
+export type CardSourceName = (typeof CARD_SOURCE_NAMES)[number];
+
 export const EnvSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -43,6 +45,12 @@ export const EnvSchema = z
     TCGDEX_BASE_URL: z.url().default('https://api.tcgdex.net/v2'),
 
     CARD_SOURCE_PROVIDER: z.enum(CARD_SOURCE_NAMES).default('pokemontcg'),
+
+    POKEMONTCG_DAILY_REQUEST_BUDGET: z.coerce.number().int().min(1).default(1_000),
+
+    PRICE_SWEEP_RESERVE: z.coerce.number().int().min(0).default(300),
+
+    PRICE_SWEEP_MAX_STALLS: z.coerce.number().int().min(1).default(5),
 
     QUEUE_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(4),
 

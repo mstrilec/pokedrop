@@ -10,6 +10,7 @@ import {
 import { PokemonTcgClient } from './pokemon-tcg/pokemon-tcg.client.js';
 import { ProviderBreakerService } from './provider-breaker.service.js';
 import { ProviderSelectorService } from './provider-selector.service.js';
+import { RequestBudgetService } from './request-budget.service.js';
 import { TcgdexClient } from './tcgdex/tcgdex.client.js';
 
 /**
@@ -25,6 +26,7 @@ import { TcgdexClient } from './tcgdex/tcgdex.client.js';
     PokemonTcgClient,
     ProviderBreakerService,
     ProviderSelectorService,
+    RequestBudgetService,
     TcgdexClient,
     {
       provide: CARD_SOURCE_REGISTRY,
@@ -57,6 +59,7 @@ import { TcgdexClient } from './tcgdex/tcgdex.client.js';
     CARD_SOURCE_REGISTRY,
     ProviderBreakerService,
     ProviderSelectorService,
+    RequestBudgetService,
   ],
 })
 export class ProvidersModule {}

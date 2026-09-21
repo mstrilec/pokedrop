@@ -8,6 +8,7 @@ import type {
 } from '../card-source-provider.js';
 import type { CardDTO, PriceDTO, SetDTO } from '../provider.dto.js';
 import { ProviderContractError, type ProviderItemError } from '../provider.errors.js';
+import { RequestBudgetService } from '../request-budget.service.js';
 import { getJson, type PokemonTcgHttpOptions } from './http.js';
 import { toCardDTO, toPriceDTOs, toSetDTO } from './pokemon-tcg.mapper.js';
 import { ListEnvelopeSchema, RawCardSchema, RawSetSchema } from './pokemon-tcg.schema.js';
@@ -22,12 +23,13 @@ export class PokemonTcgClient implements CardSourceProvider {
 
   private readonly http: PokemonTcgHttpOptions;
 
-  constructor(@Inject(APP_CONFIG) config: AppConfig) {
+  constructor(@Inject(APP_CONFIG) config: AppConfig, budget: RequestBudgetService) {
     this.http = {
       baseUrl: config.providers.pokemonTcgBaseUrl,
       apiKey: config.providers.pokemonTcgApiKey,
       timeoutMs: REQUEST_TIMEOUT_MS,
       maxAttempts: MAX_ATTEMPTS,
+      onRequest: () => budget.record(this.name),
     };
   }
 

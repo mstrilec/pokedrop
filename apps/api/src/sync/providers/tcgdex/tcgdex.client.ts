@@ -8,6 +8,7 @@ import type {
 } from '../card-source-provider.js';
 import type { CardDTO, PriceDTO, SetDTO } from '../provider.dto.js';
 import { ProviderContractError, type ProviderItemError } from '../provider.errors.js';
+import { RequestBudgetService } from '../request-budget.service.js';
 import { getJson, type TcgdexHttpOptions } from './http.js';
 import { toCardDTO, toPriceDTOs, toSetDTO } from './tcgdex.mapper.js';
 import {
@@ -57,12 +58,13 @@ export class TcgdexClient implements CardSourceProvider {
 
   private indexInFlight: Promise<CardIndex> | null = null;
 
-  constructor(@Inject(APP_CONFIG) config: AppConfig) {
+  constructor(@Inject(APP_CONFIG) config: AppConfig, budget: RequestBudgetService) {
     this.http = {
       baseUrl: config.providers.tcgdexBaseUrl,
       language: LANGUAGE,
       timeoutMs: REQUEST_TIMEOUT_MS,
       maxAttempts: MAX_ATTEMPTS,
+      onRequest: () => budget.record(this.name),
     };
   }
 

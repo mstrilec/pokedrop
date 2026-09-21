@@ -19,6 +19,12 @@ export interface PokemonTcgHttpOptions {
    * they happen is the number worth watching.
    */
   onRetry?: (attempt: number, reason: string) => void;
+  /**
+   * Awaited immediately before every request, including each retry. This is
+   * where the daily request budget is counted, and counting retries is the
+   * whole point: against this upstream they are most of what a sweep spends.
+   */
+  onRequest?: () => Promise<void>;
 }
 
 /**
@@ -76,6 +82,8 @@ export async function getJson(
   let lastReason = 'no attempt was made';
 
   for (let attempt = 1; attempt <= options.maxAttempts; attempt += 1) {
+    await options.onRequest?.();
+
     let response: Response;
 
     try {

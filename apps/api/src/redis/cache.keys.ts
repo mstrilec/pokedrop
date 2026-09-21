@@ -65,3 +65,20 @@ export const breakerKeys = {
 
   open: (provider: string) => `${BREAKER_NAMESPACE}:open:${provider}`,
 } as const;
+
+/**
+ * Outside the `cache:` namespace for the same reason `breakerKeys` is: a
+ * routine cache flush must not reset a day's request count. It would hand a
+ * sweep a fresh allowance against a provider that has already been asked 900
+ * times today, which is the one moment the number matters.
+ *
+ * Read through RedisService directly and never through CacheService - that one
+ * turns a Redis failure into a miss, and a counter that forgets is worse than
+ * no counter at all.
+ */
+export const BUDGET_NAMESPACE = 'budget';
+
+export const budgetKeys = {
+  /** `day` is an ISO date, `YYYY-MM-DD`, in UTC. */
+  spent: (provider: string, day: string) => `${BUDGET_NAMESPACE}:${provider}:${day}`,
+} as const;
