@@ -29,6 +29,7 @@ import { QUEUE } from './queue.constants.js';
     BullModule.registerQueue(
       { name: QUEUE.catalogSync },
       { name: QUEUE.priceSync },
+      { name: QUEUE.priceSweep },
       { name: QUEUE.tradeExpiry },
     ),
   ],
