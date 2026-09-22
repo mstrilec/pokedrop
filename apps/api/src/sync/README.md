@@ -580,10 +580,12 @@ in the table.
 ## The price write path
 
 `price-sync.processor.ts` on `QUEUE.priceSync`. It is handed card ids and does
-not choose them — PD-50 enqueues the active set, PD-52 a single card. Two
-producers, one consumer. PD-49's sweep is not the third: it calls
-`PriceBatchService` directly from its own coordinator job on `QUEUE.priceSweep`
-rather than filling this queue — see "The nightly price sweep" below.
+not choose them — PD-52 enqueues a single card at a time. One producer, one
+consumer. Neither PD-49's nightly sweep nor PD-50's active refresh fills this
+queue: both are their own coordinator job on their own queue
+(`QUEUE.priceSweep`, `QUEUE.priceActive`), calling `PriceBatchService`
+directly rather than enqueuing here — see "The nightly price sweep" and "The
+active refresh" below.
 
 ### Per batch
 
@@ -605,10 +607,13 @@ roughly linear. A single 19.9 s observation for 250 did appear, and a 21.4 s
 *success* appears in a 20-request sample of single cards, so the original 19.2 s
 looks like this distribution's tail rather than its shape.
 
-The batch of 100 stands for PD-52 and PD-50, where a failed batch should be
-small. **PD-49's sweep uses 250**, because against a ceiling of 1 000 requests a
-day the 83-request pass beats the 207-request one and the two minutes of wall
-clock between them buy nothing.
+The batch of 100 stands for PD-52, where a failed batch should be small.
+**PD-49's sweep uses 250**, because against a ceiling of 1 000 requests a day
+the 83-request pass beats the 207-request one and the two minutes of wall
+clock between them buy nothing. **PD-50's active refresh also uses 250, for
+the same reason** — a failed batch there is picked up again at the job's next
+scheduled run rather than needing to stay small for isolation, since the
+cards in it are simply staler by then and sort higher in the next selection.
 
 **Two keys are deleted per card, after the transaction commits, not inside
 it** — a crash in that gap leaves a stale price readable for up to the price
@@ -889,8 +894,17 @@ had:
 | --- | --- | --- |
 | `PRICE_ACTIVE_FRESHNESS` | 6 hours | equal to the cadence — shorter re-fetches what the previous run just wrote; longer leaves a run with nothing to do |
 | `PRICE_ACTIVE_TRADE_WINDOW_DAYS` | 30 days | how far back a trade still counts as evidence somebody cares — the cheapest of the four to revisit |
-| `PRICE_ACTIVE_MAX_CARDS` | 2 500 | the bound, and the setting that actually protects the budget — unbounded at four runs a day, an active set the size of the catalog would cost roughly 960 of the 1 000 requests available |
+| `PRICE_ACTIVE_MAX_CARDS` | 2 500 | the bound, and the setting that actually protects the budget — see below, arithmetic rather than measured |
 | `PRICE_ACTIVE_RESERVE` | 150 | left unspent for whatever runs after this job on the same day — by the time this job runs that is PD-52's on-demand traffic, since the nightly jobs already took their share hours earlier |
+
+The `maxCards` row is arithmetic, not a measurement, and is spelled out rather
+than just asserted: 20 670 cards at 250 a batch is 83 batches; four runs a day
+is 332 batches; at roughly three requests a batch — the same retry-inflated
+multiplier the catalog sync measures, 275 requests over 83 pages above — that
+is on the order of 990 of the 1 000 requests available. Close enough to the
+daily ceiling that an unbounded active set would leave nothing for the sweep,
+the catalog sync, or PD-52; the number is a computation from those two
+measured figures, not an observation of its own.
 
 `price-active.processor.ts` also reuses `PRICE_SWEEP_MAX_STALLS` as its own
 stall ceiling rather than declaring a fifth setting. The two jobs hit the
@@ -968,9 +982,9 @@ correct at their size and would stay correct for a long time.**
 
 The plan's row-count estimates are left out of this record on purpose: one
 `Bitmap Index Scan` arm reported 16 906 rows against a parent `Bitmap Heap
-Scan` of 2 200, and the two did not reconcile on review. What is certain from
-that plan is the choice of operator and the index name; the row counts are
-not, so they are not repeated here as fact.
+Scan` of 2 200, and the two did not reconcile on review — stated only to show
+the discrepancy, not as selectivity. What is certain from that plan is the
+choice of operator and the index name; the row counts are not.
 
 ### The membership indexes existed to be added, not merely to be present
 

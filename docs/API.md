@@ -226,11 +226,15 @@ and `PRICE_ACTIVE`.** `PRICE_ACTIVE` is PD-50's addition — the row for the
 job that refreshes prices for cards someone owns, has in a deck, or has
 traded recently, four times a day. It is a separate row rather than folded
 into `PRICE` because the two price jobs share nothing but a provider and a
-budget: PD-49's nightly sweep is a roughly seventeen-minute pass over the
-whole catalog, and PD-50's active refresh is a roughly two-minute pass over a
-few thousand cards at most. One row cannot describe both without either
-losing which job the numbers belong to or overwriting one job's last run with
-the other's every time they interleave — and against a four-times-a-day
+budget: PD-49's nightly sweep measured 874.6 s (about 14.6 minutes) end to end
+over the whole catalog, while PD-50's active refresh is bounded to at most
+`PRICE_ACTIVE_MAX_CARDS` (2 500) cards a run by construction — a small
+fraction of the catalog, and shorter for it; the only real run measured so far
+priced the entire active set of 8 cards in 3.6 s, which is too small a sample
+to generalise from but is consistent with the shape. One row cannot describe
+both without either losing which job the numbers belong to or overwriting one
+job's last run with the other's every time they interleave — and against a
+four-times-a-day
 cadence next to a once-nightly one, they interleave constantly.
 
 **With Redis unavailable it still answers 200**, reporting every breaker as
