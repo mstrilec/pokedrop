@@ -4,6 +4,8 @@ import { CatalogSyncProcessor } from './catalog-sync.processor.js';
 import { CatalogSyncScheduler } from './catalog-sync.scheduler.js';
 import { CatalogWriter } from './catalog.writer.js';
 import { QueueModule } from '../queue/index.js';
+import { PriceActiveProcessor } from './price-active.processor.js';
+import { PriceActiveScheduler } from './price-active.scheduler.js';
 import { PriceBatchService } from './price-batch.service.js';
 import { PriceSweepProcessor } from './price-sweep.processor.js';
 import { PriceSweepScheduler } from './price-sweep.scheduler.js';
@@ -36,6 +38,8 @@ import { SyncRunService } from './sync-run.service.js';
     PriceSyncProcessor,
     PriceSweepProcessor,
     PriceSweepScheduler,
+    PriceActiveProcessor,
+    PriceActiveScheduler,
   ],
   exports: [
     ActiveCardSelector,

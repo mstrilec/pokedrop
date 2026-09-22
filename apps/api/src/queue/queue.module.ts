@@ -30,6 +30,7 @@ import { QUEUE } from './queue.constants.js';
       { name: QUEUE.catalogSync },
       { name: QUEUE.priceSync },
       { name: QUEUE.priceSweep },
+      { name: QUEUE.priceActive },
       { name: QUEUE.tradeExpiry },
     ),
   ],
