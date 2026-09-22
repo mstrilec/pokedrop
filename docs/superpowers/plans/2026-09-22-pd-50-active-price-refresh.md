@@ -446,8 +446,13 @@ Restore the victim's price afterwards with the restore script from the preamble.
 At eight rows Postgres will sequentially scan whatever indexes exist, correctly — so this is the only step that can tell whether the acceptance criterion holds.
 
 ```bash
+The synthetic rows are all prefixed `probe-` in their `id`, which is how Step 6's
+cleanup finds them again. Column names and nullability were checked against the
+live table before this plan was written: `id`, `userId`, `cardId` and `quantity`
+have no defaults and must be supplied; `lockedQuantity` and `acquiredAt` do.
+
+```bash
 $PSQL <<'SQL'
-CREATE TEMP TABLE IF NOT EXISTS probe_marker(x int);
 INSERT INTO inventory_items (id, "userId", "cardId", quantity, "lockedQuantity", "acquiredAt")
 SELECT 'probe-' || c.id, (SELECT id FROM users LIMIT 1), c.id, 1, 0, now()
 FROM cards c LIMIT 40000
