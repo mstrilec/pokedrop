@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ActiveCardSelector } from './active-card.selector.js';
 import { CatalogSyncProcessor } from './catalog-sync.processor.js';
 import { CatalogSyncScheduler } from './catalog-sync.scheduler.js';
 import { CatalogWriter } from './catalog.writer.js';
@@ -25,6 +26,7 @@ import { SyncRunService } from './sync-run.service.js';
   // injecting a queue resolves through the importing module's own context.
   imports: [ProvidersModule, QueueModule],
   providers: [
+    ActiveCardSelector,
     CatalogWriter,
     SyncRunService,
     CatalogSyncProcessor,
@@ -35,6 +37,13 @@ import { SyncRunService } from './sync-run.service.js';
     PriceSweepProcessor,
     PriceSweepScheduler,
   ],
-  exports: [ProvidersModule, CatalogWriter, SyncRunService, PriceWriter, PriceBatchService],
+  exports: [
+    ActiveCardSelector,
+    ProvidersModule,
+    CatalogWriter,
+    SyncRunService,
+    PriceWriter,
+    PriceBatchService,
+  ],
 })
 export class SyncModule {}

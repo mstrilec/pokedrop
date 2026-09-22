@@ -73,6 +73,25 @@ export function buildAppConfig(env: Env) {
       // Consecutive 429 waits before the run gives up for the night.
       maxStalls: env.PRICE_SWEEP_MAX_STALLS,
     },
+    priceActive: {
+      // Equal to the cadence. Shorter re-fetches what the previous run just
+      // wrote; longer leaves a run with nothing to do.
+      freshnessSeconds: env.PRICE_ACTIVE_FRESHNESS,
+
+      // How far back a trade still counts as evidence somebody cares about a
+      // card. Nothing measured - the cheapest of these four to change later.
+      tradeWindowDays: env.PRICE_ACTIVE_TRADE_WINDOW_DAYS,
+
+      // The bound, and the setting that actually protects the budget. Unbounded
+      // at four runs a day, an active set the size of the catalog would cost
+      // roughly 960 requests of the 1 000 available.
+      maxCards: env.PRICE_ACTIVE_MAX_CARDS,
+
+      // Left unspent for everything else - by the time this job runs, that is
+      // PD-52's on-demand traffic rather than the nightly jobs, which took
+      // their share hours earlier.
+      reserve: env.PRICE_ACTIVE_RESERVE,
+    },
     queue: {
       concurrency: env.QUEUE_CONCURRENCY,
       defaults: {

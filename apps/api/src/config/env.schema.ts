@@ -52,6 +52,14 @@ export const EnvSchema = z
 
     PRICE_SWEEP_MAX_STALLS: z.coerce.number().int().min(1).default(5),
 
+    PRICE_ACTIVE_FRESHNESS: z.coerce.number().int().min(1).default(21_600),
+
+    PRICE_ACTIVE_TRADE_WINDOW_DAYS: z.coerce.number().int().min(1).default(30),
+
+    PRICE_ACTIVE_MAX_CARDS: z.coerce.number().int().min(1).default(2_500),
+
+    PRICE_ACTIVE_RESERVE: z.coerce.number().int().min(0).default(150),
+
     QUEUE_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(4),
 
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
