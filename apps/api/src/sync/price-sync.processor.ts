@@ -6,11 +6,12 @@ import { ProviderSelectorService } from './providers/index.js';
 import { PriceBatchService } from './price-batch.service.js';
 
 /**
- * The contract the producers speak. PD-50 enqueues the active set and PD-52 a
- * single card; PD-49's sweep does not enqueue at all - it coordinates batches
- * itself and calls PriceBatchService directly, because a fan-out has no good
- * answer for which of 83 jobs closes the run. All of them reach the same write
- * path.
+ * The contract the producer speaks. `price-sync` has one producer, PD-52's
+ * single-card job. PD-49's nightly sweep and PD-50's active refresh do not
+ * enqueue here at all - each coordinates its own batches on its own queue
+ * (`price-sweep`, `price-active`) and calls PriceBatchService directly,
+ * because a fan-out has no good answer for which of many jobs closes the run.
+ * All three producers reach the same write path.
  */
 export interface PriceSyncJob {
   cardIds: string[];

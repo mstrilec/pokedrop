@@ -97,6 +97,10 @@ export class PriceActiveProcessor extends WorkerHost {
       `${selection.cardIds.length} active cards selected${selection.truncated ? ' (truncated by the bound)' : ''}`,
     );
 
+    // Starts at 0 rather than resuming from `run.processed` / `run.failed` as
+    // the sweep does: this job re-selects its entire set on every attempt,
+    // including a BullMQ retry, so there is no earlier attempt's count to
+    // carry forward - attempt 2's counters describe attempt 2's work.
     let processed = 0;
     let failed = 0;
     let stalls = 0;
@@ -153,11 +157,22 @@ export class PriceActiveProcessor extends WorkerHost {
 
     // A truncated selection is not a complete piece of work even when every
     // batch succeeded: cards were eligible and went unpriced.
+    //
+    // Neither is a selection the loop ran to completion on. `processed` is
+    // `result.priced` summed across batches - the count the provider actually
+    // returned prices for - not the count of ids asked for. A batch that
+    // fails outright is caught above and counted into `failed`, but a batch
+    // the provider answers with fewer cards than it was asked for is not a
+    // failure at all, so it leaves a gap that neither `failed` nor
+    // `stoppedBecause` explains on its own.
     const notes = [
       choice.isFallback ? `fallback via ${provider.name} (${choice.reason})` : null,
       stoppedBecause,
       selection.truncated && stoppedBecause === null
         ? `bounded at ${selection.cardIds.length} cards; more were eligible`
+        : null,
+      stoppedBecause === null && processed < selection.cardIds.length
+        ? `provider returned no price for ${selection.cardIds.length - processed} of ${selection.cardIds.length} cards asked`
         : null,
     ].filter((note): note is string => note !== null);
 
