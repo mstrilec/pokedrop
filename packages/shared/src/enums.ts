@@ -28,7 +28,7 @@ export type PriceSource = z.infer<typeof PriceSourceSchema>;
 export const TransactionTypeSchema = z.enum(['GRANT', 'PACK_SPEND', 'TRADE']);
 export type TransactionType = z.infer<typeof TransactionTypeSchema>;
 
-export const SyncKindSchema = z.enum(['CATALOG', 'PRICE']);
+export const SyncKindSchema = z.enum(['CATALOG', 'PRICE', 'PRICE_ACTIVE']);
 export type SyncKind = z.infer<typeof SyncKindSchema>;
 
 export const SyncStatusSchema = z.enum(['RUNNING', 'SUCCEEDED', 'PARTIAL', 'FAILED']);

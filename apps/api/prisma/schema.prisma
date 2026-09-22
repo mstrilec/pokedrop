@@ -57,6 +57,7 @@ enum TransactionType {
 enum SyncKind {
   CATALOG
   PRICE
+  PRICE_ACTIVE
 }
 
 enum SyncStatus {
@@ -247,6 +248,7 @@ model Card {
   @@index([rarity])
   /// GIN, because a btree on an array cannot serve a containment query.
   @@index([types], type: Gin)
+  @@index([priceUpdatedAt])
   @@map("cards")
 }
 
@@ -319,6 +321,7 @@ model InventoryItem {
   /// Also serves userId-only lookups as the leading column, so no separate
   /// index on userId.
   @@unique([userId, cardId])
+  @@index([cardId])
   @@map("inventory_items")
 }
 
@@ -440,6 +443,7 @@ model DeckCard {
   card Card @relation(fields: [cardId], references: [id], onDelete: Restrict)
 
   @@unique([deckId, cardId])
+  @@index([cardId])
   @@map("deck_cards")
 }
 
@@ -482,6 +486,7 @@ model TradeItem {
   card  Card  @relation(fields: [cardId], references: [id], onDelete: Restrict)
 
   @@index([tradeId])
+  @@index([cardId])
   @@map("trade_items")
 }
 

@@ -25,10 +25,10 @@ export class AdminSyncService {
   /**
    * One row per kind rather than a list: the question this endpoint answers is
    * "what happened last", and `sync_runs` has an index on (kind, startedAt desc)
-   * that makes each of these two queries a single index lookup.
+   * that makes each of these three queries a single index lookup.
    */
   private async lastRunPerKind(): Promise<SyncRunSummary[]> {
-    const kinds = [SyncKind.CATALOG, SyncKind.PRICE];
+    const kinds = [SyncKind.CATALOG, SyncKind.PRICE, SyncKind.PRICE_ACTIVE];
 
     const rows = await Promise.all(
       kinds.map((kind) =>
