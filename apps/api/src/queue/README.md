@@ -14,7 +14,7 @@ because it declares no processor. Nothing else distinguishes them.
 | Name | Filled by | Consumed by |
 | --- | --- | --- |
 | `catalog-sync` | PD-42's cron, PD-81's admin endpoint | PD-42 |
-| `price-sync` | PD-50's producer path is not this one; PD-52 | PD-48 |
+| `price-sync` | PD-52 | PD-48 |
 | `price-sweep` | PD-49's nightly cron | PD-49 |
 | `price-active` | PD-50's cron, four times a day | PD-50 |
 | `trade-expiry` | PD-74 | PD-74 |

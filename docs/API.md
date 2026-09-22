@@ -234,8 +234,8 @@ priced the entire active set of 8 cards in 3.6 s, which is too small a sample
 to generalise from but is consistent with the shape. One row cannot describe
 both without either losing which job the numbers belong to or overwriting one
 job's last run with the other's every time they interleave — and against a
-four-times-a-day
-cadence next to a once-nightly one, they interleave constantly.
+four-times-a-day cadence next to a once-nightly one, they interleave
+constantly.
 
 **With Redis unavailable it still answers 200**, reporting every breaker as
 closed. A breaker that cannot be read is the same to this endpoint as one that

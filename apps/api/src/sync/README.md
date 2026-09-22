@@ -831,13 +831,21 @@ criteria in one round trip:
 
 - **Membership** — the `UNION` of the three signals above, against the
   `cardId` indexes Task 1 added.
-- **Freshness, and deduplication against the sweep for free** — the same
-  `WHERE c."priceUpdatedAt" IS NULL OR c."priceUpdatedAt" < staleBefore`
+- **Freshness, and one-directional deduplication against the sweep** — the
+  same `WHERE c."priceUpdatedAt" IS NULL OR c."priceUpdatedAt" < staleBefore`
   predicate does both jobs. A card the nightly sweep (or this job's own
   previous run) just priced carries a recent `priceUpdatedAt` and drops out of
   the union on its own; there is no run registry and no Redis marker shared
-  between the two jobs, because the column PD-49 already writes is the entire
-  mechanism. Neither job needs to know the other ran.
+  between the two jobs, because the column PD-48 already writes is the entire
+  mechanism. **The avoidance runs one way, not both.** The active job skips
+  what the sweep already priced, through this predicate. The sweep does not
+  return the favour — `price-sweep.processor.ts` is a pure keyset walk with no
+  freshness predicate at all, so it will re-price a card the 23:00 active run
+  refreshed five hours earlier, inside the same 6-hour window. That costs
+  nothing, since the sweep's ~250 requests are fixed by the catalog's size
+  regardless of what it finds stale, but it means the ticket's "never
+  double-fetch the same card in one window" criterion holds for the active job
+  avoiding the sweep's work, not for the sweep avoiding the active job's.
 - **The bound** — `LIMIT maxCards + 1`, one more than the bound so truncation
   is detectable without a second query (a bare `LIMIT` returning exactly
   `maxCards` cannot tell "there were this many" from "there were more").
@@ -875,14 +883,40 @@ the cost of a single run.
 which puts a run at 00:00 UTC — immediately after
 `POKEMONTCG_DAILY_REQUEST_BUDGET` resets for the day and three hours *before*
 the catalog sync (3am) and the nightly sweep (4am). Those two jobs are safe
-running unreserved because they are first to spend from a fresh allowance
-every day; an active run at midnight would spend ahead of them, and neither
-of the two big jobs carries a reserve of its own to protect against that. 05,
-11, 17 and 23 UTC are all after both nightly jobs have already taken their
-share, and none of the four straddles the reset.
+running unreserved not because either one carries a reserve of its own — the
+sweep's `PRICE_SWEEP_RESERVE` (300) protects what runs *after* it, not the
+sweep itself — but because they are first to spend from a fresh allowance
+every day; an active run at midnight would spend ahead of them, before either
+had a chance to take its share. 05, 11, 17 and 23 UTC are all after both
+nightly jobs have already taken their share, and none of the four straddles
+the reset.
 
 Registered in the worker and not the API, same as the sweep: two processes
 running this cron would enqueue two runs each time.
+
+### The 05:00 run is structurally empty, and that is not a bug
+
+Measured, not inferred: a full nightly sweep takes 874.6 s (about 14.6
+minutes), so a sweep starting at 04:00 finishes around 04:15, having written
+`priceUpdatedAt` on every card it got a response for. At 05:00 UTC — 45
+minutes later — every one of those cards is well inside the 6-hour
+`PRICE_ACTIVE_FRESHNESS` window, so the same predicate that deduplicates
+against the sweep (see "One query, three criteria" above) empties the 05:00
+selection out too, except for whatever active card the sweep could not price
+that night.
+
+That makes the ticket's "four runs a day, so an active card is refreshed up
+to four times" **three in practice**: 05:00 is a near-guaranteed no-op sitting
+between a sweep that just finished and three runs (11:00, 17:00, 23:00) that
+actually have stale cards to find. It costs nothing when it happens — an empty
+selection spends zero requests — so it is a wasted cron tick, not a wasted
+budget.
+
+No fourth working slot exists under the current window. Moving the run
+earlier collides with the sweep still in flight; moving it later collides
+with 11:00. Fixing this would mean shrinking `PRICE_ACTIVE_FRESHNESS` below
+6 hours, or moving the sweep, and both are out of scope here. **The cron is
+not changed by this ticket.**
 
 ### The thresholds are decisions, not measurements
 
@@ -928,6 +962,45 @@ of where the run got to, but read by nothing and meaningless as a resumption
 point. Widening `SyncCursor` with a no-cursor variant for this one caller
 would be more machinery than the problem deserves; the field is not
 load-bearing here, and this paragraph is the record of that.
+
+### A card the provider never returns is a permanent head-of-queue slot
+
+`priceUpdatedAt` is written only when a card appears in the provider's
+response (`price.writer.ts`'s `updateLatest`, fed from `PriceBatchService`'s
+`updates`, which is built from the response) — deliberate, and correct for
+what the `latestPrice*` columns mean. A card the provider is simply never
+going to return is not touched at all: no columns, no timestamp, forever
+`NULL`.
+
+The selector orders `ASC NULLS FIRST` and re-derives its set from scratch on
+every run (see "No cursor" above), so a card in that state does not merely
+get skipped once — it sorts to the very front of every future selection, on
+every run, indefinitely. The nightly sweep does not have this problem: its
+keyset cursor (`id > lastCardId`) walks past a card it could not price and
+keeps going, so an unreturnable card costs that one sweep a slot and nothing
+more. The active refresh's ordering gives it no such escape.
+
+The population is not hypothetical, though the number below is an **inference
+from the sweep's recorded numbers, not a direct measurement**: the sweep's own
+recorded run (see "Measured, 2026-09-21" above) priced 18 193 cards and lost
+1 500 to batches that failed outright, out of a 20 670-card catalog. That
+leaves roughly **977 cards** (20 670 − 18 193 − 1 500) that were asked for,
+inside a batch that did not fail, and simply came back absent from the
+response — cards the provider silently declines to price rather than cards a
+failure prevented this job from asking about.
+
+Invisible today: the active set is 8 cards, all of them seed data that prices
+successfully. But if the active set ever grew to include even a few hundred
+such cards, they would permanently occupy the front of every selection this
+job runs, and — once enough of them exist to fill `maxCards` on their own —
+the job would stop refreshing anything else, ever, while reporting a normal
+`SUCCEEDED` or `PARTIAL` run each time.
+
+The real fix is a schema and design decision for a later ticket — a separate
+`priceCheckedAt` column that advances whether or not the provider returned a
+price, or counting "asked minus priced" some other way — and is out of scope
+here. This ticket records the failure mode rather than solving it; **no
+column is added and the ordering is unchanged.**
 
 ### Measured, 2026-09-22
 
