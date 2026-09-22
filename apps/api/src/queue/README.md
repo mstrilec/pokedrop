@@ -14,14 +14,23 @@ because it declares no processor. Nothing else distinguishes them.
 | Name | Filled by | Consumed by |
 | --- | --- | --- |
 | `catalog-sync` | PD-42's cron, PD-81's admin endpoint | PD-42 |
-| `price-sync` | PD-50, PD-52 | PD-48 |
+| `price-sync` | PD-50's producer path is not this one; PD-52 | PD-48 |
 | `price-sweep` | PD-49's nightly cron | PD-49 |
+| `price-active` | PD-50's cron, four times a day | PD-50 |
 | `trade-expiry` | PD-74 | PD-74 |
 
 `price-sweep` is not `price-sync` filled by a fourth producer. PD-49's sweep is
 its own coordinator job on its own queue, calling `PriceBatchService` directly
 rather than enqueuing 83 `price-sync` jobs — see `apps/api/src/sync/README.md`,
 "The nightly price sweep".
+
+`price-active` is the same shape again, one queue later. PD-50 coordinates its
+own batches on `price-active` rather than filling `price-sync` with one job
+per batch — see `apps/api/src/sync/README.md`, "The active refresh". An
+earlier version of the table above listed `price-sync` as filled by "PD-50,
+PD-52"; that was wrong the whole time PD-50 existed only as a plan, and it is
+corrected here rather than carried forward now that the job is built and its
+actual producer path is known.
 
 Names live in `queue.constants.ts` and nowhere else. A mistyped literal does not
 fail — it creates a second queue that nothing consumes, and the jobs appear to

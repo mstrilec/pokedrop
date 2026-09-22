@@ -221,6 +221,18 @@ an `openUntil` that says when the primary will be tried again.
 `openUntil` rather than "opened at", because it answers the question an operator
 is actually asking during an outage.
 
+**The last run is now reported for three kinds, not two: `CATALOG`, `PRICE`
+and `PRICE_ACTIVE`.** `PRICE_ACTIVE` is PD-50's addition — the row for the
+job that refreshes prices for cards someone owns, has in a deck, or has
+traded recently, four times a day. It is a separate row rather than folded
+into `PRICE` because the two price jobs share nothing but a provider and a
+budget: PD-49's nightly sweep is a roughly seventeen-minute pass over the
+whole catalog, and PD-50's active refresh is a roughly two-minute pass over a
+few thousand cards at most. One row cannot describe both without either
+losing which job the numbers belong to or overwriting one job's last run with
+the other's every time they interleave — and against a four-times-a-day
+cadence next to a once-nightly one, they interleave constantly.
+
 **With Redis unavailable it still answers 200**, reporting every breaker as
 closed. A breaker that cannot be read is the same to this endpoint as one that
 is shut, which is also what the selector assumes.

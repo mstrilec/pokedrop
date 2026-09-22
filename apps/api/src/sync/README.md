@@ -799,3 +799,184 @@ to know why; the design deliberately does not synthesise a reason string for
 | a second run re-pricing 249 already-priced cards the same day | 0 new snapshots |
 | maximum rows per `(cardId, source, capturedOn)` | 1 |
 | 60-request burst, provoking the per-minute ceiling | 29×200, 23×500, 8×502, **0×429** |
+
+## The active refresh
+
+`price-active.processor.ts` on `QUEUE.priceActive`, triggered by
+`price-active.scheduler.ts` four times a day. It is the nightly sweep's
+sibling rather than its replacement: the sweep walks the whole catalog slowly
+and thoroughly; this job walks a small, bounded set of cards someone actually
+has a stake in, often.
+
+### Three signals, one union, and why trade counts regardless of status
+
+A card is active if it appears in `inventory_items`, `deck_cards`, or
+`trade_items` for a trade created within the trade window — any status. A
+trade offered and never accepted is still evidence someone looked this card up
+recently and might again; restricting to completed trades would drop that
+signal for exactly the window in which it is freshest, on the theory that a
+still-open trade is less interesting than a closed one. It is the opposite.
+
+### One query, three criteria
+
+`ActiveCardSelector.select()` is a single `$queryRaw` statement — raw SQL
+because the membership test is a `UNION` of three tables and Prisma's query
+builder cannot express one. It earns three of the ticket's acceptance
+criteria in one round trip:
+
+- **Membership** — the `UNION` of the three signals above, against the
+  `cardId` indexes Task 1 added.
+- **Freshness, and deduplication against the sweep for free** — the same
+  `WHERE c."priceUpdatedAt" IS NULL OR c."priceUpdatedAt" < staleBefore`
+  predicate does both jobs. A card the nightly sweep (or this job's own
+  previous run) just priced carries a recent `priceUpdatedAt` and drops out of
+  the union on its own; there is no run registry and no Redis marker shared
+  between the two jobs, because the column PD-49 already writes is the entire
+  mechanism. Neither job needs to know the other ran.
+- **The bound** — `LIMIT maxCards + 1`, one more than the bound so truncation
+  is detectable without a second query (a bare `LIMIT` returning exactly
+  `maxCards` cannot tell "there were this many" from "there were more").
+
+### Staleness stands in for the trending signal the ticket asked for, and view tracking was deferred rather than built
+
+The ticket asks for priority ordering by most-viewed. That was not built.
+Ordering is `ORDER BY c."priceUpdatedAt" ASC NULLS FIRST` — oldest-priced
+first — because there is no traffic to shape a view-based ordering with: the
+frontend is M11–M13, and all three of those milestones are at 0%. A view
+counter built today would record nothing but this project's own probes and
+call that a popularity signal. Staleness is not a placeholder standing in
+until traffic arrives; it is the ordering a refresh job wants on its own
+terms, since the point of the job is to price whatever has gone longest
+without a price. If M11–M13 ship a real view signal later, that is a
+prioritisation *within* the active set this query already selects, not a
+change to what makes a card active.
+
+### The bound protects the budget; the cadence does not
+
+Four runs a day of an unbounded active set would cost roughly the same as a
+full sweep, repeated four times — at 20 670 cards that is close to the whole
+1 000-request daily allowance in active-refresh traffic alone, leaving
+nothing for the sweep, the catalog sync, or PD-52's on-demand path. The
+cadence controls how often the job asks the question; `maxCards` controls how
+expensive one asking is allowed to be. Only the second one is what keeps a
+popular catalog affordable — a busier cadence with the same bound costs the
+same per run, just more often; a smaller bound is the only thing that lowers
+the cost of a single run.
+
+### The cron is four fixed hours, not `EVERY_6_HOURS`
+
+`price-active.scheduler.ts` registers `0 5,11,17,23 * * *`, not
+`CronExpression.EVERY_6_HOURS`. That built-in expression is `0,6,12,18`,
+which puts a run at 00:00 UTC — immediately after
+`POKEMONTCG_DAILY_REQUEST_BUDGET` resets for the day and three hours *before*
+the catalog sync (3am) and the nightly sweep (4am). Those two jobs are safe
+running unreserved because they are first to spend from a fresh allowance
+every day; an active run at midnight would spend ahead of them, and neither
+of the two big jobs carries a reserve of its own to protect against that. 05,
+11, 17 and 23 UTC are all after both nightly jobs have already taken their
+share, and none of the four straddles the reset.
+
+Registered in the worker and not the API, same as the sweep: two processes
+running this cron would enqueue two runs each time.
+
+### The thresholds are decisions, not measurements
+
+Four numbers, and none of them came from load — they were sized by reasoning
+against a live active set of 8 cards, because that is the size this database
+had:
+
+| Setting | Value | Why |
+| --- | --- | --- |
+| `PRICE_ACTIVE_FRESHNESS` | 6 hours | equal to the cadence — shorter re-fetches what the previous run just wrote; longer leaves a run with nothing to do |
+| `PRICE_ACTIVE_TRADE_WINDOW_DAYS` | 30 days | how far back a trade still counts as evidence somebody cares — the cheapest of the four to revisit |
+| `PRICE_ACTIVE_MAX_CARDS` | 2 500 | the bound, and the setting that actually protects the budget — unbounded at four runs a day, an active set the size of the catalog would cost roughly 960 of the 1 000 requests available |
+| `PRICE_ACTIVE_RESERVE` | 150 | left unspent for whatever runs after this job on the same day — by the time this job runs that is PD-52's on-demand traffic, since the nightly jobs already took their share hours earlier |
+
+`price-active.processor.ts` also reuses `PRICE_SWEEP_MAX_STALLS` as its own
+stall ceiling rather than declaring a fifth setting. The two jobs hit the
+same upstream under the same rate-limiting policy, so the right value is the
+same number by construction; a `PRICE_ACTIVE_MAX_STALLS` that always equalled
+the sweep's would be a knob nobody could turn separately. The cost is that the
+constructor reads a config key named for the other job, which reads oddly on
+first sight.
+
+### No cursor, and no attempt to keep one
+
+Unlike the sweep, this job re-derives the active set from scratch on every
+run, including a BullMQ retry of the same job — there is nothing to resume.
+A card a failed attempt did not reach is staler on the next run than it was
+on this one, and therefore sorts higher in the selection; the ordering itself
+is what recovers the work a dead run left undone.
+
+`SyncRunService.recordProgress` requires a cursor argument regardless, so
+this job passes `{ lastCardId: <last id of the batch just written> }` — true
+of where the run got to, but read by nothing and meaningless as a resumption
+point. Widening `SyncCursor` with a no-cursor variant for this one caller
+would be more machinery than the problem deserves; the field is not
+load-bearing here, and this paragraph is the record of that.
+
+### Measured, 2026-09-22
+
+The active set, against this database's seed data, was **8 cards**: 7 rows in
+`inventory_items` covering 7 distinct cards, 3 rows in `deck_cards` covering 3
+cards, 7 rows in `trade_items` covering 6 cards, and the three unioned come to
+8 distinct cards — the three signals overlap rather than adding cleanly. All
+of it is seed data: owned cards arrive with M6, decks with M7, trades with
+M8, and all three milestones are at 0% today. The catalog itself is 20 670
+cards, so the active set was 0.04% of it.
+
+| Measured | Result |
+| --- | --- |
+| selection | `8 active cards selected` |
+| first run | `SUCCEEDED`, 8 processed, 0 failed |
+| second run, immediately after | `SUCCEEDED`, **0** processed, 0 failed |
+
+The second run is the proof, not the first. A job that failed to write
+`priceUpdatedAt` back would select the same 8 cards again and the second run
+would also show 8. A selector that was simply broken would have returned 0 on
+the *first* run, before anything had been priced. Only a selector that reads
+correctly and a processor that writes correctly, in that order, produce 8
+then 0 — the pair demonstrates the deduplication property end to end rather
+than by inspection of the code.
+
+### The query plan, measured twice
+
+The first measurement was wrong by construction, and the reason is worth
+keeping alongside the number it produced. It loaded `inventory_items` with
+one row per catalog card — roughly 20 670 of the catalog's 20 670 cards
+"owned" — which made both branches of the selector's `WHERE` clause close to
+100% non-selective: almost every card was active, and almost none had ever
+been priced. At that selectivity a sequential scan is the cost-optimal plan
+no matter what indexes exist, so that measurement could not have shown
+anything else regardless of whether Task 1's indexes worked.
+
+Re-measured at a realistic shape — about 2 200 active cards, with the
+remaining ~18 000 freshly priced so the freshness branch became selective
+too — the planner chose differently: a `BitmapOr` over two `Bitmap Index
+Scan`s on `cards_priceUpdatedAt_idx`, feeding a `Bitmap Heap Scan`. The three
+membership tables (`inventory_items`, `deck_cards`, `trade_items`) stayed
+sequentially scanned, which is the planner's correct choice at roughly 2 200
+rows apiece rather than a sign the indexes Task 1 added on those tables don't
+work. The `ORDER BY` was satisfied by an in-memory quicksort rather than an
+index scan.
+
+**The honest verdict: the criterion is met for the one branch where it was
+contestable — the `cards.priceUpdatedAt` freshness predicate, which is the
+predicate that matters once `cards` is the table with 20 670 rows — and it is
+not generalised to the membership tables, where a sequential scan is
+correct at their size and would stay correct for a long time.**
+
+The plan's row-count estimates are left out of this record on purpose: one
+`Bitmap Index Scan` arm reported 16 906 rows against a parent `Bitmap Heap
+Scan` of 2 200, and the two did not reconcile on review. What is certain from
+that plan is the choice of operator and the index name; the row counts are
+not, so they are not repeated here as fact.
+
+### The membership indexes existed to be added, not merely to be present
+
+`inventory_items(cardId)`, `deck_cards(cardId)` and `trade_items(cardId)` are
+Task 1's, alongside `cards(priceUpdatedAt)`. Two of the three membership
+tables previously carried `cardId` only as the *second* column of a composite
+unique index — a btree cannot search on a column that isn't its prefix — and
+`trade_items` had no index on it at all. The active refresh is the first
+caller either shape would have slowed down.
