@@ -238,7 +238,7 @@ Prices are **never fetched on the user request path.** `@nestjs/schedule` cron t
 - **Frequent "active" refresh** (every few hours) — prioritize cards that are *owned*, *in a deck*, *recently traded*, or *trending/viewed*. Keeps user-visible prices fresh without burning quota on the long tail.
 - **On-demand** — admin "Sync prices now" and per-card refresh with a cooldown.
 
-**Write path per card:** fetch latest → `UPDATE Card` price fields → `INSERT PriceSnapshot` (≤1/card/day) → `DEL price:card:{id}` in Redis. The ≤1/card/day cap is a unique index on `(cardId, source, capturedOn)`, not a job behaviour — a second run in a day still refreshes the card's latest columns even though it writes no new snapshot.
+**Write path per card:** fetch latest → `UPDATE Card` price fields → `INSERT PriceSnapshot` (≤1/card/day) → `DEL cache:price:card:{id}` in Redis. The ≤1/card/day cap is a unique index on `(cardId, source, capturedOn)`, not a job behaviour — a second run in a day still refreshes the card's latest columns even though it writes no new snapshot.
 
 **Failure handling:** retry with backoff; five consecutive *escaped* failures —
 those that survived the client's own retry budget — open a per-provider circuit
@@ -253,7 +253,7 @@ and the breaker state surface on `GET /admin/sync/status`.
 | Data | Key | TTL | Invalidation |
 |---|---|---|---|
 | Card detail payload | `card:{id}` | 24h | on catalog sync of that card |
-| Latest price | `price:card:{id}` | 1–6h | on price job write |
+| Latest price | `cache:price:card:{id}` | 3599s (measured; configured 3600s) | on price job write |
 | Set list / detail | `sets`, `set:{id}` | 24h | on catalog sync |
 | Search facets | `facets` | 24h | on catalog sync |
 | Inventory summary | `inv:summary:{userId}` | 5m | on inventory mutation |

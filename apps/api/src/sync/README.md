@@ -580,7 +580,7 @@ in the table.
 ## The price write path
 
 `price-sync.processor.ts` on `QUEUE.priceSync`. It is handed card ids and does
-not choose them — PD-52 enqueues a single card at a time. One producer, one
+not choose them — PD-52 will enqueue a single card at a time. One producer, one
 consumer. Neither PD-49's nightly sweep nor PD-50's active refresh fills this
 queue: both are their own coordinator job on their own queue
 (`QUEUE.priceSweep`, `QUEUE.priceActive`), calling `PriceBatchService`
