@@ -625,12 +625,19 @@ hours, so leaving that key behind serves the pre-sweep price from
 `GET /cards/:id` for up to a day while `GET /cards/:id/price` serves the new
 one. `PriceBatchService.invalidate` deletes both.
 
-**PD-51 is `cache:price:card:{id}`'s first reader.** Until now every `DEL`
-this path issued removed a key nothing had ever populated — PD-48, PD-49 and
-PD-50 all invalidated a namespace no route was serving out of, so the crash
-window above cost nothing observable. `GET /cards/:id/price` reads through
-that key now, so the same commit-then-delete gap can hand a real client a
-stale cached price for up to the TTL if a crash lands inside it. The trade is
+**PD-51 is `cache:price:card:{id}`'s first reader.** Three code paths reach
+`PriceBatchService.refreshBatch` and its `invalidate` call:
+`price-sweep.processor.ts` (PD-49's nightly sweep, running at 04:00),
+`price-active.processor.ts` (PD-50's active refresh, running at 05, 11, 17
+and 23), and `price-sync.processor.ts` (the consumer PD-48 built for the
+`price-sync` queue). The first two have been deleting this key on that
+schedule since they shipped, and until now they deleted nothing, because no
+route had ever written it. The third has never run at all — `price-sync` is
+registered and consumed, but nothing enqueues to it, since PD-52, its
+producer, is not built. `GET /cards/:id/price` reads through the key now, so
+the two invalidators that already run on a schedule are removing something
+real, and the same commit-then-delete gap can hand a real client a stale
+cached price for up to the TTL if a crash lands inside it. The trade is
 unchanged — deleting after commit is still right, since the alternative holds
 row locks across a network call — but the window it leaves is observable
 rather than theoretical.
