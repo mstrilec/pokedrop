@@ -1,5 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { CardPriceSchema, type CardPrice } from '@pokedrop/shared';
+import {
+  CardPriceSchema,
+  PriceHistorySchema,
+  type CardPrice,
+  type PriceHistory,
+  type PricePoint,
+} from '@pokedrop/shared';
+import { PriceSource } from '@prisma/client';
 import { PrismaService } from '../prisma/index.js';
 import { CacheService, cacheKeys } from '../redis/index.js';
 
@@ -16,6 +23,8 @@ import { CacheService, cacheKeys } from '../redis/index.js';
 function toNumber(value: unknown): number | null {
   return value === null || value === undefined ? null : Number(value);
 }
+
+const MS_PER_DAY = 86_400_000;
 
 @Injectable()
 export class PricesService {
@@ -65,5 +74,60 @@ export class PricesService {
       },
       CardPriceSchema,
     );
+  }
+
+  /**
+   * Not cached, and that is a decision rather than an omission.
+   *
+   * A fourth cache key would oblige PriceBatchService - and through it all three
+   * jobs that call it - to delete a third key per card, for a query that reads at
+   * most a few dozen rows through a covering index. The daily cap also means a
+   * card's series changes at most once per source per day, so the cache would
+   * mostly serve bytes it would have computed anyway. The ticket asks for caching
+   * on the latest price only.
+   */
+  async getHistory(cardId: string, days: number): Promise<PriceHistory> {
+    // The existence check is its own query rather than a join, so that a card
+    // with no snapshots is still told apart from a card that does not exist -
+    // both would otherwise produce zero rows and the same empty answer.
+    const card = await this.prisma.card.findUnique({
+      where: { id: cardId },
+      select: { id: true },
+    });
+
+    if (card === null) {
+      throw new NotFoundException('Card not found');
+    }
+
+    const since = new Date(Date.now() - days * MS_PER_DAY);
+
+    // Ranged on capturedAt because (cardId, capturedAt) is the index that serves
+    // it; reported as capturedOn, which is the UTC day a daily sparkline plots.
+    //
+    // `market: { not: null }` is the no-interpolation rule expressed in SQL: a
+    // snapshot carrying no market value is not a point, so it never reaches the
+    // series rather than arriving as a null the client has to skip.
+    const rows = await this.prisma.priceSnapshot.findMany({
+      where: { cardId, capturedAt: { gte: since }, market: { not: null } },
+      select: { source: true, capturedOn: true, market: true },
+      orderBy: { capturedAt: 'asc' },
+    });
+
+    // Both keys always, each with its currency fixed by its source. An empty
+    // series has no row to read a currency from, and a field that appears only
+    // when data happens to exist is one a client cannot rely on.
+    const series = {
+      [PriceSource.TCGPLAYER]: { currency: 'USD', points: [] as PricePoint[] },
+      [PriceSource.CARDMARKET]: { currency: 'EUR', points: [] as PricePoint[] },
+    };
+
+    for (const row of rows) {
+      series[row.source].points.push({
+        capturedOn: row.capturedOn.toISOString().slice(0, 10),
+        market: Number(row.market),
+      });
+    }
+
+    return PriceHistorySchema.parse({ cardId, windowDays: days, series });
   }
 }

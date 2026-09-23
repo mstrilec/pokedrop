@@ -1,7 +1,8 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import type { CardPrice } from '@pokedrop/shared';
+import type { CardPrice, PriceHistory } from '@pokedrop/shared';
 import { Public } from '../common/decorators/public.decorator.js';
+import { PriceHistoryQueryDto } from './prices.dto.js';
 import { PricesService } from './prices.service.js';
 
 /**
@@ -18,5 +19,10 @@ export class PricesController {
   @Get('cards/:id/price')
   getLatest(@Param('id') id: string): Promise<CardPrice> {
     return this.prices.getLatest(id);
+  }
+
+  @Get('cards/:id/price/history')
+  getHistory(@Param('id') id: string, @Query() query: PriceHistoryQueryDto): Promise<PriceHistory> {
+    return this.prices.getHistory(id, query.days);
   }
 }
