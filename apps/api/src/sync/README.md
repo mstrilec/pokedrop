@@ -625,6 +625,16 @@ hours, so leaving that key behind serves the pre-sweep price from
 `GET /cards/:id` for up to a day while `GET /cards/:id/price` serves the new
 one. `PriceBatchService.invalidate` deletes both.
 
+**PD-51 is `cache:price:card:{id}`'s first reader.** Until now every `DEL`
+this path issued removed a key nothing had ever populated — PD-48, PD-49 and
+PD-50 all invalidated a namespace no route was serving out of, so the crash
+window above cost nothing observable. `GET /cards/:id/price` reads through
+that key now, so the same commit-then-delete gap can hand a real client a
+stale cached price for up to the TTL if a crash lands inside it. The trade is
+unchanged — deleting after commit is still right, since the alternative holds
+row locks across a network call — but the window it leaves is observable
+rather than theoretical.
+
 ### Two rules that look similar and are not
 
 **A currency the response did not carry is written as `null`.** There is one

@@ -201,8 +201,50 @@ Served entirely from the mirror. No route here can reach an external API — `Ca
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| GET | `/cards/:id/price` | public | Latest (cached 1–6h) |
-| GET | `/cards/:id/price/history` | public | Sparkline series from `PriceSnapshot` |
+| GET | `/cards/:id/price` | public | Latest USD and EUR, cached 1h |
+| GET | `/cards/:id/price/history` | public | Windowed per-source series for a sparkline. `days` 1–365, default 30 |
+
+**`GET /cards/:id/price`**
+
+```json
+{ "cardId": "base1-15", "usd": 142, "eur": null, "priceUpdatedAt": "2026-09-15T03:00:00.000Z" }
+```
+
+**`eur: null` is present in the body, not omitted, and it is the ordinary case rather than a contrived one** — no card in this database carries a EUR price, so this is what every priced card in the mirror actually returns today.
+
+**404 means the card does not exist; a card that exists but was never priced is a 200 with `usd`, `eur` and `priceUpdatedAt` all null.** `priceUpdatedAt: null` is the field a client reads to tell the two apart — a separate boolean would be a second way of saying the same fact, and two sources of truth for one fact is how they drift. A 404 leaves no cache key behind: the loader throws before `getOrSet` writes anything, so a scan for missing ids cannot be used to fill the cache.
+
+**`priceUpdatedAt` is an absolute timestamp, never a computed age.** The response is cached for an hour, and a relative "updated 300 seconds ago" served from that cache forty minutes later is wrong by forty minutes — least accurate exactly when the data is most stale, which is the case the field exists to expose.
+
+Measured: cold and warm reads were byte-identical, the key's TTL at 3599. With Redis stopped the endpoint still answered 200, in 68 ms — the same cache-failure-is-a-miss behaviour the Catalog routes rely on. `ex10-!` and `ex10-?` — the only two ids in the catalog carrying `!` or `?` — both resolved 200 once percent-encoded; `ex10-?` is the sharper of the two, since an unencoded `?` in a path is a query-string separator.
+
+**`GET /cards/:id/price/history`**
+
+```json
+{
+  "cardId": "base1-1",
+  "windowDays": 60,
+  "series": {
+    "TCGPLAYER": {
+      "currency": "USD",
+      "points": [
+        { "capturedOn": "2026-08-24", "market": 1.1 },
+        { "capturedOn": "2026-09-03", "market": 1.5 },
+        { "capturedOn": "2026-09-21", "market": 2 }
+      ]
+    },
+    "CARDMARKET": { "currency": "EUR", "points": [{ "capturedOn": "2026-08-09", "market": 0.9 }] }
+  }
+}
+```
+
+`days` defaults to 30 and is bounded to 365. The ceiling is a year because the once-a-day snapshot cap makes that at most 730 points for one card — still one small response — and nothing in the product looks further back. `days` of 1 and 365 both answer 200; `0`, `366`, `abc`, `1.5` and `-5` all answer 400.
+
+**A gap in the history is an absent point, never an interpolated or null one, and both series are always present with `currency` fixed by source.** A card with no snapshots in the window is a 200 with both series present and empty, told apart from a card that does not exist by a separate existence check the service runs before it queries snapshots — both would otherwise be zero rows and the same response. A card not in the catalog is a 404.
+
+The absent-point rule is enforced in SQL (`market: { not: null }`), not left to the response schema, and that placement is load-bearing: remove the filter and `Number(null)` evaluates to `0`, so a snapshot carrying no market value would enter the series as a phantom point priced at zero — and `PricePointSchema` would accept it, because `nonnegative()` allows zero. The gap rule holds because the query never hands the schema a null to reject, not because the schema would catch one if it did.
+
+Measured: a 60-day window returned 3 TCGplayer points and 1 Cardmarket point (the body above); a 5-day window returned 1. Both windows had slack against their seed data, which is what makes them the evidence for the no-interpolation property. A 30-day read against a fixture seeded at exactly `now() - interval '30 days'` returned 2 TCGplayer points rather than the 3 the fixture intended, because by the time the request ran the row had aged to `30 days 00:00:15.6s` and the service computes its cutoff at request time, not at seed time — a property of that fixture's timing, not of the endpoint. The 60-day and 5-day reads are the ones to cite for the window's behaviour.
 
 ## Admin / Sync
 
