@@ -18,11 +18,15 @@ export type PriceSnapshot = z.infer<typeof PriceSnapshotSchema>;
 /**
  * What `GET /cards/:id/price` answers.
  *
- * Every field is nullable because a card that exists but has never been
+ * Every value field is nullable because a card that exists but has never been
  * price-synced is a 200 with nulls, not a 404. `priceUpdatedAt` being null IS
  * the indicator that the card has never been priced - a separate boolean would
  * be a second way of saying the same thing, and two sources of truth for one
  * fact is how they drift.
+ *
+ * A non-null `priceUpdatedAt` alongside null `usd`/`eur` is a distinct, later
+ * state: the card was synced and the marketplace published no price that time,
+ * which is different from never having been synced at all.
  *
  * The timestamp is absolute and never a computed age. This response is cached
  * for an hour, and a relative "updated 300 seconds ago" served from cache forty
