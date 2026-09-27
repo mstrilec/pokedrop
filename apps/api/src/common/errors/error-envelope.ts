@@ -14,10 +14,13 @@ export function buildErrorEnvelope(exception: unknown, requestId: string): Error
   const statusCode: number =
     exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
 
+  const code = codeFor(exception);
+
   return {
     statusCode,
     error: errorNameFor(exception, statusCode),
     message: messageFor(exception, statusCode),
+    ...(code === undefined ? {} : { code }),
     requestId,
   };
 }
@@ -78,4 +81,18 @@ function messageFor(exception: unknown, statusCode: number): string {
   }
 
   return 'Unexpected error';
+}
+
+function codeFor(exception: unknown): string | undefined {
+  if (!(exception instanceof HttpException)) {
+    return undefined;
+  }
+
+  const body = exception.getResponse();
+  if (typeof body === 'object' && body !== null && 'code' in body) {
+    const { code } = body as { code?: unknown };
+    return typeof code === 'string' ? code : undefined;
+  }
+
+  return undefined;
 }

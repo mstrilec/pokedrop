@@ -1,9 +1,21 @@
 import { z } from 'zod';
 
+/**
+ * Stable machine-readable codes for domain errors. `message` is prose and may
+ * change; clients branch on `code`.
+ */
+export const ERROR_CODES = {
+  INSUFFICIENT_FUNDS: 'INSUFFICIENT_FUNDS',
+  PACK_UNAVAILABLE: 'PACK_UNAVAILABLE',
+  OPEN_ID_CONFLICT: 'OPEN_ID_CONFLICT',
+} as const;
+export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
+
 export const ErrorEnvelopeSchema = z.object({
   statusCode: z.number().int(),
   error: z.string(),
   message: z.string(),
+  code: z.string().optional(),
   requestId: z.string(),
 });
 
