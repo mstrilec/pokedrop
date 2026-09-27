@@ -13,6 +13,7 @@ import { AuthModule } from './auth/index.js';
 import { CatalogModule } from './catalog/index.js';
 import { AppConfigModule } from './config/index.js';
 import { HealthModule } from './health/health.module.js';
+import { InventoryModule } from './inventory/index.js';
 import { AppLoggingModule } from './logging/index.js';
 import { EconomyModule } from './economy/index.js';
 import { MailModule } from './mail/index.js';
@@ -35,6 +36,7 @@ import { ThrottleModule } from './throttle/index.js';
     AuthModule,
     CatalogModule,
     PricesModule,
+    InventoryModule,
     HealthModule,
     QueueModule,
     SyncModule,
