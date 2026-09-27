@@ -13,24 +13,34 @@ import { PaginationQuerySchema, pageOf } from '../primitives/pagination.js';
 export const CardSortSchema = z.enum(['name_asc', 'name_desc']).default('name_asc');
 export type CardSort = z.infer<typeof CardSortSchema>;
 
+// PostgreSQL text cannot hold U+0000: a NUL reaching a query is a driver error
+// and a 500, so it is refused here as a 400.
+const filterText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .min(1)
+    .max(max)
+    .refine((value) => !value.includes('\u0000'), 'must not contain a NUL character');
+
 /**
  * Every filter is optional and absent means "no filter".
  */
 export const CardSearchQuerySchema = PaginationQuerySchema.extend({
-  q: z.string().trim().min(1).max(100).optional(),
-  set: z.string().trim().min(1).max(64).optional(),
-  rarity: z.string().trim().min(1).max(64).optional(),
+  q: filterText(100).optional(),
+  set: filterText(64).optional(),
+  rarity: filterText(64).optional(),
   /**
    * One type, matched by array containment. A card carries at most two, and the
    * FilterBar is a single dropdown.
    */
-  type: z.string().trim().min(1).max(32).optional(),
+  type: filterText(32).optional(),
   /**
    * Added by the facets ticket rather than by the search ticket. The facets
    * endpoint has to return supertypes, and a facet nobody can filter by is a
    * list of values the API advertises and then rejects.
    */
-  supertype: z.string().trim().min(1).max(32).optional(),
+  supertype: filterText(32).optional(),
   sort: CardSortSchema,
 });
 export type CardSearchQuery = z.infer<typeof CardSearchQuerySchema>;

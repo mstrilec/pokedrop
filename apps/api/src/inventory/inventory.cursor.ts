@@ -18,14 +18,18 @@ export type InventoryCursor = { v: string | null; id: string };
 
 const PayloadSchema = z.object({
   s: z.enum(INVENTORY_SORTS),
-  v: z.string().max(256).nullable(),
-  id: z.string().min(1).max(64),
+  v: z
+    .string()
+    .max(256)
+    .refine((value) => !value.includes('\u0000'))
+    .nullable(),
+  id: z.string().regex(/^[\w-]{1,64}$/),
 });
 
-// A value of the wrong kind would reach Prisma as an Invalid Date or an
-// unparseable Decimal and surface as a 500, not a 400.
+// Anything PostgreSQL cannot compare - an Invalid Date, an unparseable Decimal,
+// a NUL, year 0000 - would surface as a 500 rather than a 400.
 const VALUE_RULES: Record<SortKey, z.ZodType<string | null>> = {
-  acquiredAt: z.iso.datetime(),
+  acquiredAt: z.iso.datetime().refine((value) => !value.startsWith('0000')),
   name: z.string().min(1),
   price: z
     .string()
