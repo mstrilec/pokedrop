@@ -344,6 +344,9 @@ model PackOpening {
   templateId String
   /// The idempotency guard. A retried open with the same id cannot mint twice.
   openId     String   @unique
+  /// Hex of the 32-byte seed the pack was drawn from. Null only for openings
+  /// that predate PD-57.
+  seed       String?
   createdAt  DateTime @default(now())
 
   user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
