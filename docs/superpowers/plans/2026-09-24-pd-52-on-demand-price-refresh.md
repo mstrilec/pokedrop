@@ -451,7 +451,7 @@ function build(price: CardPrice, queued: boolean, retryAfterSeconds: number): Pr
 Replace `apps/api/src/prices/prices.controller.ts` in full:
 
 ```ts
-import { Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import type { CardPrice, PriceHistory, PriceRefreshResult } from '@pokedrop/shared';
 import { Public } from '../common/decorators/public.decorator.js';
@@ -492,7 +492,11 @@ export class PricesController {
    * queued, and the two extra fields say what happened to the request beside it.
    * Splitting the code would make a client branch twice for one call - once on
    * the status and again on a body it has to read anyway.
+   *
+   * @HttpCode(HttpStatus.OK) because Nest answers 201 for a @Post by default,
+   * which would say a resource was created - and none was.
    */
+  @HttpCode(HttpStatus.OK)
   @Post('cards/:id/price/refresh')
   refresh(@Param('id') id: string): Promise<PriceRefreshResult> {
     return this.refreshes.refresh(id);
