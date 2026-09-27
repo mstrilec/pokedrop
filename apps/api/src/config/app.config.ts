@@ -92,6 +92,19 @@ export function buildAppConfig(env: Env) {
       // their share hours earlier.
       reserve: env.PRICE_ACTIVE_RESERVE,
     },
+    priceRefresh: {
+      // Shorter than PD-50's six-hour freshness window, or asking on demand
+      // buys nothing the schedule was not about to do anyway; long enough that
+      // reloading a card page does not spend the allowance twice. Chosen, not
+      // measured.
+      cooldownSeconds: env.PRICE_REFRESH_COOLDOWN,
+
+      // Left unspent for the jobs that still have to run today. This is the
+      // last consumer in the day and the only one behind it is the 23:00 active
+      // refresh, which costs about 30 requests - so this reserve is the
+      // smallest of the three for the same reason it is last.
+      reserve: env.PRICE_ONDEMAND_RESERVE,
+    },
     queue: {
       concurrency: env.QUEUE_CONCURRENCY,
       defaults: {

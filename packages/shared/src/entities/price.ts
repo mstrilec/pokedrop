@@ -99,3 +99,29 @@ export const PriceHistoryQuerySchema = z.object({
   days: z.coerce.number().int().min(1).max(365).default(30),
 });
 export type PriceHistoryQuery = z.infer<typeof PriceHistoryQuerySchema>;
+
+/**
+ * What `POST /cards/:id/price/refresh` answers, always with 200.
+ *
+ * It extends CardPriceSchema rather than restating it because the endpoint
+ * returns the card's current price through the same read `GET /cards/:id/price`
+ * serves - the refresh is what happens beside the answer, not instead of it. A
+ * separate shape here would be two contracts for one figure.
+ *
+ * `queued` and `retryAfterSeconds` together say which of three things happened:
+ * a job was enqueued and the number is the cooldown just set; the card is inside
+ * its cooldown and the number is what remains of it; or the day's reserve is
+ * reached and the number is the seconds to 00:00 UTC, where the budget counter
+ * resets. The third needs no separate flag - "try again in 7 hours" is the
+ * literal truth, and a client rendering a countdown does not have to know which
+ * of the two limits produced it.
+ *
+ * Non-negative, deliberately. A TTL read for a key that expired a millisecond
+ * earlier comes back as -2, and a negative wait is not a thing a client can act
+ * on; the service clamps it to zero before it reaches this schema.
+ */
+export const PriceRefreshResultSchema = CardPriceSchema.extend({
+  queued: z.boolean(),
+  retryAfterSeconds: z.number().int().nonnegative(),
+});
+export type PriceRefreshResult = z.infer<typeof PriceRefreshResultSchema>;

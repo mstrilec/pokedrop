@@ -60,6 +60,10 @@ export const EnvSchema = z
 
     PRICE_ACTIVE_RESERVE: z.coerce.number().int().min(0).default(150),
 
+    PRICE_REFRESH_COOLDOWN: z.coerce.number().int().min(1).default(600),
+
+    PRICE_ONDEMAND_RESERVE: z.coerce.number().int().min(0).default(50),
+
     QUEUE_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(4),
 
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),

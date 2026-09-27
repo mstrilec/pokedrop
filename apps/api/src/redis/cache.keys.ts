@@ -47,6 +47,8 @@ export const throttleKeys = {
   block: (key: string) => `${THROTTLE_NAMESPACE}:block:${key}`,
 
   resend: (email: string) => `${THROTTLE_NAMESPACE}:resend:${email.toLowerCase()}`,
+
+  priceRefresh: (cardId: string) => `${THROTTLE_NAMESPACE}:price:refresh:${cardId}`,
 } as const;
 
 /**
