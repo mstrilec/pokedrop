@@ -265,9 +265,9 @@ The budget was 100 ms; the worst case is 19.1 ms, so no index was added. Over HT
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| GET | `/packs/templates` | member | Active templates only |
+| GET | `/packs/templates` | member | Active templates, with contents, odds and the confirm-dialog guarantee |
 | POST | `/packs/:templateId/open` | member | Body `{ openId }` — **idempotent**, transactional |
-| GET | `/packs/history` | member | Past openings |
+| GET | `/packs/history` | member | The caller's openings with their cards, newest first, keyset-paged |
 | GET | `/admin/pack-templates` | admin | Every template, inactive included |
 | POST | `/admin/pack-templates` | admin | Create; validated against the card pool; audited |
 | PATCH | `/admin/pack-templates/:id` | admin | Partial update, including `active`; audited |
@@ -308,6 +308,50 @@ The budget was 100 ms; the worst case is 19.1 ms, so no index was added. Over HT
 | card counts inside a 48-card bucket against uniform | 43.24 | 82.80 |
 
 Critical values are the Wilson–Hilferty approximation. These checks stand in for PD-61's statistical suite until automated tests resume.
+
+### What a member sees of a template
+
+`GET /packs/templates` returns each active template with two derived fields, so the confirm dialog renders from this response alone:
+
+```json
+{
+  "id": "seed-template-base", "name": "Base Set Booster", "cost": 300, "…": "the template",
+  "contents": {
+    "cardCount": 8,
+    "slots": [
+      { "count": 4, "odds": [{ "rarity": "Common", "percent": 100 }] },
+      { "count": 3, "odds": [{ "rarity": "Uncommon", "percent": 100 }] },
+      { "count": 1, "odds": [{ "rarity": "Rare", "percent": 75 }, { "rarity": "Rare Holo", "percent": 25 }] }
+    ]
+  },
+  "guarantee": "8 cards: 4 Common, 3 Uncommon, 1 Rare or better."
+}
+```
+
+**`odds` follow the generator's ladder** — weight descending, ties by name — so the first entry of a slot is its most common rarity, and `percent` is its share of the slot's weight, rounded to 0.1. Publishing the odds is deliberate: they are exactly what the draw uses.
+
+**`guarantee` reads each slot's floor off that ladder.** A single-rarity slot is "4 Common"; a slot with several rarities is "1 Rare or better", because every other rarity in it is rarer by the same rule the draw's fallback uses. "This action can't be undone" is interface copy and stays in the frontend. Verified on the seed template: exactly the sentence above, and 75 / 25 in that order.
+
+### Opening history
+
+`GET /packs/history?cursor=…&pageSize=…` — the caller's openings only; no parameter names a user. `pageSize` 1–100, default 24.
+
+```json
+{
+  "items": [
+    {
+      "openingId": "clx…", "openId": "1b4e28ba-…", "templateId": "seed-template-base",
+      "templateName": "Base Set Booster", "createdAt": "2026-09-27T19:02:11.412Z",
+      "cards": [{ "position": 0, "cardId": "base1-68", "rarity": "Common", "card": { "…": "the inventory's slim card" } }]
+    }
+  ],
+  "pageSize": 24, "total": 6, "nextCursor": null
+}
+```
+
+**Newest first, by a keyset cursor over `(createdAt, id)`,** for the same reason as the inventory: openings arrive at the top while someone scrolls, and offsets would repeat one. The cursor is opaque; one that does not decode, names a year-zero date or an id outside `[A-Za-z0-9_-]` is a 400. `openId` is any string here, because openings made before PD-58 were not keyed by a UUID. The seed is never returned.
+
+Verified, 2026-09-27: five openings walked two at a time came back once each, newest first, with a sixth opened in the middle of the walk shifting nothing; every entry's cards matched the database in pull order; another user saw none of them, including through a cursor forged around one of them; no session is a 401.
 
 ### Opening a pack
 
