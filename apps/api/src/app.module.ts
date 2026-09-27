@@ -13,7 +13,9 @@ import { AuthModule } from './auth/index.js';
 import { CatalogModule } from './catalog/index.js';
 import { AppConfigModule } from './config/index.js';
 import { HealthModule } from './health/health.module.js';
+import { AuditModule } from './audit/index.js';
 import { InventoryModule } from './inventory/index.js';
+import { PacksModule } from './packs/index.js';
 import { AppLoggingModule } from './logging/index.js';
 import { EconomyModule } from './economy/index.js';
 import { MailModule } from './mail/index.js';
@@ -29,6 +31,7 @@ import { ThrottleModule } from './throttle/index.js';
     AppConfigModule,
     AppLoggingModule,
     PrismaModule,
+    AuditModule,
     RedisModule,
     ThrottleModule,
     MailModule,
@@ -37,6 +40,7 @@ import { ThrottleModule } from './throttle/index.js';
     CatalogModule,
     PricesModule,
     InventoryModule,
+    PacksModule,
     HealthModule,
     QueueModule,
     SyncModule,
