@@ -31,8 +31,8 @@ Five input classes the spec implies but does not pin down. Each has a measuremen
 1. **A card that exists but has never been priced** — 20 658 of the 20 670 cards in this database. This is the single most likely real request, and it is the one the spec never describes: `getLatest` returns `usd`, `eur` and `priceUpdatedAt` all null, and the refresh must still enqueue. Expected: `200`, three nulls, `queued: true`. *Task 2, Step 8.*
 2. **The cooldown key expiring between the `SET` and the `TTL` read** — ioredis returns `-2` for a key that no longer exists and `-1` for one with no expiry. `PriceRefreshResultSchema` declares `retryAfterSeconds` non-negative, so a raw `-2` throws inside the response parse and a 200 becomes a 500. Expected: clamped to `0`. *Task 2, Step 6.*
 3. **Card ids carrying `!` or `?`** — `ex10-!` and `ex10-?` are real ids in this catalog, recorded in `apps/api/src/sync/README.md`. PD-51 measured them on a `GET`; a `POST` reaches the same route parameter. `?` is the sharper of the two, since unencoded it is a query-string separator. Expected: both resolve and enqueue. *Task 2, Step 9.*
-4. **The reserve boundary is strict.** `hasHeadroom` is `remaining > reserve`, not `>=`. At `used = limit - reserve` exactly, `remaining === reserve` and the request is **refused**. That is one request's difference between what `.env.example` says and what the code does, and nobody will notice it later. Expected: refused at exactly `950`, allowed at `949`. *Task 3, Step 4.*
-5. **Redis unreachable** — the endpoint must answer `503`, not `500` and not a `200` claiming a cooldown, while `GET /cards/:id/price` beside it still answers `200` from the database. Note the envelope: `AllExceptionsFilter` replaces the message of any status `>= 500`, so the body reads `"message": "Internal server error"` with `"error": "Service Unavailable"`. That is the framework's shape, not a bug to chase. *Task 3, Step 6.*
+4. **The reserve boundary is strict.** `hasHeadroom` is `remaining > reserve`, not `>=`. At `used = limit - reserve` exactly, `remaining === reserve` and the request is **refused**. That is one request's difference between what `.env.example` says and what the code does, and nobody will notice it later. Expected: refused at exactly `950`, allowed at `949`. *Task 3, Step 5.*
+5. **Redis unreachable** — the endpoint must answer `503`, not `500` and not a `200` claiming a cooldown, while `GET /cards/:id/price` beside it still answers `200` from the database. Note the envelope: `AllExceptionsFilter` replaces the message of any status `>= 500`, so the body reads `"message": "Internal server error"` with `"error": "Service Unavailable"`. That is the framework's shape, not a bug to chase. *Task 3, Step 7.*
 
 ---
 
@@ -336,7 +336,7 @@ The endpoint in full, minus the daily reserve, which is Task 3.
 
 ### Budget arithmetic for this task
 
-Steps 5, 8 and 9 each enqueue a job that reaches the provider. `PriceBatchService` asks once per batch and retries up to three times at a ~30 % success rate, so budget **at most 4 jobs × ~3 requests ≈ 12 requests** of today's 1 000 across this task. That is affordable. Step 6 and Step 7 use a card already inside its cooldown and spend nothing.
+Six jobs reach the provider across this task: one each in Steps 5, 6 (the second half, after the key is expired by hand), 7 and 8, and two in Step 9. `PriceBatchService` asks once per batch and retries up to three times at this provider's ~30 % success rate, so budget **about 6 jobs × ~3 requests ≈ 18 requests** of today's 1 000. That is affordable, and it is the only spend in this task — the first half of Step 6 and the losing half of Step 7's race are refused by the cooldown and cost nothing.
 
 - [ ] **Step 1: Write the service**
 
@@ -692,9 +692,10 @@ The second layer, against a different thing: the cooldown stops duplicate work o
 
 **Files:**
 - Modify: `apps/api/src/prices/price-refresh.service.ts`
+- Modify: `apps/api/src/prices/prices.module.ts`
 
 **Interfaces:**
-- Consumes: `RequestBudgetService` from `../sync/providers/index.js`; `config.priceRefresh.reserve` and `config.providers.active` from `APP_CONFIG`.
+- Consumes: `RequestBudgetService` and `ProvidersModule` from `../sync/providers/index.js`; `config.priceRefresh.reserve` and `config.providers.active` from `APP_CONFIG`.
 - Produces: no new exported names. `refresh` gains one outcome.
 
 ### Why `PricesModule` may import `ProvidersModule`
@@ -706,7 +707,30 @@ The second layer, against a different thing: the cooldown stops duplicate work o
 
 Import `RequestBudgetService` from `'../sync/providers/index.js'` — the sealed folder's barrel. Importing the file directly is refused by ESLint.
 
-- [ ] **Step 1: Inject the budget service and add the reserve check**
+- [ ] **Step 1: Import `ProvidersModule` into `PricesModule`**
+
+Nest resolves a dependency through the importing module's own context, so the injection in Step 2 fails at boot without this. In `apps/api/src/prices/prices.module.ts`, add the import and extend the `imports` array:
+
+```ts
+import { ProvidersModule } from '../sync/providers/index.js';
+```
+
+```ts
+  imports: [ProvidersModule, QueueModule],
+```
+
+Add one line to the module's docblock, above the `QueueModule` sentence:
+
+```
+ * ProvidersModule is imported for RequestBudgetService, and it adds no instance
+ * to this process - SyncModule already puts that module in AppModule's graph, and
+ * Nest caches modules. AdminSyncService reads breaker state straight from Redis
+ * to avoid this import; the duplication that buys is two lines, where duplicating
+ * the budget read would be a whole service and a fourth place that has to agree
+ * about the UTC day boundary and the fail-open rule.
+```
+
+- [ ] **Step 2: Inject the budget service and add the reserve check**
 
 In `apps/api/src/prices/price-refresh.service.ts`, add to the imports:
 
@@ -743,7 +767,7 @@ Insert this block in `refresh`, between the `getLatest` call and the `const cool
     }
 ```
 
-- [ ] **Step 2: Add the countdown to midnight**
+- [ ] **Step 3: Add the countdown to midnight**
 
 Append, beside `build` at the bottom of the file:
 
@@ -766,7 +790,7 @@ function secondsUntilUtcMidnight(at: Date): number {
 }
 ```
 
-- [ ] **Step 3: Build, restart, and confirm nothing regressed**
+- [ ] **Step 4: Build, restart, and confirm nothing regressed**
 
 ```bash
 pnpm typecheck && pnpm lint && pnpm format:check
@@ -779,12 +803,14 @@ grep -c 'ProvidersModule dependencies initialized' "$SCRATCH/api.log"
 
 Expected: `1`. More than one would mean a second instance of the provider clients and the budget service, which is the thing `AdminSyncService`'s docblock warns about — stop and report it.
 
-- [ ] **Step 4: Measure the reserve boundary (Review Focus 4)**
+- [ ] **Step 5: Measure the reserve boundary (Review Focus 4)**
 
 `POKEMONTCG_DAILY_REQUEST_BUDGET` is 1 000 and `PRICE_ONDEMAND_RESERVE` is 50, so `hasHeadroom` is `1000 - used > 50`. The boundary is therefore `used = 949` allowed, `used = 950` refused — strict, not inclusive.
 
 ```bash
 DAY=$(date -u +%F)
+REAL_SPEND=$($RCACHE get "budget:pokemontcg:$DAY")
+echo "real spend before this step: ${REAL_SPEND:-unset}"
 $RCACHE del "throttle:price:refresh:base1-46"
 
 $RCACHE set "budget:pokemontcg:$DAY" 949
@@ -808,16 +834,17 @@ date -u
 
 The number must be roughly `86400 - (seconds since UTC midnight)`. A number near 600 means the cooldown branch answered instead of the reserve branch.
 
-- [ ] **Step 5: Restore the counter**
+- [ ] **Step 6: Restore the counter**
 
 ```bash
-$RCACHE del "budget:pokemontcg:$DAY"
+$RCACHE set "budget:pokemontcg:$DAY" "${REAL_SPEND:-0}" EX 172800
+$RCACHE get "budget:pokemontcg:$DAY"
 $RCACHE del "throttle:price:refresh:base1-46"
 ```
 
-The hand-set value is not a real count and must not be left where the scheduled jobs will read it tonight.
+**Restore, do not delete.** The hand-set 950 must not be left where tonight's sweep will read it — but deleting the key would understate the real spend instead, and this plan's own measurements have already put roughly twenty requests on it. Put back the value Step 5 recorded, with the same two-day TTL `RequestBudgetService` uses, and confirm what the key holds afterwards.
 
-- [ ] **Step 6: Measure Redis unreachable (Review Focus 5)**
+- [ ] **Step 7: Measure Redis unreachable (Review Focus 5)**
 
 ```bash
 docker compose stop redis
@@ -839,7 +866,7 @@ Expected:
 
 Note that `hasHeadroom` was consulted first and returned `true` by failing open, exactly as PD-49 designed it — so the 503 came from the `SET NX EX`, which is the intended source.
 
-- [ ] **Step 7: Measure a short cooldown expiring**
+- [ ] **Step 8: Measure a short cooldown expiring**
 
 ```bash
 pkill -f 'node apps/api/dist/main.js'
@@ -862,7 +889,7 @@ sleep 8
 
 Expected: first `"queued":true,"retryAfterSeconds":20`; second `"queued":false` with a remainder under 20; third `"queued":true` again; `jobs enqueued: 2`. This also proves the setting is read from configuration rather than hard-coded.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add apps/api/src/prices/price-refresh.service.ts
@@ -895,7 +922,7 @@ What Tasks 1–3 measured, written where the next person will look for it.
 - Modify: `apps/api/src/queue/README.md`
 
 **Interfaces:**
-- Consumes: the recorded numbers from Tasks 2 and 3 — the `time_total` from Task 2 Step 5, the job-count deltas, the reserve boundary from Task 3 Step 4, and the two status codes from Step 6.
+- Consumes: the recorded numbers from Tasks 2 and 3 — the `time_total` from Task 2 Step 5, the job-count deltas, the reserve boundary from Task 3 Step 5, and the two status codes from Step 7.
 - Produces: nothing importable.
 
 - [ ] **Step 1: Add the endpoint to `docs/API.md`**
@@ -1098,7 +1125,7 @@ EOF
 M4 closes here. Before marking PD-52 Done, confirm against the ticket's own acceptance criteria:
 
 1. **Two refresh requests for the same card inside the cooldown enqueue only one job** — Task 2, Step 7, run concurrently.
-2. **The window is configurable** — Task 3, Step 7, with `PRICE_REFRESH_COOLDOWN=20`.
+2. **The window is configurable** — Task 3, Step 8, with `PRICE_REFRESH_COOLDOWN=20`.
 3. **The caller is answered immediately rather than waiting on the provider** — Task 2, Step 5, the recorded `time_total`.
 
 Two things this ticket surfaced and deliberately did not fix, each worth its own ticket:
