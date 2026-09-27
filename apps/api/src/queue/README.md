@@ -1,7 +1,8 @@
 # Queue module
 
-Background work, and the process that runs it. The API enqueues; the worker
-consumes. Neither can take the other down.
+Background work, and the process that runs it. Both entrypoints enqueue, and
+both consume — the split between them is which schedulers run, not which side
+of producer and consumer either one is on. Neither can take the other down.
 
 ## The split, in one sentence
 

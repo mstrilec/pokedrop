@@ -82,6 +82,8 @@ Taking the cooldown first and *then* discovering there is no budget leaves a key
 
 Checking the budget first needs no compensation and produces the same observable behaviour in every case the spec enumerates, including the Redis-down one: `hasHeadroom` fails **open** by PD-49's design and never throws, so a dead Redis passes straight through it and the `SET NX EX` immediately afterwards is still what raises the 503. Verification point 8 of the spec is unaffected.
 
+One combination the spec never enumerates does differ: a card that is both inside its cooldown and past the day's reserve. The spec's outcome table, read literally, would return the remaining cooldown for that case; this ordering returns seconds-to-midnight instead, because the budget check runs first and returns before the cooldown is ever read. The implementation's answer is the more useful of the two — the day's reserve is the longer wait and the one actually binding — so this is a difference worth keeping, not just tolerating.
+
 Everything else follows the spec as written.
 
 ---

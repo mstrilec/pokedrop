@@ -4,10 +4,12 @@ import { APP_CONFIG, type AppConfig } from '../config/index.js';
 import { QUEUE } from './queue.constants.js';
 
 /**
- * Imported by both entrypoints, and the difference between them is not in this
- * file: `registerQueue` creates producers, while a `@Processor` class creates a
- * worker. The API imports this module and declares no processor, so it can
- * enqueue and never consumes.
+ * Imported by both entrypoints. `registerQueue` creates producers, while a
+ * `@Processor` class creates a worker — and the API is both: `AppModule` also
+ * imports `SyncModule`, which declares all four processors, so the API process
+ * consumes every queue it enqueues to. What actually splits the two entrypoints
+ * is the scheduler, since `ScheduleModule.forRoot()` lives only in
+ * `WorkerModule`. See `queue/README.md` for the full account.
  */
 @Module({
   imports: [

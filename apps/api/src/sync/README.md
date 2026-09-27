@@ -1105,6 +1105,27 @@ the last consumer in the day and the only job behind it is the 23:00 active
 refresh, at roughly 30 requests. `hasHeadroom` is strict — `remaining > reserve` —
 so with a 1 000 budget the boundary is 949 allowed and 950 refused.
 
+**That check is also the reserve's one assumption, and it is worth stating
+rather than leaving implicit.** `hasHeadroom` is read by the producer at request
+time; `RequestBudgetService.record` is called by the processor at fetch time.
+The gap between the two is however long the job sits on `price-sync` before it
+runs, and today that gap is negligible — `queue/README.md` measured four jobs on
+this queue completing in 0.3–2.4 s each, with only the API running. A headroom
+check that reads a count the queue hasn't caught up to for a few hundred
+milliseconds has nothing to exploit in that window. It stops being negligible if
+the consumer falls behind: a separate worker process down, a provider taking ten
+seconds a call against `QUEUE_CONCURRENCY=4`, or `attempts: 3` backing off five
+then ten seconds on a failing card. One authenticated caller at the `default`
+tier's 100-requests-a-minute limit, spread across 100 distinct cards, enqueues
+faster than the counter can move — the per-card cooldown does not help, for the
+same reason above about 20 670 cards to spread a day's allowance across — and
+every headroom check in that window reads a stale count, so the backlog spends
+the day's allowance once it finally drains, which is the exact thing the reserve
+exists to prevent. That is left alone deliberately, not by oversight: a
+queue-depth bound and recording the spend optimistically at enqueue are both
+real fixes, each with its own failure modes and its own verification needs, and
+this is the last ticket of M4 — that belongs in its own ticket.
+
 **M4's budget, whole:** catalog sync ~250, nightly sweep ~250, active refresh
 ~120, on-demand bounded by its reserve. Roughly 620 of 1 000 committed, against a
 provider that is deprecated and stops serving keys on 2027-03-01. The next ticket

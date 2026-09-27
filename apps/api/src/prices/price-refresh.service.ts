@@ -65,8 +65,25 @@ export class PriceRefreshService {
       return build(price, false, remaining);
     }
 
-    const job = await this.queue.add('price-refresh', { cardIds: [cardId] });
-    this.logger.log(`Enqueued a refresh of ${cardId} as job ${job.id}`);
+    try {
+      const job = await this.queue.add('price-refresh', { cardIds: [cardId] });
+      this.logger.log(`Enqueued a refresh of ${cardId} as job ${job.id}`);
+    } catch (error) {
+      // The cooldown is already held at this point. Releasing it is a best
+      // effort, not a requirement: a DEL that fails leaves the same denied
+      // card that not attempting it would, so there is nothing to lose by
+      // trying, and the plan's own reasoning against a compensating DEL was
+      // about the ordering, not about whether one is worth attempting here.
+      await this.redis.client.del(throttleKeys.priceRefresh(cardId)).catch(() => undefined);
+
+      this.logger.warn(
+        `Refresh enqueue unavailable for ${cardId}: ${
+          error instanceof Error ? error.message : 'unknown error'
+        }`,
+      );
+
+      throw new ServiceUnavailableException('Price refresh is unavailable');
+    }
 
     return build(price, true, cooldown);
   }

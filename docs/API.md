@@ -296,8 +296,24 @@ the endpoint is for.
 
 **The response can be up to an hour stale, by design.** It is the cached read,
 and the refresh it triggers has not happened yet. `priceUpdatedAt` is what a
-client watches to see the new figure arrive; `PriceBatchService` deletes
-`cache:price:card:{id}` after the write, so the next read is fresh.
+client watches to see the new figure arrive, but that promise holds only for a
+card the provider actually prices. `PriceBatchService.refreshBatch` builds its
+updates from the provider's response, and a card the provider returns no price
+for is not touched at all — no column, no timestamp, no snapshot — and
+`cache:price:card:{id}` is deleted only for the ids it did price. Most cards in
+the mirror are in exactly that position: 20 654 of 20 670 carry no
+`latestPriceUsd` today. For one of those, `priceUpdatedAt` never moves and the
+cache key is never invalidated, so a caller watching the field for the queued
+refresh to land is watching for a change that will not come, locked out by the
+cooldown for ten minutes with no signal that this is why.
+
+**A failed job looks identical to a pending one from the caller's side.** The
+spec deliberately does not clear the cooldown when the job fails — clearing it
+would turn a bad provider minute into a spending loop — so whether the refresh
+is still in flight or already failed, the response a client polls stays the same
+unchanged shape either way. That is a correct, deliberate property of the
+design, not a bug, but it means a client cannot distinguish "still working" from
+"already gave up" without a longer wait than either case actually needs.
 
 **Redis unreachable answers 503.** The cooldown is a lock, not a cache: a failure
 to take it must not be read as "the lock is free", and refusing *as though the

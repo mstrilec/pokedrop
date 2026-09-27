@@ -60,7 +60,7 @@ export const EnvSchema = z
 
     PRICE_ACTIVE_RESERVE: z.coerce.number().int().min(0).default(150),
 
-    PRICE_REFRESH_COOLDOWN: z.coerce.number().int().min(1).default(600),
+    PRICE_REFRESH_COOLDOWN: z.coerce.number().int().min(1).max(86_400).default(600),
 
     PRICE_ONDEMAND_RESERVE: z.coerce.number().int().min(0).default(50),
 
