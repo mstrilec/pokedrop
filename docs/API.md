@@ -226,6 +226,27 @@ The budget was 100 ms; the worst case is 19.1 ms, so no index was added. Over HT
 
 **Not cached.** Six sorts times every filter combination per user is high cardinality with a low repeat rate, on the most volatile data a user owns.
 
+**`GET /inventory/summary`**
+
+```json
+{
+  "totalCards": 14, "uniqueCards": 7,
+  "collectionValueUsd": 1967.58, "pricedCards": 3,
+  "setCompletion": [
+    { "setId": "sv4pt5", "name": "Paldean Fates", "owned": 1, "total": 91 },
+    { "setId": "base1", "name": "Base", "owned": 3, "total": 102 }
+  ]
+}
+```
+
+**The totals count locked copies.** A card promised to a pending trade is still owned. `totalCards` sums `quantity`; `uniqueCards` counts distinct cards; rows at quantity 0 count toward neither. `setCompletion` lists only sets the caller owns cards in, newest release first.
+
+**`collectionValueUsd` is informational and unrelated to the pack economy.** It is the sum of `latestPriceUsd × quantity`, summed in cents so per-set decimals do not drift. **`pricedCards` says how much of the collection that value covers** — 16 of 20 670 mirrored cards carry a USD price today, so a value without it reads as a valuation it is not.
+
+**Completion is against `printedTotal`, and never above 100%.** A card counts when the number after `{setId}-` in its id is an integer within `printedTotal`; secret rares and subsets numbered past the printed set do not. 107 of 176 mirrored sets hold more cards than they print — `sv4pt5` holds 245 against 91 — so capping a raw count would call any 91 of those 245 "complete". Sets whose cards carry no integer number at all, promos such as `SM01`, count every card, and `LEAST(owned, printedTotal)` is the backstop. Measured over the whole mirror: this rule puts 160 sets at exactly `printedTotal` and none above it. Verified by owning every card of a set: `sv4pt5` 91/91, `base1` 102/102, `g1` 83/83 (117 cards, `RC` subset excluded), `smp` 248/248 (251 promos, capped).
+
+**One SQL statement, cached for five minutes** under `cache:inv:summary:{userId}`. Measured: one statement cold, none warm; 19.9 ms median cold over 5 000 rows in 50 sets. **Any code that changes a user's quantities calls `InventoryService.invalidateSummary(userId)`** after its transaction commits — pack opening (PD-58) and trade settlement. Raising or lowering a lock does not change the summary and does not invalidate it. A price sync does not invalidate it either: the value can lag prices by up to the TTL.
+
 ## Packs
 
 | Method | Path | Auth | Notes |

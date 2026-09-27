@@ -62,6 +62,32 @@ present as `0`. Pass the transaction client when the answer must be consistent
 with writes in the same transaction; strict-mode deck validation (PD-64) can use
 the default client.
 
+## Set completion
+
+A card counts toward its set's completion when the number after `{setId}-` in
+its id is an integer within the set's `printedTotal`. Sets that print secret
+rares or subsets past that number — 107 of 176 in the mirror — would otherwise
+reach "100%" on the wrong cards. Sets with no integer-numbered cards at all
+(promos: `SM01`, `SWSH001`) count every card, and `LEAST(owned, printedTotal)`
+backs both up. Measured numbers are in `docs/API.md` (Inventory).
+
+The rule depends on provider ids of the form `{setId}-{number}`, which all
+20 670 mirrored cards follow today. A provider that breaks that shape breaks
+completion silently; a collector-number column on `Card` is the fix if it ever
+happens.
+
+## Invalidating the summary
+
+`GET /inventory/summary` is cached for five minutes. Code that changes a user's
+**quantities** calls `invalidateSummary(userId)` after its transaction commits:
+
+- pack opening (PD-58), which mints cards;
+- trade settlement (M8), which moves them between users — both users.
+
+Calling it inside the transaction would let a concurrent read re-cache the
+pre-commit state. `lock` and `release` do not call it: the summary does not
+depend on `lockedQuantity`.
+
 ## Not exported yet
 
 `InventoryModule` does not export `InventoryService`. The first module that
