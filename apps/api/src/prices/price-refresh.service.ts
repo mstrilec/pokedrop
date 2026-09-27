@@ -10,6 +10,7 @@ import { APP_CONFIG, type AppConfig } from '../config/index.js';
 import { QUEUE } from '../queue/index.js';
 import { RedisService, throttleKeys } from '../redis/index.js';
 import type { PriceSyncJob } from '../sync/index.js';
+import { RequestBudgetService } from '../sync/providers/index.js';
 import { PricesService } from './prices.service.js';
 
 /**
@@ -25,6 +26,7 @@ export class PriceRefreshService {
 
   constructor(
     private readonly prices: PricesService,
+    private readonly budget: RequestBudgetService,
     private readonly redis: RedisService,
     @InjectQueue(QUEUE.priceSync) private readonly queue: Queue<PriceSyncJob>,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
@@ -36,6 +38,25 @@ export class PriceRefreshService {
     // and reading the price the same way `GET /cards/:id/price` does is what
     // keeps the two responses from drifting apart in shape or conversion.
     const price = await this.prices.getLatest(cardId);
+
+    // Before the cooldown, not after it. Taking the lock first and then finding
+    // there is no budget would leave a key that has to be compensated with a
+    // DEL - and that DEL can fail on exactly the Redis blip worth worrying
+    // about, leaving a ten-minute cooldown on a card nothing refreshed.
+    //
+    // Checked against the configured provider rather than the one the job will
+    // actually select. The selector runs when the job does and may fall back to
+    // TCGdex, which has no ceiling at all; refusing on the primary's exhausted
+    // budget is the conservative direction, and a producer has no stable answer
+    // to a choice made later.
+    const headroom = await this.budget.hasHeadroom(
+      this.config.providers.active,
+      this.config.priceRefresh.reserve,
+    );
+
+    if (!headroom) {
+      return build(price, false, secondsUntilUtcMidnight(new Date()));
+    }
 
     const cooldown = this.config.priceRefresh.cooldownSeconds;
     const remaining = await this.takeCooldown(cardId, cooldown);
@@ -98,4 +119,21 @@ export class PriceRefreshService {
 
 function build(price: CardPrice, queued: boolean, retryAfterSeconds: number): PriceRefreshResult {
   return PriceRefreshResultSchema.parse({ ...price, queued, retryAfterSeconds });
+}
+
+/**
+ * UTC, because the budget counter is keyed on the UTC day and resets there -
+ * `budget:{provider}:{YYYY-MM-DD}`. "Come back after midnight" is then the
+ * literal truth rather than an approximation, and a client rendering a
+ * countdown against a cooldown renders one against an exhausted day without
+ * knowing the difference.
+ *
+ * Date.UTC with the day incremented handles the month and year rollover; adding
+ * 86 400 000 milliseconds to a floored timestamp would too, but this says what
+ * it means.
+ */
+function secondsUntilUtcMidnight(at: Date): number {
+  const nextMidnight = Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), at.getUTCDate() + 1);
+
+  return Math.ceil((nextMidnight - at.getTime()) / 1000);
 }
