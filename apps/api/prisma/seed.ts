@@ -409,7 +409,7 @@ async function seed(): Promise<void> {
           { count: 3, weights: { Uncommon: 100 } },
           {
             count: 1,
-            weights: { Rare: 72, 'Rare Holo': 20, 'Rare Ultra': 7, 'Rare Secret': 1 },
+            weights: { Rare: 75, 'Rare Holo': 25 },
           },
         ],
       },
