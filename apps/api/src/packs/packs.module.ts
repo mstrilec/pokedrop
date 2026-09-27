@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { InventoryModule } from '../inventory/index.js';
 import { AdminPackTemplatesController } from './admin-pack-templates.controller.js';
+import { PackHistoryService } from './pack-history.service.js';
 import { PackOpenLock } from './pack-open.lock.js';
 import { PackOpeningService } from './pack-opening.service.js';
 import { PackTemplatesService } from './pack-templates.service.js';
@@ -9,6 +10,6 @@ import { PacksController } from './packs.controller.js';
 @Module({
   imports: [InventoryModule],
   controllers: [PacksController, AdminPackTemplatesController],
-  providers: [PackTemplatesService, PackOpeningService, PackOpenLock],
+  providers: [PackTemplatesService, PackOpeningService, PackOpenLock, PackHistoryService],
 })
 export class PacksModule {}

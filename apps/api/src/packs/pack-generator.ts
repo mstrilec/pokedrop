@@ -13,7 +13,7 @@ export class EmptySlotError extends Error {
   }
 }
 
-type Rung = { rarity: string; weight: number };
+export type Rung = { rarity: string; weight: number };
 
 export function generatePack(slotConfig: SlotConfig, pool: CardPool, rng: Rng): GeneratedPack {
   const cards: PulledCard[] = [];
@@ -41,7 +41,7 @@ export function generatePack(slotConfig: SlotConfig, pool: CardPool, rng: Rng): 
 
 // Index 0 is the most common rarity. Computed, never read from key order:
 // jsonb stores object keys in its own order.
-function ladderOf(weights: Record<string, number>): Rung[] {
+export function ladderOf(weights: Record<string, number>): Rung[] {
   return Object.entries(weights)
     .filter(([, weight]) => weight > 0)
     .map(([rarity, weight]) => ({ rarity, weight }))

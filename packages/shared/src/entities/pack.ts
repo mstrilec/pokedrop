@@ -8,6 +8,7 @@ import {
   SetIdSchema,
   UserIdSchema,
 } from '../primitives/id.js';
+import { PaginationQuerySchema, cursorPageOf } from '../primitives/pagination.js';
 
 export const MAX_CARDS_PER_PACK = 20;
 
@@ -94,3 +95,46 @@ export const PackOpenResultSchema = z.object({
   cards: z.array(PackOpeningCardSchema.extend({ card: InventoryCardSchema })),
 });
 export type PackOpenResult = z.infer<typeof PackOpenResultSchema>;
+
+/**
+ * What the confirm dialog shows, derived from `slotConfig` by the ladder rule
+ * the generator uses: odds ordered from the most common rarity to the rarest,
+ * and a slot's most common rarity is its floor.
+ */
+export const PackTemplateContentsSchema = z.object({
+  cardCount: z.number().int().min(1),
+  slots: z.array(
+    z.object({
+      count: z.number().int().min(1),
+      odds: z.array(z.object({ rarity: RaritySchema, percent: z.number().min(0).max(100) })),
+    }),
+  ),
+});
+export type PackTemplateContents = z.infer<typeof PackTemplateContentsSchema>;
+
+/** A template as `GET /packs/templates` shows it to a member. */
+export const PackTemplateViewSchema = PackTemplateSchema.extend({
+  contents: PackTemplateContentsSchema,
+  guarantee: z.string().min(1),
+});
+export type PackTemplateView = z.infer<typeof PackTemplateViewSchema>;
+
+export const PackHistoryQuerySchema = z.object({
+  cursor: z.string().min(1).max(512).optional(),
+  pageSize: PaginationQuerySchema.shape.pageSize,
+});
+export type PackHistoryQuery = z.infer<typeof PackHistoryQuerySchema>;
+
+/** `openId` is any string here: openings that predate PD-58 were not keyed by a UUID. */
+export const PackHistoryEntrySchema = z.object({
+  openingId: PackOpeningIdSchema,
+  openId: z.string().min(1),
+  templateId: PackTemplateIdSchema,
+  templateName: z.string(),
+  createdAt: z.coerce.date(),
+  cards: z.array(PackOpeningCardSchema.extend({ card: InventoryCardSchema })),
+});
+export type PackHistoryEntry = z.infer<typeof PackHistoryEntrySchema>;
+
+export const PackHistoryPageSchema = cursorPageOf(PackHistoryEntrySchema);
+export type PackHistoryPage = z.infer<typeof PackHistoryPageSchema>;

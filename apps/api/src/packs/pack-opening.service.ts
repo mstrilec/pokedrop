@@ -7,11 +7,11 @@ import {
   type PackOpenResult,
   type PackTemplate,
 } from '@pokedrop/shared';
-import { toNumber } from '../common/decimal.js';
 import { domainError } from '../common/errors/domain-error.js';
 import { isUniqueViolation } from '../common/errors/prisma-error.js';
 import { InventoryService } from '../inventory/index.js';
 import { PrismaService, type TransactionClient } from '../prisma/index.js';
+import { PACK_CARD_SELECT, toPackCard } from './pack-card.js';
 import { EmptySlotError, generatePack, type PulledCard } from './pack-generator.js';
 import { PACK_OPEN_LOCK_MS, PackOpenLock } from './pack-open.lock.js';
 import { loadPool } from './pack-pool.js';
@@ -19,21 +19,6 @@ import { SeededRng, newSeed } from './pack-rng.js';
 import { PackTemplatesService } from './pack-templates.service.js';
 
 const POLL_MS = 100;
-
-const CARD_SELECT = {
-  id: true,
-  setId: true,
-  name: true,
-  supertype: true,
-  subtypes: true,
-  types: true,
-  hp: true,
-  rarity: true,
-  imageSmall: true,
-  latestPriceUsd: true,
-  latestPriceEur: true,
-  priceUpdatedAt: true,
-} satisfies Prisma.CardSelect;
 
 type Opening = { id: string; userId: string; templateId: string; openId: string; createdAt: Date };
 type Placed = { cardId: string; rarity: string; position: number };
@@ -229,7 +214,7 @@ export class PackOpeningService {
   ): Promise<PackOpenResult> {
     const rows = await this.prisma.card.findMany({
       where: { id: { in: [...new Set(placed.map((card) => card.cardId))] } },
-      select: CARD_SELECT,
+      select: PACK_CARD_SELECT,
     });
     const byId = new Map(rows.map((row) => [row.id, row]));
 
@@ -243,14 +228,7 @@ export class PackOpeningService {
         const row = byId.get(card.cardId);
         return {
           ...card,
-          card:
-            row === undefined
-              ? undefined
-              : {
-                  ...row,
-                  latestPriceUsd: toNumber(row.latestPriceUsd),
-                  latestPriceEur: toNumber(row.latestPriceEur),
-                },
+          card: row === undefined ? undefined : toPackCard(row),
         };
       }),
     });
