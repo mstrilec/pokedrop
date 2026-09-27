@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { InventoryPageSchema, type InventoryPage, type InventoryQuery } from '@pokedrop/shared';
 import { toNumber } from '../common/decimal.js';
-import { PrismaService } from '../prisma/index.js';
+import { PrismaService, type TransactionClient } from '../prisma/index.js';
+import { availableQuantity, normalizeChanges, type QuantityChange } from './quantity.js';
 import {
   SORTS,
   decodeCursor,
@@ -76,6 +77,54 @@ export class InventoryService {
       total,
       nextCursor,
     });
+  }
+
+  // A conditional UPDATE rather than leaning on the CHECK constraint: a CHECK
+  // violation aborts the caller's whole transaction and surfaces as a 500, where
+  // this leaves it usable and answers 409.
+  async lock(tx: TransactionClient, userId: string, changes: QuantityChange[]): Promise<void> {
+    for (const change of normalizeChanges(changes)) {
+      const updated = await tx.$executeRaw`
+        UPDATE inventory_items
+        SET "lockedQuantity" = "lockedQuantity" + ${change.quantity}
+        WHERE "userId" = ${userId}
+          AND "cardId" = ${change.cardId}
+          AND quantity - "lockedQuantity" >= ${change.quantity}`;
+
+      if (updated === 0) {
+        throw new ConflictException(`Not enough available copies of ${change.cardId}`);
+      }
+    }
+  }
+
+  async release(tx: TransactionClient, userId: string, changes: QuantityChange[]): Promise<void> {
+    for (const change of normalizeChanges(changes)) {
+      const updated = await tx.$executeRaw`
+        UPDATE inventory_items
+        SET "lockedQuantity" = "lockedQuantity" - ${change.quantity}
+        WHERE "userId" = ${userId}
+          AND "cardId" = ${change.cardId}
+          AND "lockedQuantity" >= ${change.quantity}`;
+
+      if (updated === 0) {
+        throw new Error(
+          `Escrow invariant broken: cannot release ${change.quantity} of ${change.cardId} for ${userId}`,
+        );
+      }
+    }
+  }
+
+  async availableQuantities(
+    userId: string,
+    cardIds: string[],
+    client: TransactionClient = this.prisma,
+  ): Promise<Map<string, number>> {
+    const rows = await client.inventoryItem.findMany({
+      where: { userId, cardId: { in: cardIds } },
+      select: { cardId: true, quantity: true, lockedQuantity: true },
+    });
+
+    return new Map(rows.map((row) => [row.cardId, availableQuantity(row)]));
   }
 }
 
@@ -157,7 +206,7 @@ function toEntry(row: EntryRow): unknown {
     cardId: row.cardId,
     quantity: row.quantity,
     lockedQuantity: row.lockedQuantity,
-    availableQuantity: row.quantity - row.lockedQuantity,
+    availableQuantity: availableQuantity(row),
     acquiredAt: row.acquiredAt,
     card: {
       ...row.card,
