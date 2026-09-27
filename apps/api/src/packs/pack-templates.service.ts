@@ -27,6 +27,14 @@ export class PackTemplatesService {
     return rows.map(toTemplate);
   }
 
+  async getActive(id: string): Promise<PackTemplate> {
+    const row = await this.prisma.packTemplate.findUnique({ where: { id } });
+    if (row === null || !row.active) {
+      throw new NotFoundException('Pack template not found');
+    }
+    return toTemplate(row);
+  }
+
   async listAll(): Promise<PackTemplate[]> {
     const rows = await this.prisma.packTemplate.findMany({
       orderBy: [{ name: 'asc' }, { id: 'asc' }],

@@ -1,4 +1,8 @@
-import { CreatePackTemplateSchema, UpdatePackTemplateSchema } from '@pokedrop/shared';
+import {
+  CreatePackTemplateSchema,
+  OpenPackRequestSchema,
+  UpdatePackTemplateSchema,
+} from '@pokedrop/shared';
 import { createZodDto } from '../common/zod-dto.js';
 
 export class CreatePackTemplateDto extends createZodDto(
@@ -10,3 +14,5 @@ export class UpdatePackTemplateDto extends createZodDto(
   'UpdatePackTemplate',
   UpdatePackTemplateSchema,
 ) {}
+
+export class OpenPackRequestDto extends createZodDto('OpenPackRequest', OpenPackRequestSchema) {}
