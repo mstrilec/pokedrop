@@ -18,10 +18,14 @@ export type InventoryItem = z.infer<typeof InventoryItemSchema>;
 export const InventorySummarySchema = z.object({
   totalCards: z.number().int().min(0),
   uniqueCards: z.number().int().min(0),
+  /** Informational only: the sum of latest USD prices, unrelated to pack costs. */
   collectionValueUsd: z.number().nonnegative(),
+  /** How many of `uniqueCards` carry a USD price, i.e. what the value covers. */
+  pricedCards: z.number().int().min(0),
   setCompletion: z.array(
     z.object({
       setId: z.string().min(1),
+      name: z.string(),
       owned: z.number().int().min(0),
       total: z.number().int().min(0),
     }),

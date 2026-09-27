@@ -1,8 +1,16 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
-import { InventoryPageSchema, type InventoryPage, type InventoryQuery } from '@pokedrop/shared';
+import {
+  InventoryPageSchema,
+  InventorySummarySchema,
+  type InventoryPage,
+  type InventoryQuery,
+  type InventorySummary,
+} from '@pokedrop/shared';
 import { toNumber } from '../common/decimal.js';
 import { PrismaService, type TransactionClient } from '../prisma/index.js';
+import { CacheService, cacheKeys } from '../redis/index.js';
+import { loadSummary } from './inventory.summary.js';
 import { availableQuantity, normalizeChanges, type QuantityChange } from './quantity.js';
 import {
   SORTS,
@@ -43,7 +51,23 @@ type KeyFilter = { lt?: string | Date; gt?: string | Date; equals?: string | Dat
 
 @Injectable()
 export class InventoryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cache: CacheService,
+  ) {}
+
+  summary(userId: string): Promise<InventorySummary> {
+    return this.cache.getOrSet(
+      cacheKeys.inventorySummary(userId),
+      this.cache.ttl.inventorySummary,
+      () => loadSummary(this.prisma, userId),
+      InventorySummarySchema,
+    );
+  }
+
+  async invalidateSummary(userId: string): Promise<void> {
+    await this.cache.del(cacheKeys.inventorySummary(userId));
+  }
 
   async list(userId: string, query: InventoryQuery): Promise<InventoryPage> {
     const spec = SORTS[query.sort];
