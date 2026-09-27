@@ -98,8 +98,8 @@ Packs are defined by an admin **PackTemplate** with an ordered `slotConfig`; eac
 
 ### Fairness & integrity
 
-- Weights live in the DB — auditable/adjustable by admins; deterministic given RNG draws (log the seed for disputes).
-- Use `crypto.randomInt`, **not** `Math.random`.
+- Weights live in the DB — auditable/adjustable by admins; deterministic given RNG draws. Each opening's seed is stored in `PackOpening.seed` for disputes.
+- Draw from an HMAC-SHA256 stream over a `crypto.randomBytes` seed (`apps/api/src/packs/pack-rng.ts`) — never `Math.random`, and not `crypto.randomInt`, which cannot be seeded, so a stored seed would reproduce nothing.
 - **Idempotency:** client sends `openId` (UUID); a unique constraint on `PackOpening.openId` makes retries safe (double-click / network retry won't double-charge or double-mint).
 - Guard against empty rarity buckets so a misconfigured template can't 500: fall back to the next **more common** rarity in the same slot (by weight), then to the nearest rarer one; a slot with no cards at all refuses the open without charging. See [API.md](API.md) (Packs, "How a pack is drawn").
 
