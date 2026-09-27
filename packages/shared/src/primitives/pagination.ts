@@ -28,3 +28,18 @@ export type Page<T> = {
   totalPages: number;
   nextCursor?: string | null;
 };
+
+export const cursorPageOf = <T extends z.ZodType>(item: T) =>
+  z.object({
+    items: z.array(item),
+    pageSize: z.number().int().min(1),
+    total: z.number().int().min(0),
+    nextCursor: z.string().nullable(),
+  });
+
+export type CursorPage<T> = {
+  items: T[];
+  pageSize: number;
+  total: number;
+  nextCursor: string | null;
+};
