@@ -451,10 +451,10 @@ async function seed(): Promise<void> {
       openId: 'seed-open-id-0001',
       cards: {
         create: [
-          { id: 'seed-poc-1', cardId: 'base1-58', rarity: 'Common' },
-          { id: 'seed-poc-2', cardId: 'base1-46', rarity: 'Common' },
-          { id: 'seed-poc-3', cardId: 'base2-24', rarity: 'Uncommon' },
-          { id: 'seed-poc-4', cardId: 'base1-4', rarity: 'Rare Holo' },
+          { id: 'seed-poc-1', cardId: 'base1-58', rarity: 'Common', position: 0 },
+          { id: 'seed-poc-2', cardId: 'base1-46', rarity: 'Common', position: 1 },
+          { id: 'seed-poc-3', cardId: 'base2-24', rarity: 'Uncommon', position: 2 },
+          { id: 'seed-poc-4', cardId: 'base1-4', rarity: 'Rare Holo', position: 3 },
         ],
       },
     },

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { RaritySchema } from '../enums.js';
+import { InventoryCardSchema } from './inventory.js';
 import {
   CardIdSchema,
   PackOpeningIdSchema,
@@ -63,7 +64,8 @@ export type UpdatePackTemplate = z.infer<typeof UpdatePackTemplateSchema>;
 
 export const PackOpeningCardSchema = z.object({
   cardId: CardIdSchema,
-  rarity: RaritySchema.nullable(),
+  rarity: RaritySchema,
+  position: z.number().int().min(0),
 });
 export type PackOpeningCard = z.infer<typeof PackOpeningCardSchema>;
 
@@ -81,3 +83,14 @@ export const OpenPackRequestSchema = z.object({
   openId: z.uuid(),
 });
 export type OpenPackRequest = z.infer<typeof OpenPackRequestSchema>;
+
+/** What `POST /packs/:templateId/open` answers, for a new opening and a replay alike. */
+export const PackOpenResultSchema = z.object({
+  openingId: PackOpeningIdSchema,
+  openId: z.uuid(),
+  templateId: PackTemplateIdSchema,
+  createdAt: z.coerce.date(),
+  balance: z.number().int().min(0),
+  cards: z.array(PackOpeningCardSchema.extend({ card: InventoryCardSchema })),
+});
+export type PackOpenResult = z.infer<typeof PackOpenResultSchema>;

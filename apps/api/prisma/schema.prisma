@@ -365,6 +365,9 @@ model PackOpeningCard {
   packOpeningId String
   cardId        String
   rarity        String
+  /// Pull order, 0-based. A replay must reveal the cards in the order they
+  /// were first revealed.
+  position      Int
 
   packOpening PackOpening @relation(fields: [packOpeningId], references: [id], onDelete: Cascade)
   card        Card        @relation(fields: [cardId], references: [id], onDelete: Restrict)
