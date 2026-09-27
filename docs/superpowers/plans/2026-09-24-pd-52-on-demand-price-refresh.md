@@ -896,7 +896,7 @@ Expected: first `"queued":true,"retryAfterSeconds":20`; second `"queued":false` 
 - [ ] **Step 9: Commit**
 
 ```bash
-git add apps/api/src/prices/price-refresh.service.ts
+git add apps/api/src/prices/price-refresh.service.ts apps/api/src/prices/prices.module.ts
 git commit -m "$(cat <<'EOF'
 [PD-52]: bound on-demand refreshes by the daily reserve
 
