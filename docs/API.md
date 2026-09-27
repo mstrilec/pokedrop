@@ -251,9 +251,22 @@ The budget was 100 ms; the worst case is 19.1 ms, so no index was added. Over HT
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| GET | `/packs/templates` | member | Available templates |
+| GET | `/packs/templates` | member | Active templates only |
 | POST | `/packs/:templateId/open` | member | Body `{ openId }` — **idempotent**, transactional |
 | GET | `/packs/history` | member | Past openings |
+| GET | `/admin/pack-templates` | admin | Every template, inactive included |
+| POST | `/admin/pack-templates` | admin | Create; validated against the card pool; audited |
+| PATCH | `/admin/pack-templates/:id` | admin | Partial update, including `active`; audited |
+
+**A template is `{ name, setFilter, cost, slotConfig, active }`.** `setFilter` is `{ "setIds": [...] }` (1–50 sets, no other keys). `slotConfig` is the shape in [UserFlows.md](UserFlows.md) §5: `{ "slots": [{ "count", "weights" }] }`, 1–10 slots, at most 20 cards per pack, integer weights ≥ 0 with at least one positive weight per slot. Unknown keys are rejected at every level.
+
+**Validation has two layers, and both run on save.** The shape is checked by the Zod pipe — the example in UserFlows §5 passes it unchanged. The **pool** is checked by the service: every set in `setFilter` must exist, and every rarity named in any slot's weights must occur among that set's cards, or the save is a 400 naming the missing rarities. Verified: the UserFlows example saves against `bw4` + `bw5`, and the same config against `base1` + `base2` is refused for `"Rare Holo EX", "Rare Ultra", "Rare Secret"`. A `PATCH` that changes neither `setFilter` nor `slotConfig` skips the pool check, so a template whose sets later lose a rarity can still be renamed or deactivated.
+
+**Weights are an unordered map.** The column is `jsonb`, which stores object keys in its own order (shorter keys first), so `weights` reads back with the same entries in a different order. Slot order is preserved. Nothing may depend on the order of a slot's weights — including a fallback from an empty rarity bucket, which needs its own ordering.
+
+**There is no delete.** Openings reference their template with `Restrict`, and a player's history has to keep saying which pack they opened. Retire a template with `PATCH { "active": false }`; members stop seeing it at once.
+
+**Every create and update writes one `AuditLog` row in the same transaction** — `pack_template.create` / `pack_template.update`, entity `PackTemplate`, the submitted body in `meta`. A refused save writes none. Verified: eleven refused saves, zero rows. The writer is `AuditService.record(tx, entry)` in `apps/api/src/audit`; PD-79 wires the remaining admin actions to it.
 
 ## Decks
 
