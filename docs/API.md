@@ -6,7 +6,7 @@
 ## Conventions
 
 - **Versioning:** all endpoints under `/api/v1` (auth handlers mounted under `/api/auth/*`).
-- **Pagination:** all list endpoints take `page`, `pageSize` (cursor optional). Validate bounds.
+- **Pagination:** list endpoints take `pageSize` and either `page` (offset, `pageOf`) or `cursor` (keyset, `cursorPageOf`). A list whose rows change while a user scrolls it — inventory — uses the cursor; the catalog uses pages. Validate bounds.
 - **Auth:** **protected by default.** A global `SessionGuard` resolves the Better Auth session on every request; `@Public()` is the deliberate exception. Forgetting the decorator produces a 401, which is noisy and cheap to fix — the opposite polarity would leak a route silently. `@Roles(Role.ADMIN)` + `RolesGuard` protect admin routes.
 - **Identity:** handlers take the caller from `@CurrentUser()`, never from a body, query or path parameter. An id sent by the client is a claim; the one on the session is a fact.
 - **Validation:** every DTO validated with Zod through the local `createZodDto` helper (`apps/api/src/common/zod-dto.ts`), which also feeds `components.schemas` in the OpenAPI document; unknown fields rejected.
@@ -164,8 +164,67 @@ Served entirely from the mirror. No route here can reach an external API — `Ca
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| GET | `/inventory` | member | Owned cards + quantities + aggregates |
+| GET | `/inventory` | member | The caller's cards — filtered, sorted, keyset-paged. Aggregates are `/inventory/summary` |
 | GET | `/inventory/summary` | member | Value, completion, counts (cached 5m) |
+
+**`GET /inventory`**
+
+| Parameter | Rule |
+|---|---|
+| `cursor` | optional, opaque, 1–512 chars; the previous page's `nextCursor` |
+| `pageSize` | 1–100, default 24 |
+| `q` | optional, 1–100 chars; case-insensitive contains on the card name |
+| `set` / `rarity` / `type` | optional; exact `setId`, exact rarity, one type by array containment — the catalog's rules |
+| `minQuantity` | optional integer ≥ 1; rows with `quantity >= N` (2 = duplicates, 4 = a playset) |
+| `sort` | `acquired_desc` (default) · `acquired_asc` · `name_asc` · `name_desc` · `price_desc` · `price_asc` |
+
+```json
+{
+  "items": [
+    {
+      "id": "clx…", "cardId": "base1-4",
+      "quantity": 2, "lockedQuantity": 1, "availableQuantity": 1,
+      "acquiredAt": "2026-09-27T13:35:50.807Z",
+      "card": {
+        "id": "base1-4", "setId": "base1", "name": "Charizard",
+        "supertype": "Pokémon", "subtypes": ["Stage 2"], "types": ["Fire"], "hp": 120,
+        "rarity": "Rare Holo", "imageSmall": "https://…",
+        "latestPriceUsd": 944.53, "latestPriceEur": 1531, "priceUpdatedAt": "2026-09-27T10:04:21.588Z"
+      }
+    }
+  ],
+  "pageSize": 24,
+  "total": 1,
+  "nextCursor": null
+}
+```
+
+**The caller is the only user this route can read.** It takes no user parameter; `userId` comes from the session and is its own `AND` clause that no filter or cursor branch can widen. `userId` is not echoed on the rows. Verified: a second user sees only their own three rows, and a cursor forged around the first user's item id still returns only the second user's rows. No session is a 401.
+
+**`card` is a slim projection**, not the catalog's full `Card`: what a tile, a dense table and client-side search need. Attacks, abilities and the rest are on the cached `GET /cards/:id`.
+
+**The cursor carries the last row's sort value and id, never a reference to the row.** A settled trade deletes a row whose quantity reaches zero, and a cursor that pointed at that row would break mid-scroll. Verified: deleting the row a cursor was built from, then asking for the next page, continues from the right place. The cursor is tied to the `sort` it was issued under — another sort, a value of the wrong kind or anything that does not decode is a 400 `Invalid cursor`. It is **not** tied to the filters: a client drops it whenever a filter or the sort changes.
+
+**Price means `latestPriceUsd`, and unpriced cards sort last in both directions.** "Cheapest first" should not open on thousands of cards with no price — 16 of 20 670 mirrored cards carry one today, so on real data a price sort is almost entirely the unpriced tail.
+
+**Three SQL statements per request, whatever the page size**: the page, the cards for that page in one batched `SELECT … WHERE id IN (…)`, and the count. Prisma 7.10 loads a nested `select` as that batched second statement rather than as a `JOIN`. Measured at `pageSize` 1, 24 and 100: three each time.
+
+**Measured against 5 000 rows** (2026-09-27; 1 116 distinct names, 50 rows per `acquiredAt` minute, 36 priced cards including 20 with deliberately equal prices). Service time, median of five, `pageSize=100`, first page and a page 40 deep, unfiltered and with `q=a&minQuantity=2`:
+
+| Sort | Unfiltered first / deep | Filtered first / deep |
+|---|---|---|
+| `acquired_desc` | 4.1 / 4.2 ms | 9.4 / 7.2 ms |
+| `acquired_asc` | 3.7 / 3.7 ms | 9.3 / 7.4 ms |
+| `name_asc` | 10.0 / 17.0 ms | 13.1 / 17.5 ms |
+| `name_desc` | 10.7 / 19.1 ms | 13.6 / 15.2 ms |
+| `price_desc` | 10.0 / 6.6 ms | 12.4 / 7.2 ms |
+| `price_asc` | 11.2 / 6.8 ms | 14.4 / 7.2 ms |
+
+The budget was 100 ms; the worst case is 19.1 ms, so no index was added. Over HTTP, including session resolution, the six first pages took 18–32 ms. Walking every sort to the end at `pageSize=7` covered all 5 000 rows once, in database order, with unpriced rows strictly last.
+
+**The plan is a hash join and a top-N heapsort.** `EXPLAIN ANALYZE` for `price_asc` and `name_desc`: `Hash Right Join` of `cards` onto the user's rows, then `Sort Method: top-N heapsort`, 12.5 ms and 11.3 ms. The scan of `inventory_items` is sequential because the probe user owned 4 999 of 5 009 rows; at that selectivity the planner is right to skip the `(userId, cardId)` index, and with many users it will not be. `(userId, acquiredAt)` is the first index to add if a real collection ever misses the budget.
+
+**Not cached.** Six sorts times every filter combination per user is high cardinality with a low repeat rate, on the most volatile data a user owns.
 
 ## Packs
 
