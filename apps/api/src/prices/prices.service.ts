@@ -7,22 +7,9 @@ import {
   type PricePoint,
 } from '@pokedrop/shared';
 import { PriceSource } from '@prisma/client';
+import { toNumber } from '../common/decimal.js';
 import { PrismaService } from '../prisma/index.js';
 import { CacheService, cacheKeys } from '../redis/index.js';
-
-/**
- * Prisma returns `Decimal` for the price columns, and JSON.stringify turns a
- * Decimal into a string - which then fails the response schema. PD-46 measured
- * what missing this costs: the schema rejected every cached row and the cache
- * silently never served one, presenting as mild slowness rather than an error.
- *
- * Duplicated from catalog.service.ts rather than shared, the way
- * catalog.writer.ts and price.writer.ts sit beside each other: three lines are
- * worth less than the module boundary.
- */
-function toNumber(value: unknown): number | null {
-  return value === null || value === undefined ? null : Number(value);
-}
 
 const MS_PER_DAY = 86_400_000;
 

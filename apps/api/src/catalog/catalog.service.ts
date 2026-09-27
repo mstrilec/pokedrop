@@ -14,23 +14,11 @@ import {
   type FacetValue,
   type SetDetail,
 } from '@pokedrop/shared';
+import { toNumber } from '../common/decimal.js';
 import { PrismaService } from '../prisma/index.js';
 import { CacheService, cacheKeys } from '../redis/index.js';
 
 const CardSetListSchema = z.array(CardSetSchema);
-
-/**
- * Prisma returns a Decimal for the two price columns, and JSON.stringify turns
- * that into a string - so the API was answering `"15.60"` where CardSchema
- * promises a number. Decimal(10,2) fits a JS number exactly, so converting at
- * this boundary is lossless.
- *
- * Caught by PD-46's byte-identity check rather than by anything in PD-45: the
- * cache round trip is what made the contract violation visible.
- */
-function toNumber(value: unknown): number | null {
-  return value === null || value === undefined ? null : Number(value);
-}
 
 /**
  * Every row leaves through its schema, so a cold read and a warm one are the
