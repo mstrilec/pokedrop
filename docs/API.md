@@ -211,7 +211,7 @@ Served entirely from the mirror. No route here can reach an external API — `Ca
 { "cardId": "base1-15", "usd": 142, "eur": null, "priceUpdatedAt": "2026-09-15T03:00:00.000Z" }
 ```
 
-**`eur: null` is present in the body, not omitted, and it is the ordinary case rather than a contrived one** — no card in this database carries a EUR price, so this is what every priced card in the mirror actually returns today.
+**`eur: null` is present in the body, not omitted, and it is still the ordinary case.** A EUR price is rare rather than nonexistent: 8 of the mirror's 20 670 cards carry one, all of them priced by this ticket's own on-demand refreshes against the live provider, so the count is small and growing rather than fixed — most priced cards in the mirror still return `eur: null` today.
 
 **404 means the card does not exist; a card that exists but was never priced is a 200 with `usd`, `eur` and `priceUpdatedAt` all null.** `priceUpdatedAt: null` is the field a client reads to tell the two apart — a separate boolean would be a second way of saying the same fact, and two sources of truth for one fact is how they drift. A 404 leaves no cache key behind: the loader throws before `getOrSet` writes anything, so a scan for missing ids cannot be used to fill the cache.
 
@@ -303,8 +303,9 @@ client watches to see the new figure arrive; `PriceBatchService` deletes
 to take it must not be read as "the lock is free", and refusing *as though the
 cooldown were held* would tell a caller their card was refreshed recently when in
 fact nothing could be checked. `GET /cards/:id/price` beside it still answers 200
-from the database — measured at 5 ms in that state during this ticket's own
-testing — so a client that wants the figure has somewhere to get it. Note the
+from the database — measured again in this ticket at about 5 ms, a different
+run from PD-51's 68 ms above — so a client that wants the figure has somewhere
+to get it. Note the
 envelope: `AllExceptionsFilter` replaces the message of any status at or above
 500, so the body reads `"error": "Service Unavailable"` with `"message":
 "Internal server error"`.
