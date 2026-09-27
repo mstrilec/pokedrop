@@ -268,6 +268,33 @@ The budget was 100 ms; the worst case is 19.1 ms, so no index was added. Over HT
 
 **Every create and update writes one `AuditLog` row in the same transaction** — `pack_template.create` / `pack_template.update`, entity `PackTemplate`, the submitted body in `meta`. A refused save writes none. Verified: eleven refused saves, zero rows. The writer is `AuditService.record(tx, entry)` in `apps/api/src/audit`; PD-79 wires the remaining admin actions to it.
 
+### How a pack is drawn
+
+`apps/api/src/packs`: `pack-rng.ts`, `pack-generator.ts`, `pack-pool.ts`. The generator is a pure function of `(slotConfig, pool, rng)` — it imports nothing from Prisma or Nest and writes nothing.
+
+**The randomness is HMAC-SHA256 in counter mode over a 32-byte random seed.** `crypto.randomInt` cannot be seeded, and a stored seed has to reproduce the pack. Integers come from rejection sampling (`limit = 2³² − 2³² mod max`), so there is no modulo bias. Measured over 1 000 000 draws in 64 bins: χ² 65.0 at `max = 3·2³⁰` (about 25% of raw draws rejected) and 81.5 at `max = 2³¹ + 1` (about 50%), against a limit of 103.5 at α = 0.001.
+
+**Each slot's rarities form a ladder: weights above zero, weight descending, ties by name.** It is computed, never read from the order of `weights`, which `jsonb` does not keep. A weight of 0 takes no part — it is never rolled and never a fallback.
+
+**Every card is two draws**: a rarity by cumulative weight, then a card uniformly from that rarity's bucket. Draws are independent, so duplicates within a pack are allowed — four Commons from the seed template's 48 contain a pair in about 12% of packs.
+
+**An empty bucket falls back down the ladder, then up.** The next more common non-empty rarity in the same slot first; if every commoner bucket is empty, the nearest rarer one — a rarer card only when no commoner card exists. A slot with no cards at all throws `EmptySlotError`, which the open turns into a 409 with nothing charged. The emitted `rarity` is the bucket the card came from, and every fallback is returned so the open can log it. Because PD-56 refuses a template naming a rarity absent from its sets, a fallback means the catalog changed after the template was saved.
+
+**The pool is one query**: cards in the template's sets that have a rarity, grouped by rarity, **ordered by id inside each bucket** — the generator indexes into that order, so it is part of what a seed reproduces. The 303 cards without a rarity can never be pulled. Not cached: the largest pool a template can name (the 50 biggest sets, 10 646 cards over 30 rarities) loads and yields a pack in 20.3 ms median (18.9–23.3).
+
+**The seed is stored as hex in `PackOpening.seed`, never sent to a client.** Replaying `(slotConfig, pool, seed)` reproduces a pack exactly while the pool is unchanged; a catalog sync that adds or reclassifies a card in those sets changes the pool and the replay with it. `PackOpeningCard` stays the record of what was actually given.
+
+**Measured, 2026-09-27**, 100 000 packs from fixed seeds (810 ms), χ² at α = 0.001:
+
+| Check | χ² | Limit |
+|---|---|---|
+| a `72/20/5/2/1` rarity slot against its weights — observed 71 879 / 20 059 / 5 066 / 1 960 / 1 036 | 3.34 | 18.72 |
+| the same draws against weights with one entry corrupted by 10% — must fail | 3 257 | 18.72 |
+| a two-card `3/1` slot | 0.04 | 11.16 |
+| card counts inside a 48-card bucket against uniform | 43.24 | 82.80 |
+
+Critical values are the Wilson–Hilferty approximation. These checks stand in for PD-61's statistical suite until automated tests resume.
+
 ## Decks
 
 | Method | Path | Auth | Notes |

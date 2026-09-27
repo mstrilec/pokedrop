@@ -98,8 +98,9 @@ One row per execution of a background sync. Redis and BullMQ job state were both
 `slotConfig` = ordered slots each with a rarity-weight distribution (see [UserFlows.md](UserFlows.md#5-pack-opening--state-machine--algorithm)).
 
 ### PackOpening
-`id, userId, templateId, openId(unique), createdAt`
+`id, userId, templateId, openId(unique), seed?, createdAt`
 **Unique** `openId` → idempotency guard. → many `PackOpeningCard` (`cardId`, rarity pulled).
+`seed` is the hex of the 32-byte generator seed — null only for openings before PD-57; it reproduces a pack while the card pool is unchanged.
 
 ### Deck
 `id, userId, name, format, isPublic, createdAt`
