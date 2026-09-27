@@ -54,6 +54,7 @@ Taken during brainstorming, 2026-09-27:
 | Card data per row | A **slim** projection of `Card`, not the whole card |
 | Keyset mechanics | Value-carrying cursor, query built with Prisma (below) |
 | Performance budget | **≤ 100 ms** server time, `pageSize=100`, 5 000 rows, every sort |
+| `toNumber` | Lifted into `common/`, reversing PD-51 (see "Decimal at the boundary") |
 
 ### Why a keyset cursor
 
@@ -225,8 +226,13 @@ where = AND[ { userId: caller }, filters, afterCursor ]
   `type` through `card: { is: { … } }`, matching the catalog's semantics.
 - `findMany({ where, orderBy, take: pageSize + 1, select })` and
   `count({ where: without afterCursor })` run under `Promise.all`.
-- **Two SQL statements per request, whatever the page size.** The card is one
-  `JOIN` via the explicit `select`, never a query per row.
+- **Three SQL statements per request, whatever the page size:** the page of
+  inventory rows, the cards for that page in one batched
+  `SELECT … FROM cards WHERE id IN (…)`, and the count. Never a query per row.
+  Measured while planning: Prisma 7.10 without the `relationJoins` preview loads
+  a nested `select` as that second batched statement rather than as a `JOIN` —
+  `take: 1` and `take: 3` each produced exactly two statements for the
+  `findMany`. The sort's own `LEFT JOIN cards` is inside the first statement.
 - If `pageSize + 1` rows come back, the extra row is dropped and `nextCursor` is
   built from the last row kept.
 
@@ -272,6 +278,13 @@ a filter that is always the caller.
 it moves to `apps/api/src/common/decimal.ts` and all three import it — a
 targeted cleanup of code this ticket touches, not a refactor.
 
+**This reverses a recorded decision.** PD-51 kept a second copy on purpose:
+"three lines are worth less than the module boundary". That held at two copies.
+At three it no longer does, and the boundary argument is weak for `common/`,
+which every module already imports (`ownership.ts`, `zod-dto.ts`, the pipes).
+Confirmed with the owner on 2026-09-27; the rationale comment in
+`prices.service.ts` goes with the copy.
+
 Every row leaves through `InventoryEntrySchema.parse`, as catalog rows leave
 through `CardSchema`, so undeclared columns cannot leak.
 
@@ -302,7 +315,7 @@ through PD-52 did.
    each of the six sorts, with and without filters: **≤ 100 ms**. The SQL Prisma
    emits is run under `EXPLAIN ANALYZE` and its plan recorded.
 2. **Constant query count.** Prisma query events logged at `pageSize` 1, 24
-   and 100: exactly 2 statements each time.
+   and 100: exactly 3 statements each time.
 3. **Keyset correctness.** For each of the six sorts, walk the whole list at
    `pageSize=7`. The union of pages equals `total`; no id repeats; the order is
    monotone under `(K, id)`; unpriced rows come strictly last for both price
