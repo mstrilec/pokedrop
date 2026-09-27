@@ -6,8 +6,24 @@ consumes. Neither can take the other down.
 ## The split, in one sentence
 
 `BullModule.registerQueue` creates **producers**; a `@Processor` class creates a
-**worker**. Both entrypoints import this module, and the API is a producer only
-because it declares no processor. Nothing else distinguishes them.
+**worker**. Both entrypoints import this module, so what distinguishes them is
+only which processors are in their module graph.
+
+**The API is not a producer only, and this README claimed it was until PD-52.**
+`AppModule` has imported `SyncModule` since PD-39 (`bcd3964`), and `SyncModule`
+declares all four price and catalog processors — so the API process is a worker
+for every queue as well as a producer to them. Measured in PD-52: with only the
+API running and no separate worker process, four jobs added to `price-sync`
+completed in 0.3–2.4 s each — Task 2's own measurements, not a separate probe.
+
+The schedulers are the part that really is split. `ScheduleModule.forRoot()` is
+in `WorkerModule` alone, so the crons fire in one process, which is what stops a
+nightly sweep being enqueued twice.
+
+A consequence worth knowing before you measure anything on these queues: **a job
+you enqueue against a running API will usually be consumed before you can see it
+waiting.** Count `GET bull:{queue}:id` in Redis db 1 — a monotonic counter
+incremented once per `add` — rather than reading the `waiting` list.
 
 ## The queues
 

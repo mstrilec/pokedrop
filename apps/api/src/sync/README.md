@@ -580,8 +580,9 @@ in the table.
 ## The price write path
 
 `price-sync.processor.ts` on `QUEUE.priceSync`. It is handed card ids and does
-not choose them — PD-52 will enqueue a single card at a time. One producer, one
-consumer. Neither PD-49's nightly sweep nor PD-50's active refresh fills this
+not choose them: `PriceRefreshService` (PD-52) enqueues one card at a time from
+`POST /cards/:id/price/refresh`. One producer, one consumer. Neither PD-49's
+nightly sweep nor PD-50's active refresh fills this
 queue: both are their own coordinator job on their own queue
 (`QUEUE.priceSweep`, `QUEUE.priceActive`), calling `PriceBatchService`
 directly rather than enqueuing here — see "The nightly price sweep" and "The
@@ -632,9 +633,10 @@ one. `PriceBatchService.invalidate` deletes both.
 and 23), and `price-sync.processor.ts` (the consumer PD-48 built for the
 `price-sync` queue). The first two have been deleting this key on that
 schedule since they shipped, and until now they deleted nothing, because no
-route had ever written it. The third has never run at all — `price-sync` is
-registered and consumed, but nothing enqueues to it, since PD-52, its
-producer, is not built. `GET /cards/:id/price` reads through the key now, so
+route had ever written it. The third ran for the first time in PD-52, which
+gave `price-sync` the producer its docblock had named since PD-48 — every
+measurement recorded against that processor before then came from a probe
+enqueuing by hand. `GET /cards/:id/price` reads through the key now, so
 the two invalidators that already run on a schedule are removing something
 real, and the same commit-then-delete gap can hand a real client a stale
 cached price for up to the TTL if a crash lands inside it. The trade is
@@ -1084,3 +1086,27 @@ tables previously carried `cardId` only as the *second* column of a composite
 unique index — a btree cannot search on a column that isn't its prefix — and
 `trade_items` had no index on it at all. The active refresh is the first
 caller either shape would have slowed down.
+
+## The on-demand refresh
+
+`POST /cards/:id/price/refresh`, in `apps/api/src/prices/price-refresh.service.ts` —
+outside this folder, because it is a producer and the endpoint that owns it lives
+in `prices/`.
+
+Two layers, each against a different thing. The per-card cooldown
+(`throttle:price:refresh:{cardId}`, 600 s) stops duplicate work on one card; the
+daily reserve (`PRICE_ONDEMAND_RESERVE`, 50) stops on-demand traffic starving the
+scheduled jobs. The cooldown does nothing for the quota on its own — there are
+20 670 cards to spread a day's allowance across.
+
+The reserve is the third against the shared counter, beside `PRICE_SWEEP_RESERVE`
+(300) and `PRICE_ACTIVE_RESERVE` (150). It is the smallest because on-demand is
+the last consumer in the day and the only job behind it is the 23:00 active
+refresh, at roughly 30 requests. `hasHeadroom` is strict — `remaining > reserve` —
+so with a 1 000 budget the boundary is 949 allowed and 950 refused.
+
+**M4's budget, whole:** catalog sync ~250, nightly sweep ~250, active refresh
+~120, on-demand bounded by its reserve. Roughly 620 of 1 000 committed, against a
+provider that is deprecated and stops serving keys on 2027-03-01. The next ticket
+that wants a scheduled provider call has to take it from one of these four, and
+`RequestBudgetService` is where it will find that out.

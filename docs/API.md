@@ -203,6 +203,7 @@ Served entirely from the mirror. No route here can reach an external API — `Ca
 |---|---|---|---|
 | GET | `/cards/:id/price` | public | Latest USD and EUR, cached 1h |
 | GET | `/cards/:id/price/history` | public | Windowed per-source series for a sparkline. `days` 1–365, default 30 |
+| POST | `/cards/:id/price/refresh` | member | Enqueue a refresh behind a per-card cooldown and a daily reserve. Always 200 |
 
 **`GET /cards/:id/price`**
 
@@ -247,6 +248,74 @@ Measured: cold and warm reads were byte-identical, the key's TTL at 3599. With R
 The absent-point rule is enforced in SQL (`market: { not: null }`), not left to the response schema, and that placement is load-bearing: remove the filter and `Number(null)` evaluates to `0`, so a snapshot carrying no market value would enter the series as a phantom point priced at zero — and `PricePointSchema` would accept it, because `nonnegative()` allows zero. The gap rule holds because the query never hands the schema a null to reject, not because the schema would catch one if it did. Measured: a fifth seeded row carrying a null `market`, dated one day before the request, appeared in none of the 30-day, 60-day or 5-day reads.
 
 Measured: a 60-day window returned 3 TCGplayer points and 1 Cardmarket point (the body above); a 5-day window returned 1. Both windows had slack against their seed data, which is what makes them the evidence for the no-interpolation property. A 30-day read against a fixture seeded at exactly `now() - interval '30 days'` returned 2 TCGplayer points rather than the 3 the fixture intended, because by the time the request ran the row had aged to `30 days 00:00:15.6s` and the service computes its cutoff at request time, not at seed time — a property of that fixture's timing, not of the endpoint. The 60-day and 5-day reads are the ones to cite for the window's behaviour.
+
+**`POST /cards/:id/price/refresh`**
+
+```json
+{
+  "cardId": "base1-4",
+  "usd": 944.53,
+  "eur": 1531,
+  "priceUpdatedAt": "2026-09-27T09:57:28.888Z",
+  "queued": true,
+  "retryAfterSeconds": 600
+}
+```
+
+**Always 200, and always the card's current price.** A 202 describes a response
+about work that was queued; this body is about the price, which is returned
+whether or not anything was queued. Splitting the status code would make a client
+branch twice for one call — once on the code and again on a body it has to read
+anyway.
+
+`queued` and `retryAfterSeconds` together say which of three things happened:
+
+| Outcome | `queued` | `retryAfterSeconds` |
+|---|---|---|
+| a job was enqueued | `true` | the cooldown just set, 600 by default |
+| the card is inside its cooldown | `false` | what remains of it |
+| the day's reserve is reached | `false` | seconds until 00:00 UTC |
+
+The third needs no separate flag. The request counter is keyed on the UTC day and
+resets there, so a client rendering "try again in 4 minutes" against a cooldown
+renders "try again in 7 hours" against an exhausted day without knowing which
+limit produced it.
+
+**Two concurrent requests for the same card enqueue exactly one job.** The
+cooldown is taken with an atomic `SET NX EX` on `throttle:price:refresh:{cardId}`,
+so the guarantee is an invariant rather than a probability — a read-then-write
+sequence has a gap between its two steps that both requests fit through.
+Measured: two `curl` calls raced against `base1-2` produced one increment of
+BullMQ's job counter, one `queued: true` and one `queued: false`.
+
+**A 404 means the card does not exist, and leaves no cooldown behind.** The
+existence check runs first, through the same read `GET /cards/:id/price` serves.
+A card that exists but was never priced is a 200 with `usd`, `eur` and
+`priceUpdatedAt` all null **and** `queued: true` — that card is precisely what
+the endpoint is for.
+
+**The response can be up to an hour stale, by design.** It is the cached read,
+and the refresh it triggers has not happened yet. `priceUpdatedAt` is what a
+client watches to see the new figure arrive; `PriceBatchService` deletes
+`cache:price:card:{id}` after the write, so the next read is fresh.
+
+**Redis unreachable answers 503.** The cooldown is a lock, not a cache: a failure
+to take it must not be read as "the lock is free", and refusing *as though the
+cooldown were held* would tell a caller their card was refreshed recently when in
+fact nothing could be checked. `GET /cards/:id/price` beside it still answers 200
+from the database — measured at 5 ms in that state during this ticket's own
+testing — so a client that wants the figure has somewhere to get it. Note the
+envelope: `AllExceptionsFilter` replaces the message of any status at or above
+500, so the body reads `"error": "Service Unavailable"` with `"message":
+"Internal server error"`.
+
+**Authentication is required and no per-route rate limit is added.** The `default`
+throttler tier — 100 requests a minute per caller — already applies and already
+bounds a single caller. The `THROTTLE_MODERATE_*` values in configuration are
+registered under no tier, and `@nestjs/throttler` 6.7.0 applies every registered
+tier to every route, so registering one would tighten the whole service from 100
+to 30 a minute to bound one endpoint. The daily reserve is what protects the
+quota, and it does so however many callers there are.
 
 ## Admin / Sync
 
