@@ -99,7 +99,8 @@ One row per execution of a background sync. Redis and BullMQ job state were both
 
 ### PackOpening
 `id, userId, templateId, openId(unique), seed?, createdAt`
-**Unique** `openId` → idempotency guard. → many `PackOpeningCard` (`cardId`, rarity pulled).
+**Unique** `openId` → idempotency guard. → many `PackOpeningCard` (`cardId`, rarity pulled, `position`).
+`position` is the 0-based pull order, so a replay reveals the cards in the order they were first revealed.
 `seed` is the hex of the 32-byte generator seed — null only for openings before PD-57; it reproduces a pack while the card pool is unchanged.
 
 ### Deck
@@ -180,6 +181,7 @@ Prisma has no syntax for them, so they live in a hand-written migration. That is
 | `inventory_locked_non_negative` | `lockedQuantity >= 0` |
 | `inventory_locked_within_quantity` | `lockedQuantity <= quantity` |
 | `pack_template_cost_non_negative` | `cost >= 0` |
+| `users_currency_non_negative` | `currency >= 0` |
 | `trade_not_self` | `initiatorId <> recipientId` |
 | `trade_not_self_counter` | `counteredTradeId IS NULL OR counteredTradeId <> id` |
 | `trade_currency_from_initiator_non_negative` | `currencyFromInitiator >= 0` |
@@ -187,7 +189,7 @@ Prisma has no syntax for them, so they live in a hand-written migration. That is
 | `trade_item_quantity_positive` | `quantity >= 1` |
 | `deck_card_count_positive` | `count >= 1` |
 
-The third is the one that stops a card being promised to two trades at once, and it holds on `UPDATE` as well as `INSERT` — which is the path escrow actually takes. The first is logically implied by the other two and is kept as an explicit statement of intent. The fourth is not in the original specification; a negative cost would pay a user for opening a pack.
+The third is the one that stops a card being promised to two trades at once, and it holds on `UPDATE` as well as `INSERT` — which is the path escrow actually takes. The first is logically implied by the other two and is kept as an explicit statement of intent. The fourth is not in the original specification; a negative cost would pay a user for opening a pack. `users_currency_non_negative` (PD-58) is the backstop behind the pack open's conditional debit and every later path that touches a balance: a bug can refuse a spend, never overdraw.
 
 > **Editing a `--create-only` migration:** Prisma writes its placeholder comment with no trailing newline, so appending to the file turns your first statement into part of that comment and it is skipped in silence.
 

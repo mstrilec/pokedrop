@@ -51,6 +51,20 @@ Every failure **from `/api/v1/*`** uses this shape, including requests that matc
 
 A client has to handle both. That is a feature rather than an oversight: `code` is a stable machine-readable discriminator (`INVALID_EMAIL_OR_PASSWORD`, `PASSWORD_TOO_SHORT`, `USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL`, `INVALID_ORIGIN`), and flattening it into our envelope would cost the frontend exactly the information it needs to write a useful message. Reshaping a third-party handler's responses would also mean buffering them, which breaks the moment an OAuth redirect flow is added.
 
+**Domain errors add a `code`.** Most failures carry only the four fields above. A failure a client is expected to act on — not a validation slip or a bug — also carries `code`, a stable `SCREAMING_SNAKE` discriminator; `message` is prose and may be reworded, so clients branch on `code`, never on `message`:
+
+```json
+{ "statusCode": 402, "error": "Payment Required", "message": "Not enough coins to open this pack", "code": "INSUFFICIENT_FUNDS", "requestId": "…" }
+```
+
+| `code` | Status | Meaning |
+|---|---|---|
+| `INSUFFICIENT_FUNDS` | 402 | the balance is below the price |
+| `PACK_UNAVAILABLE` | 409 | a pack template cannot currently produce a card for one of its slots |
+| `OPEN_ID_CONFLICT` | 409 | an `openId` was already used by another user, or by this user for another pack |
+
+The codes are exported from `@pokedrop/shared` as `ERROR_CODES`. Every existing error is unchanged — the key is absent, not `null`, when there is no code.
+
 Responses at 500 and above carry a fixed `"Internal server error"` message; the real cause and its stack go to the log under the same request id. A unique-constraint violation that reaches the filter becomes a 409 with a generic message — services that need a field-specific message ("that email is taken") catch the failure themselves and throw a `ConflictException`.
 
 ---
@@ -278,7 +292,7 @@ The budget was 100 ms; the worst case is 19.1 ms, so no index was added. Over HT
 
 **Every card is two draws**: a rarity by cumulative weight, then a card uniformly from that rarity's bucket. Draws are independent, so duplicates within a pack are allowed — four Commons from the seed template's 48 contain a pair in about 12% of packs.
 
-**An empty bucket falls back down the ladder, then up.** The next more common non-empty rarity in the same slot first; if every commoner bucket is empty, the nearest rarer one — a rarer card only when no commoner card exists. A slot with no cards at all throws `EmptySlotError`, which the open turns into a 409 with nothing charged. The emitted `rarity` is the bucket the card came from, and every fallback is returned so the open can log it. Because PD-56 refuses a template naming a rarity absent from its sets, a fallback means the catalog changed after the template was saved.
+**An empty bucket falls back down the ladder, then up.** The next more common non-empty rarity in the same slot first; if every commoner bucket is empty, the nearest rarer one — a rarer card only when no commoner card exists. A slot with no cards at all throws `EmptySlotError`, which `POST /packs/:templateId/open` answers with 409 `PACK_UNAVAILABLE`, nothing charged. The emitted `rarity` is the bucket the card came from, and every fallback is returned; the open logs each one as a warning naming the template. Because PD-56 refuses a template naming a rarity absent from its sets, a fallback means the catalog changed after the template was saved.
 
 **The pool is one query**: cards in the template's sets that have a rarity, grouped by rarity, **each bucket sorted by id in code-unit order in JavaScript** — the generator indexes into that order, so it is part of what a seed reproduces, and it must not follow the database's collation, which could differ on another server. The 303 cards without a rarity can never be pulled. Not cached: the largest pool a template can name (the 50 biggest sets, 10 646 cards over 30 rarities) loads and yields a pack in 20.3 ms median (18.9–23.3).
 
@@ -294,6 +308,66 @@ The budget was 100 ms; the worst case is 19.1 ms, so no index was added. Over HT
 | card counts inside a 48-card bucket against uniform | 43.24 | 82.80 |
 
 Critical values are the Wilson–Hilferty approximation. These checks stand in for PD-61's statistical suite until automated tests resume.
+
+### Opening a pack
+
+`POST /packs/:templateId/open` with `{ "openId": "<uuid>" }` — a UUID the client generates once per intended opening and sends again on every retry of it. Member-only, throttled at the moderate policy (30 per minute per user).
+
+```json
+{
+  "openingId": "clx…", "openId": "1b4e28ba-2fa1-11d2-883f-0016d3cca427",
+  "templateId": "seed-template-base", "createdAt": "2026-09-27T19:02:11.412Z",
+  "balance": 700,
+  "cards": [
+    { "position": 0, "cardId": "base1-68", "rarity": "Common", "card": { "id": "base1-68", "name": "Voltorb", "…": "the inventory's slim card" } }
+  ]
+}
+```
+
+**Always 200, for a new opening and a replay alike.** `cards` is in pull order — `position` 0…n−1, the order the reveal plays them — and `card` is the same slim projection `GET /inventory` returns. `balance` is the balance after this opening, or the current balance on a replay. The pack's seed is never in a response.
+
+| Case | Status | `code` |
+|---|---|---|
+| no session | 401 | — |
+| `openId` not a UUID | 400 | — |
+| template missing **or inactive** | 404 | — |
+| balance below the price | 402 | `INSUFFICIENT_FUNDS` |
+| a slot with no cards at all | 409 | `PACK_UNAVAILABLE` |
+| `openId` used by another user, or for another template | 409 | `OPEN_ID_CONFLICT` |
+| over the throttle | 429 | — |
+
+An inactive template answers 404 rather than 403: members cannot see inactive templates, so the route does not confirm they exist.
+
+**Generation happens outside the transaction; the transaction only writes, and its first write claims the `openId`.** In order: insert the opening (with its seed) → debit with `UPDATE users SET currency = currency - cost WHERE id = … AND currency >= cost RETURNING currency` (no row means 402, and everything rolls back) → one `PACK_SPEND` ledger row with `refId = openId`, written even for a free pack → the pulled cards with their positions → one `INSERT … ON CONFLICT DO UPDATE` into the inventory, duplicates summed per card, rows sorted by card id. Claiming first means a duplicate blocks on the unique index before it ever touches the balance.
+
+**Correctness rests on two unique indexes, not on Redis.** `PackOpening.openId` and `CurrencyTransaction (userId, type, refId)`: a second transaction with the same `openId` waits on the index until the first ends, then fails and rolls back whole, debit included, and is answered from what the first recorded. The debit's row lock serialises one user's concurrent openings, so their inventory writes cannot interleave; different users share no rows. `users_currency_non_negative` backs the conditional debit for every other path that will ever touch a balance.
+
+**The Redis lock only makes duplicates cheap.** `SET lock:open:{openId} <token> NX PX 10000` through `RedisService` directly; released after commit by a compare-and-delete script, so an expired lock taken over by another request is never deleted. A request that finds the lock held polls for the opening every 100 ms and answers with it — a double click or a network retry gets the same 200. If the lock disappears with no opening (the first attempt was refused) or 10 s pass, it runs its own attempt; if Redis is unreachable, every request runs without the lock and the unique index does the serialising.
+
+**A replay is answered by the rules below**, wherever the existing opening is found — before the lock, while waiting, or from a unique violation:
+
+| Found opening | Answer |
+|---|---|
+| same user, same template | 200, the original cards in their original order |
+| another user | 409 `OPEN_ID_CONFLICT`, with no cards — another user's pulls never leak |
+| same user, another template | 409 `OPEN_ID_CONFLICT` |
+
+**A pulled card already owned gets `acquiredAt = now()`**, so `GET /inventory`'s default `acquired_desc` shows a whole pack at the top, duplicates included. After commit the inventory summary cache is deleted (PD-54's contract).
+
+**Measured, 2026-09-27**, through HTTP against the running API with the database checked after every scenario — these stand in for PD-62's integration suite until automated tests resume:
+
+- one opening: 200; eight cards at positions 0–7; a 64-hex seed stored and absent from the body; the balance down by exactly the price; one `-300` ledger row; every pulled card's quantity up by exactly its pull count and its `acquiredAt` moved to now, no other row touched; the summary cache key deleted
+- the same card pulled three times in one pack: one inventory row, quantity +3, three card rows at positions 0–2
+- a replay, a replay after the lock's 10 s, and a replay after the template was deactivated: 200 with the original cards, nothing written
+- ten simultaneous requests with one `openId`: ten 200s with identical cards; one opening, one ledger row, one debit
+- six simultaneous openings with a balance for three: exactly three 200s and three 402 `INSUFFICIENT_FUNDS`; balance 0, never negative
+- three simultaneous requests with one `openId` and no funds: three 402s — none hangs waiting for an opening that will not appear, none 500s
+- a failure injected into the transaction (a trigger raising on the card insert): 500, and balance, ledger, openings and inventory byte-identical to before
+- Redis stopped: ten simultaneous requests with one `openId` — ten 200s, one opening, one debit
+- another user's `openId`, and an `openId` reused for another template: 409 `OPEN_ID_CONFLICT`, no cards in the body
+- an inactive template, an unknown one: 404; a malformed `openId`: 400; nothing written
+- a template whose only slot names a rarity absent from its set: 409 `PACK_UNAVAILABLE`, nothing charged
+- after every scenario, for every user in the database: `currency` equals the sum of their ledger rows
 
 ## Decks
 
