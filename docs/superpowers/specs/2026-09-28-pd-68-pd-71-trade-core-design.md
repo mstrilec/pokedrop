@@ -255,7 +255,7 @@ Added to `ERROR_CODES`:
 | `COUNTER_LIMIT` | 409 | the chain already holds 10 trades |
 
 `INSUFFICIENT_FUNDS` (402) is reused for coins, at proposal and at settlement.
-A second counter racing the first may also surface as PD-63's generic 409 from
+A second counter racing the first may also surface as the exception filter's generic 409 from
 the unique `counteredTradeId`; both mean "already countered".
 
 ---
@@ -390,7 +390,7 @@ Scenarios (users A, B, C; A holds 1 × card X):
 9. Decline, cancel and an admin void of `PENDING` trades → locks released exactly; one audit row each with `from`/`to`; void carries the admin and the reason.
 10. Wrong actor: A accepts own trade → 403; C reads or acts on A–B's trade → 404; an admin who is not a party voids → 200 only on the admin route.
 11. A failure injected inside settlement — a trigger raising on the `currency_transactions` insert → 500; trades, inventory, users and ledger byte-identical to before.
-12. A notification failure injected (the `notifications` table renamed for the probe) → the trade transition still 200 and committed; the error logged.
+12. A notification failure injected — a trigger raising on the `notifications` insert, dropped after the probe — → the trade transition still 200 and committed; the error logged.
 13. Throttle: 31 proposals in a minute → the 31st 429.
 
 ---
