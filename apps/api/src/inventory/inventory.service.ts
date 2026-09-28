@@ -1,17 +1,25 @@
-import { ConflictException, Injectable } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
+import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import {
+  ERROR_CODES,
   InventoryPageSchema,
   InventorySummarySchema,
   type InventoryPage,
   type InventoryQuery,
   type InventorySummary,
 } from '@pokedrop/shared';
+import { domainError } from '../common/errors/domain-error.js';
 import { toNumber } from '../common/decimal.js';
 import { PrismaService, type TransactionClient } from '../prisma/index.js';
 import { CacheService, cacheKeys } from '../redis/index.js';
 import { loadSummary } from './inventory.summary.js';
-import { availableQuantity, normalizeChanges, type QuantityChange } from './quantity.js';
+import {
+  availableQuantity,
+  normalizeChanges,
+  type InventoryMove,
+  type QuantityChange,
+} from './quantity.js';
 import {
   SORTS,
   decodeCursor,
@@ -51,6 +59,8 @@ type KeyFilter = { lt?: string | Date; gt?: string | Date; equals?: string | Dat
 
 @Injectable()
 export class InventoryService {
+  private readonly logger = new Logger(InventoryService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly cache: CacheService,
@@ -116,7 +126,11 @@ export class InventoryService {
           AND quantity - "lockedQuantity" >= ${change.quantity}`;
 
       if (updated === 0) {
-        throw new ConflictException(`Not enough available copies of ${change.cardId}`);
+        throw domainError(
+          HttpStatus.CONFLICT,
+          ERROR_CODES.CARDS_UNAVAILABLE,
+          `Not enough available copies of ${change.cardId}`,
+        );
       }
     }
   }
@@ -135,6 +149,77 @@ export class InventoryService {
           `Escrow invariant broken: cannot release ${change.quantity} of ${change.cardId} for ${userId}`,
         );
       }
+    }
+  }
+
+  /**
+   * Settles card moves inside the caller's transaction. Rows are taken in
+   * (userId, cardId) order, the order every other writer uses, so two
+   * settlements - or a settlement and a pack open - cannot deadlock. Emptied
+   * rows are deleted. The summary is the caller's to invalidate after commit.
+   */
+  async applyMoves(tx: TransactionClient, moves: InventoryMove[]): Promise<void> {
+    const seen = new Set<string>();
+    for (const move of moves) {
+      if (!Number.isInteger(move.quantity) || move.quantity === 0) {
+        throw new Error(`Inventory move for ${move.cardId} must be a non-zero integer`);
+      }
+      const key = `${move.userId}\u0000${move.cardId}`;
+      if (seen.has(key)) {
+        throw new Error(`Card ${move.cardId} moves twice for ${move.userId}`);
+      }
+      seen.add(key);
+    }
+
+    const sorted = [...moves].sort(
+      (a, b) => compare(a.userId, b.userId) || compare(a.cardId, b.cardId),
+    );
+    const givers: Prisma.Sql[] = [];
+
+    for (const move of sorted) {
+      if (move.quantity > 0) {
+        await tx.$executeRaw`
+          INSERT INTO inventory_items (id, "userId", "cardId", quantity, "lockedQuantity", "acquiredAt")
+          VALUES (${randomUUID()}, ${move.userId}, ${move.cardId}, ${move.quantity}, 0, now())
+          ON CONFLICT ("userId", "cardId") DO UPDATE
+          SET quantity = inventory_items.quantity + EXCLUDED.quantity,
+              "acquiredAt" = EXCLUDED."acquiredAt"`;
+        continue;
+      }
+
+      const count = -move.quantity;
+      const updated = move.fromLock
+        ? await tx.$executeRaw`
+            UPDATE inventory_items
+            SET quantity = quantity - ${count}, "lockedQuantity" = "lockedQuantity" - ${count}
+            WHERE "userId" = ${move.userId} AND "cardId" = ${move.cardId}
+              AND "lockedQuantity" >= ${count}`
+        : await tx.$executeRaw`
+            UPDATE inventory_items
+            SET quantity = quantity - ${count}
+            WHERE "userId" = ${move.userId} AND "cardId" = ${move.cardId}
+              AND quantity - "lockedQuantity" >= ${count}`;
+
+      if (updated === 0) {
+        if (move.fromLock) {
+          this.logger.error(
+            `Escrow invariant broken: ${move.userId} has fewer than ${count} locked ${move.cardId}`,
+          );
+        }
+        throw domainError(
+          HttpStatus.CONFLICT,
+          ERROR_CODES.CARDS_UNAVAILABLE,
+          `User ${move.userId} no longer has ${count} available ${move.cardId}`,
+        );
+      }
+      givers.push(Prisma.sql`(${move.userId}, ${move.cardId})`);
+    }
+
+    if (givers.length > 0) {
+      await tx.$executeRaw`
+        DELETE FROM inventory_items
+        WHERE quantity = 0 AND "lockedQuantity" = 0
+          AND ("userId", "cardId") IN (${Prisma.join(givers)})`;
     }
   }
 
@@ -238,4 +323,8 @@ function toEntry(row: EntryRow): unknown {
       latestPriceEur: toNumber(row.card.latestPriceEur),
     },
   };
+}
+
+function compare(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
 }

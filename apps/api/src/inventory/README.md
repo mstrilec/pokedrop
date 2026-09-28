@@ -22,7 +22,7 @@ proposed, lowering it as it leaves PENDING by any route — accept, decline,
 cancel, counter, void, expire. A lock whose trade no longer exists is stranded
 forever, and nothing in the schema can notice.
 
-**`lock` refuses with a 409 and leaves the transaction usable.** It is one
+**`lock` refuses with a 409 `CARDS_UNAVAILABLE` and leaves the transaction usable.** It is one
 conditional `UPDATE … WHERE quantity - "lockedQuantity" >= n` per card, and zero
 rows updated means not enough copies are available. The caller decides what to
 do; throwing out of the transaction callback rolls back every lock already
@@ -61,6 +61,25 @@ available copies. A card the user does not own is absent from the map, not
 present as `0`. Pass the transaction client when the answer must be consistent
 with writes in the same transaction; strict-mode deck validation (PD-64) can use
 the default client.
+
+## Moving cards
+
+`applyMoves(tx, moves)` settles a trade's card movements inside the caller's
+transaction. A move is `{ userId, cardId, quantity, fromLock? }`: positive
+receives (the pack open's upsert), negative gives — from copies the user had
+locked for this trade when `fromLock`, otherwise from available copies. A
+shortfall answers 409 `CARDS_UNAVAILABLE` and the caller's transaction rolls
+back whole; a `fromLock` shortfall is also logged as an escrow bug. Rows are
+taken in `(userId, cardId)` order, and rows a move empties — `quantity = 0` and
+`lockedQuantity = 0` — are deleted. A `(user, card)` may move once per call.
+
+## The lock invariant
+
+For every `(userId, cardId)`, `lockedQuantity` equals the sum of `OFFERED`
+quantities over `PENDING` trades that user initiated. Trades (M8) keep it:
+proposing adds, every way out of `PENDING` subtracts, and accepting consumes the
+lock with the copies it guarded. The reconciliation query in
+`docs/DataModel.md` (Trade) returns no rows when it holds.
 
 ## Set completion
 

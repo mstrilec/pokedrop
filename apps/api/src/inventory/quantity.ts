@@ -2,6 +2,14 @@ export type Holding = { quantity: number; lockedQuantity: number };
 
 export type QuantityChange = { cardId: string; quantity: number };
 
+/** Positive receives, negative gives; `fromLock` gives copies locked for the trade. */
+export type InventoryMove = {
+  userId: string;
+  cardId: string;
+  quantity: number;
+  fromLock?: boolean;
+};
+
 export function availableQuantity(holding: Holding): number {
   return holding.quantity - holding.lockedQuantity;
 }
