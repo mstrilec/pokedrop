@@ -14,6 +14,7 @@ import { CatalogModule } from './catalog/index.js';
 import { AppConfigModule } from './config/index.js';
 import { HealthModule } from './health/health.module.js';
 import { AuditModule } from './audit/index.js';
+import { DecksModule } from './decks/index.js';
 import { InventoryModule } from './inventory/index.js';
 import { PacksModule } from './packs/index.js';
 import { AppLoggingModule } from './logging/index.js';
@@ -41,6 +42,7 @@ import { ThrottleModule } from './throttle/index.js';
     PricesModule,
     InventoryModule,
     PacksModule,
+    DecksModule,
     HealthModule,
     QueueModule,
     SyncModule,
