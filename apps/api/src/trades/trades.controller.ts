@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Trade } from '@pokedrop/shared';
@@ -17,5 +17,17 @@ export class TradesController {
   @Post()
   propose(@CurrentUser() user: AuthUser, @Body() body: ProposeTradeDto): Promise<Trade> {
     return this.trades.propose(user, body);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post(':id/decline')
+  decline(@CurrentUser() user: AuthUser, @Param('id') id: string): Promise<Trade> {
+    return this.trades.decline(user, id);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post(':id/cancel')
+  cancel(@CurrentUser() user: AuthUser, @Param('id') id: string): Promise<Trade> {
+    return this.trades.cancel(user, id);
   }
 }
