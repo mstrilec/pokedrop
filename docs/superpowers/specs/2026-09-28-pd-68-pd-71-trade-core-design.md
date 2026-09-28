@@ -322,12 +322,14 @@ validated like a proposal; the counter's recipient is the original's initiator.
 
 Transaction:
 
-1. `close(tx, original, COUNTERED, recipient, { counterTradeId })` — but with
+1. `close(tx, original, COUNTERED, recipient)` — but with
    the release deferred to step 3 so it can be ordered.
 2. Create the counter trade, `counteredTradeId = original.id`.
 3. Release the original initiator's `OFFERED` locks and lock the counter
    initiator's `OFFERED` items, in `(userId, cardId)` order.
-4. Audit `trade.counter` on the new trade (the original's row is step 1's).
+4. Audit `trade.propose` on the new trade with `{ counteredTradeId }` — the
+   original's `trade.counter` row is step 1's, written before the new trade has
+   an id. Every trade's timeline therefore starts with a propose.
 
 After commit: notify the original's initiator `trade.countered`.
 
@@ -390,7 +392,7 @@ Scenarios (users A, B, C; A holds 1 × card X):
 9. Decline, cancel and an admin void of `PENDING` trades → locks released exactly; one audit row each with `from`/`to`; void carries the admin and the reason.
 10. Wrong actor: A accepts own trade → 403; C reads or acts on A–B's trade → 404; an admin who is not a party voids → 200 only on the admin route.
 11. A failure injected inside settlement — a trigger raising on the `currency_transactions` insert → 500; trades, inventory, users and ledger byte-identical to before.
-12. A notification failure injected — a trigger raising on the `notifications` insert, dropped after the probe — → the trade transition still 200 and committed; the error logged.
+12. A notification failure injected — a trigger raising on the `notifications` insert, dropped after the probe → the trade transition still 200 and committed; the error logged.
 13. Throttle: 31 proposals in a minute → the 31st 429.
 
 ---
