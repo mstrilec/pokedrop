@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { z } from 'zod';
 
-export type HistoryCursor = { createdAt: Date; id: string };
+export type NewestCursor = { createdAt: Date; id: string };
 
 // A value PostgreSQL cannot compare would surface as a 500, not a 400.
 const PayloadSchema = z.object({
@@ -9,13 +9,13 @@ const PayloadSchema = z.object({
   id: z.string().regex(/^[\w-]{1,64}$/),
 });
 
-export function encodeHistoryCursor(createdAt: Date, id: string): string {
+export function encodeNewestCursor(createdAt: Date, id: string): string {
   return Buffer.from(JSON.stringify({ c: createdAt.toISOString(), id }), 'utf8').toString(
     'base64url',
   );
 }
 
-export function decodeHistoryCursor(raw: string): HistoryCursor {
+export function decodeNewestCursor(raw: string): NewestCursor {
   let json: unknown;
   try {
     json = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));

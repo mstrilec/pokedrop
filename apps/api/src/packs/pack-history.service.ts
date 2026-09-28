@@ -6,7 +6,7 @@ import {
   type PackHistoryQuery,
 } from '@pokedrop/shared';
 import { PrismaService } from '../prisma/index.js';
-import { decodeHistoryCursor, encodeHistoryCursor } from './history.cursor.js';
+import { decodeNewestCursor, encodeNewestCursor } from '../common/newest-cursor.js';
 import { CARD_SUMMARY_SELECT, toCardSummary } from '../common/card-summary.js';
 
 @Injectable()
@@ -14,7 +14,7 @@ export class PackHistoryService {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(userId: string, query: PackHistoryQuery): Promise<PackHistoryPage> {
-    const cursor = query.cursor === undefined ? null : decodeHistoryCursor(query.cursor);
+    const cursor = query.cursor === undefined ? null : decodeNewestCursor(query.cursor);
 
     // userId stays its own AND element so no cursor branch can widen it.
     const scope: Prisma.PackOpeningWhereInput = { userId };
@@ -79,7 +79,7 @@ export class PackHistoryService {
       total,
       nextCursor:
         rows.length > query.pageSize && last !== undefined
-          ? encodeHistoryCursor(last.createdAt, last.id)
+          ? encodeNewestCursor(last.createdAt, last.id)
           : null,
     });
   }
