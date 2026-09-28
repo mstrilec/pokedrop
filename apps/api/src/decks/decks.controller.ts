@@ -11,7 +11,13 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import type { DeckDetail, DeckPage, DeckStats } from '@pokedrop/shared';
+import type {
+  DeckDetail,
+  DeckPage,
+  DeckSaveResult,
+  DeckStats,
+  DeckValidation,
+} from '@pokedrop/shared';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { Public } from '../common/decorators/public.decorator.js';
 import type { AuthUser } from '../common/request-auth.js';
@@ -29,7 +35,7 @@ export class DecksController {
   }
 
   @Post()
-  create(@CurrentUser() user: AuthUser, @Body() body: CreateDeckDto): Promise<DeckDetail> {
+  create(@CurrentUser() user: AuthUser, @Body() body: CreateDeckDto): Promise<DeckSaveResult> {
     return this.decks.create(user, body);
   }
 
@@ -51,13 +57,19 @@ export class DecksController {
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
     @Body() body: UpdateDeckDto,
-  ): Promise<DeckDetail> {
+  ): Promise<DeckSaveResult> {
     return this.decks.update(user, id, body);
   }
 
   @Post(':id/clone')
-  clone(@CurrentUser() user: AuthUser, @Param('id') id: string): Promise<DeckDetail> {
+  clone(@CurrentUser() user: AuthUser, @Param('id') id: string): Promise<DeckSaveResult> {
     return this.decks.clone(user, id);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post(':id/validate')
+  validate(@CurrentUser() user: AuthUser, @Param('id') id: string): Promise<DeckValidation> {
+    return this.decks.validate(user, id);
   }
 
   @HttpCode(HttpStatus.NO_CONTENT)

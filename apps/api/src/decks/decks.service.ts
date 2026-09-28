@@ -9,7 +9,9 @@ import {
   type DeckDetail,
   type DeckListQuery,
   type DeckPage,
+  type DeckSaveResult,
   type DeckStats,
+  type DeckValidation,
   type UpdateDeck,
 } from '@pokedrop/shared';
 import { CARD_SUMMARY_SELECT, toCardSummary } from '../common/card-summary.js';
@@ -17,6 +19,7 @@ import { assertOwner } from '../common/ownership.js';
 import type { AuthUser } from '../common/request-auth.js';
 import { PrismaService, type TransactionClient } from '../prisma/index.js';
 import { toDeckStats, type StatsRow } from './deck-stats.js';
+import { DeckValidationService } from './deck-validation.service.js';
 
 const DETAIL_SELECT = {
   id: true,
@@ -42,7 +45,10 @@ const COPY_SUFFIX = ' (copy)';
 
 @Injectable()
 export class DecksService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly validation: DeckValidationService,
+  ) {}
 
   list(userId: string, query: DeckListQuery): Promise<DeckPage> {
     return this.page({ userId }, query);
@@ -103,13 +109,19 @@ export class DecksService {
     });
   }
 
+  private async saveResult(tx: TransactionClient, id: string): Promise<DeckSaveResult> {
+    const validation = await this.validation.validate(id, tx);
+    const row = await tx.deck.findUniqueOrThrow({ where: { id }, select: DETAIL_SELECT });
+    return { ...toDetail(row), validation };
+  }
+
   async get(id: string, viewer: AuthUser | undefined): Promise<DeckDetail> {
     const row = await this.prisma.deck.findUnique({ where: { id }, select: DETAIL_SELECT });
     assertVisible(row, viewer);
     return toDetail(row);
   }
 
-  create(user: AuthUser, input: CreateDeck): Promise<DeckDetail> {
+  create(user: AuthUser, input: CreateDeck): Promise<DeckSaveResult> {
     return this.prisma.withTransaction(async (tx) => {
       await assertCardsExist(tx, input.cards);
 
@@ -122,14 +134,14 @@ export class DecksService {
           ownedOnly: input.ownedOnly,
           cards: { createMany: { data: input.cards } },
         },
-        select: DETAIL_SELECT,
+        select: { id: true },
       });
 
-      return toDetail(row);
+      return this.saveResult(tx, row.id);
     });
   }
 
-  update(user: AuthUser, id: string, patch: UpdateDeck): Promise<DeckDetail> {
+  update(user: AuthUser, id: string, patch: UpdateDeck): Promise<DeckSaveResult> {
     return this.prisma.withTransaction(async (tx) => {
       const deck = await tx.deck.findUnique({
         where: { id },
@@ -163,42 +175,56 @@ export class DecksService {
         });
       }
 
-      return toDetail(await tx.deck.findUniqueOrThrow({ where: { id }, select: DETAIL_SELECT }));
+      return this.saveResult(tx, id);
     });
   }
 
   /**
    * Any deck the caller can see, so a stranger's public deck too. The copy is
    * private and asks nothing of the caller's inventory: owning its cards is
-   * the validator's question, not the clone's.
+   * the validator's question, answered against the cloner's copies.
    */
-  async clone(user: AuthUser, id: string): Promise<DeckDetail> {
-    const source = await this.prisma.deck.findUnique({
+  clone(user: AuthUser, id: string): Promise<DeckSaveResult> {
+    return this.prisma.withTransaction(async (tx) => {
+      const source = await tx.deck.findUnique({
+        where: { id },
+        select: {
+          userId: true,
+          isPublic: true,
+          name: true,
+          format: true,
+          ownedOnly: true,
+          cards: { select: { cardId: true, count: true } },
+        },
+      });
+      assertVisible(source, user);
+
+      const row = await tx.deck.create({
+        data: {
+          userId: user.id,
+          name: copyName(source.name),
+          format: source.format,
+          isPublic: false,
+          ownedOnly: source.ownedOnly,
+          cards: { createMany: { data: source.cards } },
+        },
+        select: { id: true },
+      });
+
+      return this.saveResult(tx, row.id);
+    });
+  }
+
+  /** Owner only: the result states the owner's available copies, which is private. */
+  async validate(user: AuthUser, id: string): Promise<DeckValidation> {
+    const deck = await this.prisma.deck.findUnique({
       where: { id },
-      select: {
-        userId: true,
-        isPublic: true,
-        name: true,
-        format: true,
-        ownedOnly: true,
-        cards: { select: { cardId: true, count: true } },
-      },
+      select: { userId: true, isPublic: true },
     });
-    assertVisible(source, user);
+    assertVisible(deck, user);
+    assertOwner(deck.userId, user);
 
-    const row = await this.prisma.deck.create({
-      data: {
-        userId: user.id,
-        name: copyName(source.name),
-        format: source.format,
-        isPublic: false,
-        ownedOnly: source.ownedOnly,
-        cards: { createMany: { data: source.cards } },
-      },
-      select: DETAIL_SELECT,
-    });
-
-    return toDetail(row);
+    return this.validation.validate(id);
   }
 
   async remove(user: AuthUser, id: string): Promise<void> {
