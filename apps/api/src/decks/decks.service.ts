@@ -9,12 +9,14 @@ import {
   type DeckDetail,
   type DeckListQuery,
   type DeckPage,
+  type DeckStats,
   type UpdateDeck,
 } from '@pokedrop/shared';
 import { CARD_SUMMARY_SELECT, toCardSummary } from '../common/card-summary.js';
 import { assertOwner } from '../common/ownership.js';
 import type { AuthUser } from '../common/request-auth.js';
 import { PrismaService, type TransactionClient } from '../prisma/index.js';
+import { toDeckStats, type StatsRow } from './deck-stats.js';
 
 const DETAIL_SELECT = {
   id: true,
@@ -24,6 +26,7 @@ const DETAIL_SELECT = {
   isPublic: true,
   createdAt: true,
   updatedAt: true,
+  user: { select: { displayName: true } },
   cards: {
     orderBy: { cardId: 'asc' },
     select: { cardId: true, count: true, card: { select: CARD_SUMMARY_SELECT } },
@@ -40,9 +43,39 @@ const COPY_SUFFIX = ' (copy)';
 export class DecksService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(userId: string, query: DeckListQuery): Promise<DeckPage> {
-    const where: Prisma.DeckWhereInput = { userId };
+  list(userId: string, query: DeckListQuery): Promise<DeckPage> {
+    return this.page({ userId }, query);
+  }
 
+  /** Another user's shelf: public decks only, and a 404 for a user that does not exist. */
+  async listPublic(userId: string, query: DeckListQuery): Promise<DeckPage> {
+    const owner = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (owner === null) {
+      throw new NotFoundException('User not found');
+    }
+    return this.page({ userId, isPublic: true }, query);
+  }
+
+  async stats(id: string, viewer: AuthUser | undefined): Promise<DeckStats> {
+    const deck = await this.prisma.deck.findUnique({
+      where: { id },
+      select: { userId: true, isPublic: true },
+    });
+    assertVisible(deck, viewer);
+
+    const rows = await this.prisma.$queryRaw<StatsRow[]>`
+      SELECT c.supertype, c.rarity, c.types, dc.count
+      FROM deck_cards dc
+      JOIN cards c ON c.id = dc."cardId"
+      WHERE dc."deckId" = ${id}
+    `;
+    return toDeckStats(rows);
+  }
+
+  private async page(where: Prisma.DeckWhereInput, query: DeckListQuery): Promise<DeckPage> {
     const [rows, total] = await Promise.all([
       this.prisma.deck.findMany({
         where,
@@ -207,9 +240,10 @@ function copyName(name: string): string {
   return `${name.slice(0, DECK_NAME_MAX - COPY_SUFFIX.length).trimEnd()}${COPY_SUFFIX}`;
 }
 
-function toDetail(row: DetailRow): DeckDetail {
+function toDetail({ user, ...row }: DetailRow): DeckDetail {
   return DeckDetailSchema.parse({
     ...row,
+    ownerDisplayName: user.displayName,
     cards: row.cards.map((entry) => ({
       cardId: entry.cardId,
       count: entry.count,

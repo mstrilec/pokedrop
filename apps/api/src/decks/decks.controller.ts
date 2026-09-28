@@ -11,7 +11,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import type { DeckDetail, DeckPage } from '@pokedrop/shared';
+import type { DeckDetail, DeckPage, DeckStats } from '@pokedrop/shared';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { Public } from '../common/decorators/public.decorator.js';
 import type { AuthUser } from '../common/request-auth.js';
@@ -38,6 +38,12 @@ export class DecksController {
   @Get(':id')
   get(@CurrentUser() viewer: AuthUser | undefined, @Param('id') id: string): Promise<DeckDetail> {
     return this.decks.get(id, viewer);
+  }
+
+  @Public()
+  @Get(':id/stats')
+  stats(@CurrentUser() viewer: AuthUser | undefined, @Param('id') id: string): Promise<DeckStats> {
+    return this.decks.stats(id, viewer);
   }
 
   @Patch(':id')
