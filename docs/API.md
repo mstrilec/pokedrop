@@ -574,8 +574,9 @@ Every value counts copies. Each series is `{ name, value }` rows — Recharts' `
 | Method | Path | Auth | Notes |
 |---|---|---|---|
 | POST | `/trades` | member | Propose; locks the offered copies — throttled like pack opening |
-| GET | `/trades` | member | Inbox (All / Incoming / Sent / Completed) |
-| GET | `/trades/:id` | member (party) | Detail + status timeline |
+| GET | `/trades` | member | The caller's trades by tab, newest first, keyset-paged |
+| GET | `/trades/:id` | member (party) | Detail, timeline and counter chain; 404 to anyone else |
+| GET | `/admin/trades/:id` | admin | The same detail for any trade |
 | POST | `/trades/:id/accept` | member (recipient) | Atomic settlement |
 | POST | `/trades/:id/decline` | member (recipient) | Releases the initiator's locks |
 | POST | `/trades/:id/counter` | member (recipient) | A new `PENDING` trade; the original `COUNTERED`; locks move in one transaction — throttled |
@@ -619,6 +620,48 @@ All four collections default empty; a trade with nothing in any of them is 400 "
 - a trigger failing the ledger insert: 500 and the database byte-identical; the same accept after dropping it: 200
 - a counter: roles swapped, original `COUNTERED`, the initiator's lock gone and the counter's taken; a chain of 10 refused an 11th with 409 `COUNTER_LIMIT`, byte-identical; a counter offering cards not held → 409, the original still `PENDING`
 - after every scenario: cards per card and total coins unchanged, every balance equal to its ledger, the lock reconciliation empty, nothing negative
+
+
+### Reading trades
+
+**`GET /trades`** — `tab`, `cursor`, `pageSize` (1–100, default 24):
+
+| `tab` | Rows |
+|---|---|
+| `all` (default) | every trade the caller is a party to |
+| `incoming` | `PENDING`, the caller is the recipient — waiting on them |
+| `sent` | `PENDING`, the caller is the initiator — waiting on the other party |
+| `completed` | any status but `PENDING`, either side — history |
+
+Newest first by a keyset cursor over `(createdAt, id)`, the same opaque cursor as the pack history; one that does not decode is a 400 `Invalid cursor`, an unknown tab a 400. `total` is the tab's count. Each tab is one index-backed query: `incoming` and `sent` are an equality on `(recipientId, status)` / `(initiatorId, status)`, and `completed` and `all` are a `BitmapOr` of both composite indexes — `completed` lists the five closed statuses explicitly rather than `<> 'PENDING'`, so status stays an index condition.
+
+Every row carries both parties as `{ id, displayName, avatarUrl }`, the caller's `role` (`initiator` or `recipient`), the coins on each side, `counteredTradeId`, and the items with the inventory's slim card, so the inbox renders without a request per card:
+
+```json
+{
+  "id": "cmulk3d9i…", "status": "COUNTERED", "role": "initiator",
+  "initiator": { "id": "…", "displayName": "Ash", "avatarUrl": null },
+  "recipient": { "id": "…", "displayName": "Misty", "avatarUrl": null },
+  "currencyFromInitiator": 0, "currencyFromRecipient": 0, "counteredTradeId": null,
+  "items": [{ "id": "…", "side": "OFFERED", "cardId": "base1-4", "quantity": 1, "card": { "name": "Charizard", "…": "…" } }],
+  "createdAt": "…", "resolvedAt": "…"
+}
+```
+
+**`GET /trades/:id`** adds `timeline` and `chain`. A trade the caller is not a party to is 404 `Trade not found`, the same as an id that does not exist. Admins read any trade through **`GET /admin/trades/:id`** — the same body with `role: null` — rather than through a bypass on the member route, which still answers an admin who is not a party with 404.
+
+- **`timeline`** is the trade's audit rows, oldest first: `{ action, status, at, by }`, where `status` is what the transition moved the trade to and `by` is `initiator`, `recipient`, `admin` or `system` — the side that acted, never a user id, so a member never learns which admin voided their trade. The void's reason stays in the audit log. Trades created before the trade core (the seed's) have no audit rows and an empty timeline.
+- **`chain`** is the whole negotiation this trade belongs to — every trade it replaced and every trade that replaced it, via `counteredTradeId` — oldest first, this trade included: `{ id, status, createdAt, resolvedAt }`.
+
+**Measured, 2026-09-28**, through HTTP, then with `EXPLAIN ANALYZE`:
+
+- six trades between three users — pending both ways, declined, countered with its counter, accepted: each user's four tabs returned exactly the expected trades with the right `role`, newest first (A: all 6, incoming 2, sent 1, completed 3; B: 5, 1, 2, 2; the third user only the trade they declined)
+- `pageSize=2` over A's six: three pages, every trade once, `nextCursor` null on the last
+- the countered trade's detail: timeline `trade.propose → PENDING by initiator`, `trade.counter → COUNTERED by recipient`; chain `[countered, its counter]`, the same chain from the counter's own detail; the accepted and declined trades' timelines end in `trade.accept` / `trade.decline` by the recipient
+- another member, a missing id: identical 404s; signed out: 401; a member on the admin route: 403; an admin on the member route for a trade they are not in: 404, on the admin route: 200 with `role: null`
+- after an admin void, the initiator's detail showed `trade.void → VOIDED by admin` and contained neither the admin's id nor the reason
+- an unknown tab, a malformed cursor, `pageSize=101`: 400 each
+- with 2 000 users and 20 000 trades inserted in a rolled-back transaction: every tab planned as a bitmap scan of its composite index — `completed` and `all` a `BitmapOr` of both, `status = ANY(…)` in the index condition — executing in 0.05–0.11 ms
 
 ## Prices
 
