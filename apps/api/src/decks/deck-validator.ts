@@ -75,7 +75,7 @@ function deckSize(expected: number, actual: number): Issue[] {
       code: 'DECK_SIZE_MISMATCH',
       cardIds: [],
       params: { expected, actual },
-      message: `The deck has ${actual} cards; it needs exactly ${expected}`,
+      message: `The deck has ${countOf(actual, 'card')}; it needs exactly ${expected}`,
     },
   ];
 }
@@ -160,7 +160,7 @@ function ownership(
         code: 'CARD_NOT_OWNED',
         cardIds: [card.cardId],
         params: { name: card.name, needed: card.count, available: have },
-        message: `${label(card)} needs ${card.count} copies; ${have} available`,
+        message: `${label(card)} needs ${countOf(card.count, 'copy', 'copies')}; ${have} available`,
       });
     }
   }
@@ -182,6 +182,10 @@ function isBasicEnergy(card: ValidationCard): boolean {
 
 function label(card: ValidationCard): string {
   return `${card.name} (${card.cardId})`;
+}
+
+function countOf(n: number, one: string, many = `${one}s`): string {
+  return `${n} ${n === 1 ? one : many}`;
 }
 
 function compare(a: string, b: string): number {

@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { LegalitiesSchema, type DeckValidation, type Legalities } from '@pokedrop/shared';
 import { APP_CONFIG, type AppConfig } from '../config/index.js';
@@ -16,7 +16,7 @@ export class DeckValidationService {
 
   /** Pass the caller's transaction so the verdict describes the rows it just wrote. */
   async validate(deckId: string, client: TransactionClient = this.prisma): Promise<DeckValidation> {
-    const deck = await client.deck.findUniqueOrThrow({
+    const deck = await client.deck.findUnique({
       where: { id: deckId },
       select: {
         userId: true,
@@ -32,6 +32,10 @@ export class DeckValidationService {
         },
       },
     });
+
+    if (deck === null) {
+      throw new NotFoundException('Deck not found');
+    }
 
     const available = await this.inventory.availableQuantities(
       deck.userId,

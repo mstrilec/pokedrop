@@ -443,9 +443,12 @@ A PATCH takes any non-empty subset. **`cards` replaces the whole decklist** — 
     { "cardId": "base1-4", "count": 2, "card": { "id": "base1-4", "name": "Charizard", "supertype": "Pokémon", "…": "…" } }
   ],
   "ownerDisplayName": "Ash",
-  "createdAt": "2026-09-28T09:21:38.508Z", "updatedAt": "2026-09-28T09:21:38.508Z"
+  "createdAt": "2026-09-28T09:21:38.508Z", "updatedAt": "2026-09-28T09:21:38.508Z",
+  "validation": { "valid": false, "…": "…" }
 }
 ```
+
+`validation` is on the owner's save responses only — `POST`, `PATCH` and clone — never on `GET /decks/:id`; its shape is under *Validation*.
 
 `ownerDisplayName` is there for the shareable page; with `userId` it is all a deck says about its owner — never their email. `card` is the inventory's slim projection, so the builder renders a decklist without a request per card. Entries are ordered by `cardId`. `GET /decks` returns `pageOf` summaries: the same fields without `cards`, plus `cardCount` — the sum of copies, not distinct cards — newest `updatedAt` first.
 
@@ -465,7 +468,7 @@ A PATCH takes any non-empty subset. **`cards` replaces the whole decklist** — 
 - ten simultaneous PATCHes of one deck with different decklists: ten 200s, and the deck ended holding exactly one of the ten lists whole, no mix of two and no error in the log
 - delete: 204, then 404 on repeat; the deck and its three `DeckCard` rows gone; the `cards` count, every inventory row and every other deck's rows unchanged
 
-**`POST /decks/:id/clone`** copies any deck the caller can see — their own, or anyone's public one — into a new deck the caller owns. It takes no body and answers 201 with the new deck in the shape above. The copy keeps `format` and every `{ cardId, count }`, is always private, and is named `"<name> (copy)"`, the original cut short so the result still fits 64 characters. A private deck that is not the caller's is the same 404 as a missing one, so a clone cannot probe for it either.
+**`POST /decks/:id/clone`** copies any deck the caller can see — their own, or anyone's public one — into a new deck the caller owns. It takes no body and answers 201 with the new deck in the shape above, `validation` included — judged against the cloner's copies. The copy keeps `format`, `ownedOnly` and every `{ cardId, count }`, is always private, and is named `"<name> (copy)"`, the original cut short so the result still fits 64 characters. A private deck that is not the caller's is the same 404 as a missing one, so a clone cannot probe for it either.
 
 **Cloning asks nothing of the caller's inventory.** Owning the cards is a question for `/decks/:id/validate`, in whatever mode it runs, not a precondition of the copy — a planned deck is the point of cloning someone else's.
 
@@ -553,7 +556,9 @@ Every value counts copies. Each series is `{ name, value }` rows — Recharts' `
 
 - the engine, called directly: 5 × Charizard → `COPY_LIMIT_EXCEEDED`; 5 × a basic energy → none; 5 × Double Colorless Energy → one; 4 + 1 Pikachu from two sets → one issue naming both printings; 10 basic + 4 special `Metal Energy` → none, 10 + 5 → one on the special card; an empty deck → only `DECK_SIZE_MISMATCH`, four `rules` rows; the same cards in reverse order → a byte-identical result
 - through HTTP, every save answered 200/201 with the rows written and a `validation` in the body, including decks breaking each rule; the same five cases as above gave the same issues
-- 60 copies → `DECK_SIZE` ok; 59 → `DECK_SIZE_MISMATCH` with `actual` 59
+- 60 copies → `DECK_SIZE` ok; 59 and 61 → `DECK_SIZE_MISMATCH` with `actual` 59 / 61; with the API started under `DECK_SIZE=40`, 40 copies → ok and 60 → `DECK_SIZE_MISMATCH` with `expected` 40
+- a one-card deck: `The deck has 1 card; it needs exactly 60` and `Charizard (base1-4) needs 1 copy; 0 available`
+- a deck deleted between the owner check and the validation read: 404 `Deck not found`, the same message as a missing id (checked against the service with a client that finds nothing)
 - in `expanded`, Archeops → `CARD_BANNED`; in `standard`, Erika's Oddish → `CARD_NOT_LEGAL` with `status` `Not Legal` and the rule failed, and a `me55` card → `CARD_LEGALITY_UNKNOWN` as a warning
 - an owner holding 2 Charizard with 1 locked, deck of 2: `CARD_NOT_OWNED` with `available` 1, a warning; a card not held at all: `available` 0; after `PATCH {ownedOnly: true}` both errors and `valid: false`, `deck_cards` hashed identical before and after
 - a save's `validation` and an immediate `POST /validate`: identical; two `POST /validate` in a row: byte-identical, and `decks`, `deck_cards` and `inventory_items` hashed identical before and after
