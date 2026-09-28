@@ -1,17 +1,31 @@
-import { Body, Controller, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import type { Trade } from '@pokedrop/shared';
+import type { Trade, TradeDetail, TradePage } from '@pokedrop/shared';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../common/request-auth.js';
 import { MODERATE_THROTTLE } from '../common/throttle.js';
-import { CounterTradeDto, ProposeTradeDto } from './trades.dto.js';
+import { TradeReadsService } from './trade-reads.service.js';
+import { CounterTradeDto, ProposeTradeDto, TradeInboxQueryDto } from './trades.dto.js';
 import { TradesService } from './trades.service.js';
 
 @ApiTags('trades')
 @Controller('trades')
 export class TradesController {
-  constructor(private readonly trades: TradesService) {}
+  constructor(
+    private readonly trades: TradesService,
+    private readonly reads: TradeReadsService,
+  ) {}
+
+  @Get()
+  inbox(@CurrentUser() user: AuthUser, @Query() query: TradeInboxQueryDto): Promise<TradePage> {
+    return this.reads.inbox(user, query);
+  }
+
+  @Get(':id')
+  detail(@CurrentUser() user: AuthUser, @Param('id') id: string): Promise<TradeDetail> {
+    return this.reads.detail(user, id);
+  }
 
   @Throttle(MODERATE_THROTTLE)
   @Post()
