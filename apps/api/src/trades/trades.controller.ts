@@ -5,7 +5,7 @@ import type { Trade } from '@pokedrop/shared';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../common/request-auth.js';
 import { MODERATE_THROTTLE } from '../common/throttle.js';
-import { ProposeTradeDto } from './trades.dto.js';
+import { CounterTradeDto, ProposeTradeDto } from './trades.dto.js';
 import { TradesService } from './trades.service.js';
 
 @ApiTags('trades')
@@ -23,6 +23,16 @@ export class TradesController {
   @Post(':id/accept')
   accept(@CurrentUser() user: AuthUser, @Param('id') id: string): Promise<Trade> {
     return this.trades.accept(user, id);
+  }
+
+  @Throttle(MODERATE_THROTTLE)
+  @Post(':id/counter')
+  counter(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() body: CounterTradeDto,
+  ): Promise<Trade> {
+    return this.trades.counter(user, id, body);
   }
 
   @HttpCode(HttpStatus.OK)

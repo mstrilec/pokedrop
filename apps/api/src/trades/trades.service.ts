@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import {
   ERROR_CODES,
+  MAX_COUNTER_CHAIN,
+  type CounterTrade,
   type ProposeTrade,
   type Trade,
   type TradeLine,
@@ -19,7 +21,7 @@ import { InventoryService } from '../inventory/index.js';
 import { NotificationsService } from '../notifications/index.js';
 import { PrismaService } from '../prisma/index.js';
 import { TradeCloseService } from './trade-close.service.js';
-import { TRADE_SELECT, toTrade, tradeLines, type TradeRow } from './trade-row.js';
+import { TRADE_SELECT, offeredChanges, toTrade, tradeLines, type TradeRow } from './trade-row.js';
 import { TradeSettlementService } from './trade-settlement.service.js';
 
 type Terms = { offered: TradeLine[]; requested: TradeLine[]; currencyFromInitiator: number };
@@ -126,6 +128,73 @@ export class TradesService {
     ]);
     await this.notify([trade.initiatorId], 'trade.accepted', trade.id, user.id);
     return this.read(id);
+  }
+
+  async counter(user: AuthUser, id: string, input: CounterTrade): Promise<Trade> {
+    const original = await this.loadAsParty(user, id);
+    assertRole(original, user, 'recipient');
+    await this.assertTerms(user.id, input);
+
+    const row = await this.prisma.withTransaction(async (tx) => {
+      await this.closer.close(tx, original, {
+        to: 'COUNTERED',
+        action: 'trade.counter',
+        actorId: user.id,
+        release: false,
+      });
+
+      const [chain] = await tx.$queryRaw<{ length: number }[]>`
+        WITH RECURSIVE chain AS (
+          SELECT id, "counteredTradeId" FROM trades WHERE id = ${original.id}
+          UNION ALL
+          SELECT t.id, t."counteredTradeId" FROM trades t JOIN chain c ON t.id = c."counteredTradeId"
+        )
+        SELECT COUNT(*)::int AS length FROM chain`;
+      if ((chain?.length ?? 0) >= MAX_COUNTER_CHAIN) {
+        throw domainError(
+          HttpStatus.CONFLICT,
+          ERROR_CODES.COUNTER_LIMIT,
+          `A negotiation stops at ${MAX_COUNTER_CHAIN} trades`,
+        );
+      }
+
+      const created = await tx.trade.create({
+        data: {
+          initiatorId: user.id,
+          recipientId: original.initiatorId,
+          currencyFromInitiator: input.currencyFromInitiator,
+          currencyFromRecipient: input.currencyFromRecipient,
+          counteredTradeId: original.id,
+          items: { createMany: { data: tradeLines(input) } },
+        },
+        select: TRADE_SELECT,
+      });
+
+      // Two users' rows in one transaction go in ascending userId, like every
+      // other writer, not release-then-lock - the other order can deadlock.
+      const release = () =>
+        this.inventory.release(tx, original.initiatorId, offeredChanges(original));
+      const lock = () => this.inventory.lock(tx, user.id, input.offered);
+      if (original.initiatorId < user.id) {
+        await release();
+        await lock();
+      } else {
+        await lock();
+        await release();
+      }
+
+      await this.audit.record(tx, {
+        actorId: user.id,
+        action: 'trade.propose',
+        entity: 'Trade',
+        entityId: created.id,
+        meta: { from: null, to: 'PENDING', counteredTradeId: original.id },
+      });
+      return created;
+    });
+
+    await this.notify([original.initiatorId], 'trade.countered', row.id, user.id);
+    return toTrade(row);
   }
 
   /** PENDING only here; an ACCEPTED trade answers TRADE_NOT_PENDING until PD-73. */
