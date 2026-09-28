@@ -417,10 +417,50 @@ An inactive template answers 404 rather than 403: members cannot see inactive te
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| GET / POST | `/decks` | member | List / create |
-| GET / PATCH / DELETE | `/decks/:id` | member (owner) | Read / edit / delete |
+| GET / POST | `/decks` | member | The caller's decks, page-paged / create |
+| GET | `/decks/:id` | public | A public deck, or the caller's own; anything else is 404 |
+| PATCH / DELETE | `/decks/:id` | member (owner) | Edit / delete |
 | POST | `/decks/:id/clone` | member | Clone a deck |
 | POST | `/decks/:id/validate` | member | Legality check |
+
+**`POST /decks`** and **`PATCH /decks/:id`**
+
+| Field | Rule |
+|---|---|
+| `name` | 1–64 chars after trimming |
+| `format` | `standard` · `expanded` · `unlimited` — the keys of a card's `legalities` |
+| `isPublic` | boolean; `false` on create when absent |
+| `cards` | up to 100 `{ cardId, count }`, `count` 1–100, each `cardId` once; `[]` on create when absent |
+
+A PATCH takes any non-empty subset. **`cards` replaces the whole decklist** — the builder saves its draft, not a diff. The bounds are request limits, not deck rules: deck size, the four-copy limit and format legality belong to `/decks/:id/validate`, so an unfinished deck can be saved. An unknown `cardId` is a 400 naming it, and nothing is written; unknown fields are a 400.
+
+```json
+{
+  "id": "cmul1g1xo…", "userId": "riaTB3…", "name": "Fire", "format": "unlimited", "isPublic": false,
+  "cards": [
+    { "cardId": "base1-4", "count": 2, "card": { "id": "base1-4", "name": "Charizard", "supertype": "Pokémon", "…": "…" } }
+  ],
+  "createdAt": "2026-09-28T09:21:38.508Z", "updatedAt": "2026-09-28T09:21:38.508Z"
+}
+```
+
+`card` is the inventory's slim projection, so the builder renders a decklist without a request per card. Entries are ordered by `cardId`. `GET /decks` returns `pageOf` summaries: the same fields without `cards`, plus `cardCount` — the sum of copies, not distinct cards — newest `updatedAt` first.
+
+**A private deck is indistinguishable from a missing one.** A read, edit or delete of a private deck by anyone but its owner — signed in or not — gets the same 404 as an id that never existed. A public deck exists for anyone to see, so a stranger's edit or delete of it is an honest 403 from `assertOwner`. `GET /decks/:id` is `@Public()` because the shareable deck page renders signed out.
+
+**Two saves of one deck do not interleave.** The deck row is updated before its cards are replaced, so its row lock makes a second save wait and then replace the first whole; a save always bumps `updatedAt`, a cards-only one included.
+
+**Deleting a deck** removes its `DeckCard` rows by cascade, and nothing else — the catalog cards and the owner's inventory are untouched.
+
+**Measured, 2026-09-28**, through HTTP with the database checked after each step:
+
+- create with `"  Fire  "` and three cards: 201, name stored trimmed, `cardCount` 9 in the list; `pageSize=1&page=2` returned the second deck with `totalPages` 2; another user's list was empty
+- a private deck read by another member, read signed out, and an id that does not exist: byte-identical 404 bodies apart from `requestId`
+- another member's PATCH and DELETE on a private deck: 404; on a public one, including a cards-only PATCH: 403; signed out: 401 — `decks` and `deck_cards` hashed identical before and after
+- a rename, then a cards-only PATCH: 200 both, `updatedAt` advanced each time, the old `DeckCard` rows gone
+- a duplicate `cardId`, an unknown card, format `glc`, a blank name, `count` 0 and 101, a client-sent `userId`, an empty PATCH: 400 each, nothing written
+- ten simultaneous PATCHes of one deck with different decklists: ten 200s, and the deck ended holding exactly one of the ten lists whole, no mix of two and no error in the log
+- delete: 204, then 404 on repeat; the deck and its three `DeckCard` rows gone; the `cards` count, every inventory row and every other deck's rows unchanged
 
 ## Trades
 
