@@ -127,6 +127,25 @@ Both user relations are **Restrict**, unlike everything else a user owns. A trad
 
 > **A PENDING trade holds escrow** — `lockedQuantity` on inventory rows. Nothing in the schema can enforce that removing or voiding such a trade releases those locks. Cards locked by a trade that no longer exists stay locked forever, and only the settlement and expiry jobs can prevent that.
 
+**The lock invariant.** For every `(userId, cardId)`, `lockedQuantity` equals the sum of `OFFERED` quantities over `PENDING` trades that user initiated — the recipient's cards are never locked. Proposing adds, every way out of `PENDING` subtracts in the same transaction, and accepting consumes the lock with the copies. Zero rows from this query means no lock has leaked:
+
+```sql
+WITH promised AS (
+  SELECT t."initiatorId" AS u, ti."cardId" AS c, SUM(ti.quantity) AS q
+  FROM trades t JOIN trade_items ti ON ti."tradeId" = t.id
+  WHERE t.status = 'PENDING' AND ti.side = 'OFFERED'
+  GROUP BY 1, 2
+)
+SELECT i."userId", i."cardId", i."lockedQuantity", COALESCE(p.q, 0) AS promised
+FROM inventory_items i
+FULL JOIN promised p ON p.u = i."userId" AND p.c = i."cardId"
+WHERE COALESCE(i."lockedQuantity", 0) <> COALESCE(p.q, 0);
+```
+
+**Lock order.** A transaction that touches trades takes the trade row, then `users` rows by ascending id (only when coins move), then `inventory_items` rows by ascending `(userId, cardId)` — the pack open's order, so neither can deadlock the other.
+
+**The timeline is the audit log.** Every transition writes one `AuditLog` row (`entity 'Trade'`, `meta.from`/`meta.to`); a trade's first is always `trade.propose`, and a counter's carries `meta.counteredTradeId`.
+
 ### TradeItem
 `id, tradeId, side(OFFERED|REQUESTED), cardId, quantity`
 

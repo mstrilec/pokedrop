@@ -59,9 +59,12 @@ A client has to handle both. That is a feature rather than an oversight: `code` 
 
 | `code` | Status | Meaning |
 |---|---|---|
-| `INSUFFICIENT_FUNDS` | 402 | the balance is below the price |
+| `INSUFFICIENT_FUNDS` | 402 | the balance is below the price; also a trade whose payer cannot cover the coins, at proposal or settlement |
 | `PACK_UNAVAILABLE` | 409 | a pack template cannot currently produce a card for one of its slots |
 | `OPEN_ID_CONFLICT` | 409 | an `openId` was already used by another user, or by this user for another pack |
+| `CARDS_UNAVAILABLE` | 409 | Not enough available copies — locked copies do not count. At a trade proposal or counter, or at settlement, where the message names the user and the card |
+| `TRADE_NOT_PENDING` | 409 | The trade already left `PENDING`; the message names its status |
+| `COUNTER_LIMIT` | 409 | A negotiation already holds 10 trades |
 
 The codes are exported from `@pokedrop/shared` as `ERROR_CODES`. Every existing error is unchanged — the key is absent, not `null`, when there is no code.
 
@@ -570,14 +573,52 @@ Every value counts copies. Each series is `{ name, value }` rows — Recharts' `
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| POST | `/trades` | member | Propose (offered + requested + optional coins) |
+| POST | `/trades` | member | Propose; locks the offered copies — throttled like pack opening |
 | GET | `/trades` | member | Inbox (All / Incoming / Sent / Completed) |
 | GET | `/trades/:id` | member (party) | Detail + status timeline |
-| POST | `/trades/:id/accept` | member (recipient) | Atomic swap |
-| POST | `/trades/:id/decline` | member (recipient) | — |
-| POST | `/trades/:id/counter` | member (recipient) | Links a new proposal; original → COUNTERED |
-| POST | `/trades/:id/cancel` | member (initiator) | Release locks |
-| POST | `/admin/trades/:id/void` | admin | Reverse fraudulent accepted trade |
+| POST | `/trades/:id/accept` | member (recipient) | Atomic settlement |
+| POST | `/trades/:id/decline` | member (recipient) | Releases the initiator's locks |
+| POST | `/trades/:id/counter` | member (recipient) | A new `PENDING` trade; the original `COUNTERED`; locks move in one transaction — throttled |
+| POST | `/trades/:id/cancel` | member (initiator) | Releases the locks |
+| POST | `/admin/trades/:id/void` | admin | `{ reason }`; voids a `PENDING` trade — an `ACCEPTED` one is PD-73 |
+
+**`POST /trades`** and **`POST /trades/:id/counter`**
+
+| Field | Rule |
+|---|---|
+| `recipientId` | required on propose; absent on counter — the recipient is fixed by the trade being countered |
+| `offered` / `requested` | up to 20 lines each, `{ cardId, quantity }`, quantity 1–100; a card at most once per side, never on both |
+| `currencyFromInitiator` / `currencyFromRecipient` | integer, 0–1,000,000, default 0 |
+
+All four collections default empty; a trade with nothing in any of them is 400 "A trade must move at least one card or coin".
+
+**A trade locks exactly what its initiator offered.** Proposing raises `lockedQuantity` on those copies in the same transaction that creates the trade; every way out of `PENDING` lowers it in the transaction that changes the status; accepting consumes it with the copies it guarded. The recipient's cards are not reserved and not checked at proposal — an inventory is private, and a refusal would disclose it — so settlement checks them. The invariant and its reconciliation query are in [DataModel.md](DataModel.md) (Trade).
+
+**Every transition is one guarded update.** `UPDATE … WHERE status = 'PENDING'` takes the trade's row lock, so simultaneous accepts, declines, cancels, counters and voids of one trade resolve to exactly one; the others answer 409 `TRADE_NOT_PENDING`.
+
+**Settlement is one transaction:** the guarded update, then coins — both user rows locked in id order, the payer debited only if they still have it (402 otherwise), one `TRADE` ledger row per user — then cards, every row in `(userId, cardId)` order, rows it empties deleted. Any failure leaves the trade `PENDING` and every balance and row as it was. Both users' inventory summaries are invalidated after commit.
+
+**Counters** close the original as `COUNTERED` and create the new trade with the roles swapped in one transaction: the original initiator's locks are released and the counter's taken, ordered by user id. A negotiation stops at 10 trades.
+
+**Wrong party, wrong role.** A trade you are not a party to is 404 `Trade not found`, like one that does not exist. A party using the other party's route gets 403.
+
+**Notifications** are written after the transaction commits — one per recipient per transition — and a failure to write one is logged without affecting the trade.
+
+**Measured, 2026-09-28**, through HTTP with the database checked after every scenario:
+
+- a proposal: 201, one lock, one `trade.propose` audit row, one notification to the recipient; the same copy offered again → 409 `CARDS_UNAVAILABLE`; a proposal whose second card was not held → 409 and no lock on the first
+- self, unknown user, unknown card, empty trade, coins beyond the balance, signed out → 400, 404, 400, 400, 402, 401, nothing written
+- a trigger failing every notification insert: the proposal still 201 and committed, the failure logged
+- 31 proposals in a minute: 30 answered, the 31st 429
+- decline, cancel and an admin void each released exactly the proposal's lock, wrote one audit row with `from`/`to` (the void with its reason) and notified the counterparty (both for a void); a repeat → 409; voiding the seed's `ACCEPTED` trade → 409 and nothing changed
+- five declines and five cancels of one trade at once: one 200, nine 409, one terminal status, one audit row
+- an accept with cards and coins both ways: the initiator's emptied row deleted, `-70`/`+70` ledger rows, both summary cache keys gone; a coins-only side; a receive into a row with a lock kept the lock
+- the recipient lacking a requested card, or holding it only locked: 409, database byte-identical; the payer short of coins: 402, byte-identical
+- five accepts and five declines at once: one 200, nine 409; cards and coins conserved
+- a pack open and an accept by the same user at once, five times: ten 200s, no deadlock in the log
+- a trigger failing the ledger insert: 500 and the database byte-identical; the same accept after dropping it: 200
+- a counter: roles swapped, original `COUNTERED`, the initiator's lock gone and the counter's taken; a chain of 10 refused an 11th with 409 `COUNTER_LIMIT`, byte-identical; a counter offering cards not held → 409, the original still `PENDING`
+- after every scenario: cards per card and total coins unchanged, every balance equal to its ledger, the lock reconciliation empty, nothing negative
 
 ## Prices
 
