@@ -76,7 +76,10 @@ export const DeckEntrySchema = DeckCardSchema.pick({ cardId: true, count: true }
 });
 export type DeckEntry = z.infer<typeof DeckEntrySchema>;
 
-export const DeckDetailSchema = DeckSchema.extend({ cards: z.array(DeckEntrySchema) });
+export const DeckDetailSchema = DeckSchema.extend({
+  ownerDisplayName: z.string(),
+  cards: z.array(DeckEntrySchema),
+});
 export type DeckDetail = z.infer<typeof DeckDetailSchema>;
 
 /** `cardCount` is the sum of copies, not the number of distinct cards. */
@@ -90,3 +93,27 @@ export type DeckListQuery = z.infer<typeof DeckListQuerySchema>;
 
 export const DeckPageSchema = pageOf(DeckSummarySchema);
 export type DeckPage = z.infer<typeof DeckPageSchema>;
+
+/** One bar or slice, in the `{ name, value }` rows Recharts reads as they are. */
+export const ChartDatumSchema = z.object({
+  name: z.string(),
+  value: z.number().int().min(0),
+});
+export type ChartDatum = z.infer<typeof ChartDatumSchema>;
+
+export const DECK_SUPERTYPES = ['Pokémon', 'Trainer', 'Energy'] as const;
+
+/**
+ * Every value counts copies. `supertypes` always holds the three supertypes in
+ * that order, zeros included; `types` and `rarities` hold only what the deck
+ * has, largest first. A dual-type Pokémon counts once under each type, so
+ * `types` can sum past the Pokémon count.
+ */
+export const DeckStatsSchema = z.object({
+  totalCards: z.number().int().min(0),
+  energyCount: z.number().int().min(0),
+  supertypes: z.array(ChartDatumSchema),
+  types: z.array(ChartDatumSchema),
+  rarities: z.array(ChartDatumSchema),
+});
+export type DeckStats = z.infer<typeof DeckStatsSchema>;
