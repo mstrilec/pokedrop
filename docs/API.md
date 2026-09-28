@@ -422,7 +422,7 @@ An inactive template answers 404 rather than 403: members cannot see inactive te
 | GET | `/decks/:id/stats` | public | Chart data for a deck the caller can see |
 | PATCH / DELETE | `/decks/:id` | member (owner) | Edit / delete |
 | POST | `/decks/:id/clone` | member | Copy a visible deck into a private one the caller owns |
-| POST | `/decks/:id/validate` | member | Legality check |
+| POST | `/decks/:id/validate` | member (owner) | The deck's validation verdict; writes nothing |
 
 **`POST /decks`** and **`PATCH /decks/:id`**
 
@@ -431,13 +431,14 @@ An inactive template answers 404 rather than 403: members cannot see inactive te
 | `name` | 1–64 chars after trimming |
 | `format` | `standard` · `expanded` · `unlimited` — the keys of a card's `legalities` |
 | `isPublic` | boolean; `false` on create when absent |
+| `ownedOnly` | boolean; `false` on create when absent — see *Validation* |
 | `cards` | up to 100 `{ cardId, count }`, `count` 1–100, each `cardId` once; `[]` on create when absent |
 
-A PATCH takes any non-empty subset. **`cards` replaces the whole decklist** — the builder saves its draft, not a diff. The bounds are request limits, not deck rules: deck size, the four-copy limit and format legality belong to `/decks/:id/validate`, so an unfinished deck can be saved. An unknown `cardId` is a 400 naming it, and nothing is written; unknown fields are a 400.
+A PATCH takes any non-empty subset. **`cards` replaces the whole decklist** — the builder saves its draft, not a diff. The bounds are request limits, not deck rules: deck size, the four-copy limit and format legality belong to the validation engine, which reports on every save rather than refusing it — see *Validation* — so an unfinished deck can be saved. An unknown `cardId` is a 400 naming it, and nothing is written; unknown fields are a 400.
 
 ```json
 {
-  "id": "cmul1g1xo…", "userId": "riaTB3…", "name": "Fire", "format": "unlimited", "isPublic": false,
+  "id": "cmul1g1xo…", "userId": "riaTB3…", "name": "Fire", "format": "unlimited", "isPublic": false, "ownedOnly": false,
   "cards": [
     { "cardId": "base1-4", "count": 2, "card": { "id": "base1-4", "name": "Charizard", "supertype": "Pokémon", "…": "…" } }
   ],
@@ -506,6 +507,56 @@ Every value counts copies. Each series is `{ name, value }` rows — Recharts' `
 - the public deck's detail signed out: `ownerDisplayName` present; no `@example.com` in it or in the shelf
 - the shelf signed out and as its owner: the same two public decks, `cardCount` 20 and 0, the private one absent; `pageSize=1&page=2`: the second; a user whose only deck is a private clone: empty; an unknown user: 404; `pageSize=500`: 400
 - the public deck turned private: gone from the shelf and its stats 404 on the next request, still in its owner's `GET /decks`
+
+### Validation
+
+**`POST /decks/:id/validate`** takes no body and answers 200 with the verdict on the deck as saved. The same verdict rides on every save: `POST /decks`, `PATCH /decks/:id` and `POST /decks/:id/clone` return the deck plus `validation`, computed inside the save's transaction. **A save never fails on a deck rule** — an unfinished deck is a normal state of a builder — and validity is never stored, so nothing can claim a deck is valid after it stopped being so.
+
+```json
+{
+  "valid": false, "format": "unlimited", "ownedOnly": false,
+  "deckSize": { "expected": 60, "actual": 5 },
+  "rules": [
+    { "rule": "DECK_SIZE", "ok": false, "errors": 1, "warnings": 0 },
+    { "rule": "COPY_LIMIT", "ok": false, "errors": 1, "warnings": 0 },
+    { "rule": "FORMAT_LEGALITY", "ok": true, "errors": 0, "warnings": 0 },
+    { "rule": "OWNERSHIP", "ok": true, "errors": 0, "warnings": 1 }
+  ],
+  "issues": [
+    { "severity": "error", "rule": "DECK_SIZE", "code": "DECK_SIZE_MISMATCH", "cardIds": [], "params": { "expected": 60, "actual": 5 }, "message": "The deck has 5 cards; it needs exactly 60" },
+    { "severity": "error", "rule": "COPY_LIMIT", "code": "COPY_LIMIT_EXCEEDED", "cardIds": ["base1-4"], "params": { "name": "Charizard", "count": 5, "max": 4 }, "message": "Charizard has 5 copies; at most 4 are allowed" },
+    { "severity": "warning", "rule": "OWNERSHIP", "code": "CARD_NOT_OWNED", "cardIds": ["base1-4"], "params": { "name": "Charizard", "needed": 5, "available": 0 }, "message": "Charizard (base1-4) needs 5 copies; 0 available" }
+  ]
+}
+```
+
+`rules` is always the four rules in this order — the builder's checklist; a warning never fails a rule. `issues` are sorted by rule, then first `cardId`, then `code`. **Clients branch on `code` and read `params`**; `message` is an English fallback and may be reworded. `cardIds` names the decklist rows an issue is about; `[]` means the whole deck.
+
+| `code` | Severity | Raised when |
+| --- | --- | --- |
+| `DECK_SIZE_MISMATCH` | error | total copies ≠ `DECK_SIZE` (env, default 60) |
+| `COPY_LIMIT_EXCEEDED` | error | more than 4 copies share a card **name**, across printings; basic energy exempt |
+| `CARD_BANNED` | error | the card's `legalities[format]` is `Banned` |
+| `CARD_NOT_LEGAL` | error | it is present and neither `Legal` nor `Banned` — `params.status` says what |
+| `CARD_LEGALITY_UNKNOWN` | warning | the card records no legality for the format — every such card today is from a set released 2026-09-16 |
+| `CARD_NOT_OWNED` | error when `ownedOnly`, else warning | the deck holds more copies than the owner has available |
+
+**Basic energy is `supertype = Energy` with the `Basic` subtype**, and it is set aside before copies are counted by name — `Metal Energy` names both a basic and a special card, and only the special one is limited. **Available copies are `quantity − lockedQuantity`**: copies promised to a pending trade do not count, and a card the owner does not hold has 0. A deck never reserves copies itself; two decks may use the same cards.
+
+**The verdict is the owner's only.** It states how many copies of each card the owner has, which is their private inventory. `validate` refuses anyone else like `PATCH` does — 404 for a private deck, 403 for a public one, 401 signed out — and no public or list response carries `validation`.
+
+**`ownedOnly`** is the deck's mode — theorycrafting when false, strict when true. Toggling it changes one column; the decklist is not touched, and the verdict on the next save or validate reflects the new mode. A clone keeps its source's mode and is judged against the cloner's copies.
+
+**Measured, 2026-09-28**, the engine directly and then through HTTP with the database checked after each step:
+
+- the engine, called directly: 5 × Charizard → `COPY_LIMIT_EXCEEDED`; 5 × a basic energy → none; 5 × Double Colorless Energy → one; 4 + 1 Pikachu from two sets → one issue naming both printings; 10 basic + 4 special `Metal Energy` → none, 10 + 5 → one on the special card; an empty deck → only `DECK_SIZE_MISMATCH`, four `rules` rows; the same cards in reverse order → a byte-identical result
+- through HTTP, every save answered 200/201 with the rows written and a `validation` in the body, including decks breaking each rule; the same five cases as above gave the same issues
+- 60 copies → `DECK_SIZE` ok; 59 → `DECK_SIZE_MISMATCH` with `actual` 59
+- in `expanded`, Archeops → `CARD_BANNED`; in `standard`, Erika's Oddish → `CARD_NOT_LEGAL` with `status` `Not Legal` and the rule failed, and a `me55` card → `CARD_LEGALITY_UNKNOWN` as a warning
+- an owner holding 2 Charizard with 1 locked, deck of 2: `CARD_NOT_OWNED` with `available` 1, a warning; a card not held at all: `available` 0; after `PATCH {ownedOnly: true}` both errors and `valid: false`, `deck_cards` hashed identical before and after
+- a save's `validation` and an immediate `POST /validate`: identical; two `POST /validate` in a row: byte-identical, and `decks`, `deck_cards` and `inventory_items` hashed identical before and after
+- another member validating a private deck: 404, a public one: 403; signed out: 401; `GET /decks/:id` (owner, stranger, signed out), the public shelf and `GET /decks` carry no `validation`
+- another member cloning that strict public deck: 201, `ownedOnly` true, `CARD_NOT_OWNED` computed from the cloner's copies (`available` 0 where the source's owner had 1); no error in the API log across the run
 
 ## Trades
 

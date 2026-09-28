@@ -104,8 +104,10 @@ One row per execution of a background sync. Redis and BullMQ job state were both
 `seed` is the hex of the 32-byte generator seed — null only for openings before PD-57; it reproduces a pack while the card pool is unchanged.
 
 ### Deck
-`id, userId, name, format, isPublic, createdAt`
+`id, userId, name, format, isPublic, ownedOnly, createdAt`
 → many `DeckCard`.
+
+`ownedOnly` is the deck's mode: when true, validation treats a card beyond the owner's available copies as an error rather than a warning. It is read by the validation engine and nothing else; changing it never touches the decklist. Validity itself is never stored — it depends on inventory and on legalities a sync can change, so a stored verdict would go stale.
 
 ### DeckCard
 `id, deckId, cardId, count`
