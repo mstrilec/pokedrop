@@ -120,3 +120,62 @@ export const DeckStatsSchema = z.object({
   rarities: z.array(ChartDatumSchema),
 });
 export type DeckStats = z.infer<typeof DeckStatsSchema>;
+
+export const DECK_MAX_COPIES = 4;
+
+export const DECK_RULES = ['DECK_SIZE', 'COPY_LIMIT', 'FORMAT_LEGALITY', 'OWNERSHIP'] as const;
+export const DeckRuleSchema = z.enum(DECK_RULES);
+export type DeckRule = z.infer<typeof DeckRuleSchema>;
+
+export const DECK_ISSUE_CODES = [
+  'DECK_SIZE_MISMATCH',
+  'COPY_LIMIT_EXCEEDED',
+  'CARD_BANNED',
+  'CARD_NOT_LEGAL',
+  'CARD_LEGALITY_UNKNOWN',
+  'CARD_NOT_OWNED',
+] as const;
+export const DeckIssueCodeSchema = z.enum(DECK_ISSUE_CODES);
+export type DeckIssueCode = z.infer<typeof DeckIssueCodeSchema>;
+
+/**
+ * `code` and `params` are the localisable part; `message` is an English
+ * fallback and may be reworded. `cardIds` addresses the decklist rows the
+ * issue is about; `[]` means the whole deck.
+ */
+export const DeckIssueSchema = z.object({
+  severity: z.enum(['error', 'warning']),
+  rule: DeckRuleSchema,
+  code: DeckIssueCodeSchema,
+  cardIds: z.array(CardIdSchema),
+  params: z.record(z.string(), z.union([z.string(), z.number()])),
+  message: z.string(),
+});
+export type DeckIssue = z.infer<typeof DeckIssueSchema>;
+
+/** One row per rule, always in `DECK_RULES` order; a warning never fails a rule. */
+export const DeckRuleResultSchema = z.object({
+  rule: DeckRuleSchema,
+  ok: z.boolean(),
+  errors: z.number().int().min(0),
+  warnings: z.number().int().min(0),
+});
+export type DeckRuleResult = z.infer<typeof DeckRuleResultSchema>;
+
+export const DeckValidationSchema = z.object({
+  valid: z.boolean(),
+  format: z.string(),
+  ownedOnly: z.boolean(),
+  deckSize: z.object({
+    expected: z.number().int().min(1),
+    actual: z.number().int().min(0),
+  }),
+  rules: z.array(DeckRuleResultSchema),
+  issues: z.array(DeckIssueSchema),
+});
+export type DeckValidation = z.infer<typeof DeckValidationSchema>;
+
+export const DeckSaveResultSchema = DeckDetailSchema.extend({
+  validation: DeckValidationSchema,
+});
+export type DeckSaveResult = z.infer<typeof DeckSaveResultSchema>;

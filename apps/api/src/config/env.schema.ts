@@ -77,6 +77,8 @@ export const EnvSchema = z
     THROTTLE_MODERATE_LIMIT: z.coerce.number().int().min(1).default(30),
     THROTTLE_MODERATE_WINDOW: z.coerce.number().int().min(1).default(60),
 
+    DECK_SIZE: z.coerce.number().int().min(1).max(100).default(60),
+
     MAIL_SMTP_URL: z.string().min(1).default('smtp://localhost:1025'),
 
     MAIL_FROM: z.string().min(1).default('PokeDrop <no-reply@pokedrop.local>'),

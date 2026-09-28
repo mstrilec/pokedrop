@@ -37,6 +37,9 @@ export function buildAppConfig(env: Env) {
         inventorySummary: 300,
       },
     },
+    decks: {
+      size: env.DECK_SIZE,
+    },
     auth: {
       secret: env.AUTH_SECRET,
       baseUrl: env.AUTH_BASE_URL,
