@@ -126,7 +126,7 @@ The endpoint that *requests* a reset email does not exist yet — it appears onc
 | GET | `/users/me` | member | Own profile + currency |
 | PATCH | `/users/me` | member | Edit profile / privacy toggles |
 | GET | `/users/:id` | public | Public profile |
-| GET | `/users/:id/decks` | public | Public decks |
+| GET | `/users/:id/decks` | public | That user's public decks, page-paged — see [Decks](#decks) |
 | POST | `/admin/users/:id/currency` | admin | Grant/adjust currency |
 | PATCH | `/admin/users/:id/role` | admin | Promote/demote |
 
@@ -419,6 +419,7 @@ An inactive template answers 404 rather than 403: members cannot see inactive te
 |---|---|---|---|
 | GET / POST | `/decks` | member | The caller's decks, page-paged / create |
 | GET | `/decks/:id` | public | A public deck, or the caller's own; anything else is 404 |
+| GET | `/decks/:id/stats` | public | Chart data for a deck the caller can see |
 | PATCH / DELETE | `/decks/:id` | member (owner) | Edit / delete |
 | POST | `/decks/:id/clone` | member | Copy a visible deck into a private one the caller owns |
 | POST | `/decks/:id/validate` | member | Legality check |
@@ -440,11 +441,12 @@ A PATCH takes any non-empty subset. **`cards` replaces the whole decklist** — 
   "cards": [
     { "cardId": "base1-4", "count": 2, "card": { "id": "base1-4", "name": "Charizard", "supertype": "Pokémon", "…": "…" } }
   ],
+  "ownerDisplayName": "Ash",
   "createdAt": "2026-09-28T09:21:38.508Z", "updatedAt": "2026-09-28T09:21:38.508Z"
 }
 ```
 
-`card` is the inventory's slim projection, so the builder renders a decklist without a request per card. Entries are ordered by `cardId`. `GET /decks` returns `pageOf` summaries: the same fields without `cards`, plus `cardCount` — the sum of copies, not distinct cards — newest `updatedAt` first.
+`ownerDisplayName` is there for the shareable page; with `userId` it is all a deck says about its owner — never their email. `card` is the inventory's slim projection, so the builder renders a decklist without a request per card. Entries are ordered by `cardId`. `GET /decks` returns `pageOf` summaries: the same fields without `cards`, plus `cardCount` — the sum of copies, not distinct cards — newest `updatedAt` first.
 
 **A private deck is indistinguishable from a missing one.** A read, edit or delete of a private deck by anyone but its owner — signed in or not — gets the same 404 as an id that never existed. A public deck exists for anyone to see, so a stranger's edit or delete of it is an honest 403 from `assertOwner`. `GET /decks/:id` is `@Public()` because the shareable deck page renders signed out.
 
@@ -468,7 +470,7 @@ A PATCH takes any non-empty subset. **`cards` replaces the whole decklist** — 
 
 **The decklist is one INSERT.** The copy is a single `deck.create` whose cards are a nested `createMany`, so a 60-card deck costs one `decks` insert and one multi-row `deck_cards` insert, not a row per card.
 
-**Visibility is `isPublic` on `PATCH /decks/:id`.** Nothing caches a deck, so turning it private takes effect on the next request: the public read, a stranger's clone and — once PD-67 lists them — the owner's public profile all stop seeing it at once. Copies already taken stay with whoever took them.
+**Visibility is `isPublic` on `PATCH /decks/:id`.** Nothing caches a deck, so turning it private takes effect on the next request: the public read, its stats, a stranger's clone and the owner's public shelf (`GET /users/:id/decks`) all stop seeing it at once. Copies already taken stay with whoever took them.
 
 **Measured, 2026-09-28**, through HTTP with Prisma's query log on:
 
@@ -476,6 +478,34 @@ A PATCH takes any non-empty subset. **`cards` replaces the whole decklist** — 
 - another member cloning a private deck, and a missing id: identical 404s; signed out: 401
 - the owner cloning their own private deck with a 63-character name: 201, private, a 64-character name ending ` (copy)`
 - the source turned private: its public read by the other member and signed out, and a second clone, each 404 at once; the earlier copy still 200 for its new owner
+
+**`GET /decks/:id/stats`** — the numbers behind the builder's charts, for any deck `GET /decks/:id` would show, under the same 404 rule.
+
+```json
+{
+  "totalCards": 20, "energyCount": 10,
+  "supertypes": [{ "name": "Pokémon", "value": 6 }, { "name": "Trainer", "value": 4 }, { "name": "Energy", "value": 10 }],
+  "types": [{ "name": "Lightning", "value": 5 }, { "name": "Metal", "value": 2 }, { "name": "Fire", "value": 1 }],
+  "rarities": [{ "name": "Common", "value": 13 }, { "name": "Unknown", "value": 4 }, { "name": "Rare Holo", "value": 3 }]
+}
+```
+
+Every value counts copies. Each series is `{ name, value }` rows — Recharts' `data` as it arrives, with `dataKey="value"` and `nameKey="name"`. `supertypes` always has the three supertypes in that order, zeros included, so a chart keeps its bars in place as a deck fills; `types` and `rarities` hold only what the deck has, largest first, ties by name. `types` is the Pokémon's types — energy cards carry none in the mirror (381 of 394) — and a dual-type Pokémon counts once under each, so it can sum past the Pokémon count. A card with no rarity (303 in the mirror) is `Unknown`.
+
+**One query over the decklist, whatever its length.** After the visibility check, the deck's cards are read in a single `deck_cards ⋈ cards` query and tallied in code; no card is fetched on its own.
+
+**`GET /users/:id/decks`** — a user's public decks, as `pageOf` summaries with the same `page`/`pageSize` as `GET /decks`, newest `updatedAt` first. It is the public shelf, so the owner asking sees exactly what a stranger does; their private decks are `GET /decks`. An unknown user is a 404 `User not found`; a user without public decks is an empty page. It lives in `DecksModule` because it is a deck query — the users module (M9) owns the profile, not its decks.
+
+**A private deck is in no public response.** `GET /decks/:id`, `/decks/:id/stats` and `/users/:id/decks` read `isPublic` from the row on every request; nothing is cached, so a deck turned private leaves all three at once.
+
+**Measured, 2026-09-28**, through HTTP with Prisma's query log on:
+
+- a public deck of 2 × a Lightning/Metal Pokémon, 4 × a Trainer with no rarity, 10 × a basic energy, 1 × Charizard and 3 × a Lightning Pokémon, read signed out: the response above, `totalCards` and `energyCount` matching a hand-written SQL sum; the log showed one `decks` read for visibility and one `deck_cards` query for the stats
+- an empty public deck: zeros, the three supertypes present, empty `types` and `rarities`
+- a private deck's stats signed out, by another member, and a missing id: identical 404s; by its owner: 200
+- the public deck's detail signed out: `ownerDisplayName` present; no `@example.com` in it or in the shelf
+- the shelf signed out and as its owner: the same two public decks, `cardCount` 20 and 0, the private one absent; `pageSize=1&page=2`: the second; a user whose only deck is a private clone: empty; an unknown user: 404; `pageSize=500`: 400
+- the public deck turned private: gone from the shelf and its stats 404 on the next request, still in its owner's `GET /decks`
 
 ## Trades
 
