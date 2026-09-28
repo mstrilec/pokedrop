@@ -188,7 +188,7 @@ DeckSaveResultSchema = DeckDetailSchema.extend({ validation: DeckValidationSchem
 | Unit | Does | Depends on |
 | --- | --- | --- |
 | `decks/deck-validator.ts` | `validateDeck(input): DeckValidation` — pure. The four rule functions, the sort, the `rules` rows, the messages | `@pokedrop/shared` only |
-| `decks/deck-validation.service.ts` | `DeckValidationService.validate(deckId, client)` — one query for the deck and its cards (`name`, `supertype`, `subtypes`, `legalities`, `count`), `availableQuantities` for the owner, `DECK_SIZE` from config; hands them to `validateDeck` | Prisma, `InventoryService`, `APP_CONFIG` |
+| `decks/deck-validation.service.ts` | `DeckValidationService.validate(deckId, client)` — one Prisma read of the deck with its cards, never a read per card (`name`, `supertype`, `subtypes`, `legalities`, `count`), `availableQuantities` for the owner, `DECK_SIZE` from config; hands them to `validateDeck` | Prisma, `InventoryService`, `APP_CONFIG` |
 | `decks/decks.service.ts` | `create`, `update`, `clone` call `validate(id, tx)` after their writes, inside their transaction, and return `DeckSaveResult`. `clone` moves into a transaction for this. New `validate(user, id)` with PATCH's 404/403 rule | the above |
 | `decks/decks.controller.ts` | `POST /decks/:id/validate` → 200 | — |
 | `decks/decks.module.ts` | imports `InventoryModule` (already exports `InventoryService`) | — |
