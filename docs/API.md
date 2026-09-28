@@ -535,13 +535,15 @@ Every value counts copies. Each series is `{ name, value }` rows — Recharts' `
 | `code` | Severity | Raised when |
 | --- | --- | --- |
 | `DECK_SIZE_MISMATCH` | error | total copies ≠ `DECK_SIZE` (env, default 60) |
-| `COPY_LIMIT_EXCEEDED` | error | more than 4 copies share a card **name**, across printings; basic energy exempt |
+| `COPY_LIMIT_EXCEEDED` | error | more than 4 copies share a card **name**, across printings; basic energy exempt; a trailing subtitle and letter case do not make a new name |
 | `CARD_BANNED` | error | the card's `legalities[format]` is `Banned` |
 | `CARD_NOT_LEGAL` | error | it is present and neither `Legal` nor `Banned` — `params.status` says what |
 | `CARD_LEGALITY_UNKNOWN` | warning | the card records no legality for the format — every such card today is from a set released 2026-09-16 |
 | `CARD_NOT_OWNED` | error when `ownedOnly`, else warning | the deck holds more copies than the owner has available |
 
 **Basic energy is `supertype = Energy` with the `Basic` subtype**, and it is set aside before copies are counted by name — `Metal Energy` names both a basic and a special card, and only the special one is limited. **Available copies are `quantity − lockedQuantity`**: copies promised to a pending trade do not count, and a card the owner does not hold has 0. A deck never reserves copies itself; two decks may use the same cards.
+
+**A name is compared without its subtitle and without case.** The mirror prints a subtitle into some names — `Professor's Research (Professor Turo)`, `Boss's Orders (Ghetsis)` — and spells `Ho-Oh` as `Ho-oh` on four cards. Under the game's rules those are one name each, so they share one limit; `params.name` is the name without the subtitle. Those are the only three such groups in the mirror, all found by grouping on the normalised name.
 
 **The verdict is the owner's only.** It states how many copies of each card the owner has, which is their private inventory. `validate` refuses anyone else like `PATCH` does — 404 for a private deck, 403 for a public one, 401 signed out — and no public or list response carries `validation`.
 
@@ -556,6 +558,7 @@ Every value counts copies. Each series is `{ name, value }` rows — Recharts' `
 - an owner holding 2 Charizard with 1 locked, deck of 2: `CARD_NOT_OWNED` with `available` 1, a warning; a card not held at all: `available` 0; after `PATCH {ownedOnly: true}` both errors and `valid: false`, `deck_cards` hashed identical before and after
 - a save's `validation` and an immediate `POST /validate`: identical; two `POST /validate` in a row: byte-identical, and `decks`, `deck_cards` and `inventory_items` hashed identical before and after
 - another member validating a private deck: 404, a public one: 403; signed out: 401; `GET /decks/:id` (owner, stranger, signed out), the public shelf and `GET /decks` carry no `validation`
+- 4 × `Professor's Research` (`pgo-78`) + 4 × `Professor's Research (Professor Turo)` (`sv1-190`) in a 60-card `standard` deck: one `COPY_LIMIT_EXCEEDED` naming both printings, `name` `Professor's Research`, `count` 8 — found by the final review, before the fix it passed as valid
 - another member cloning that strict public deck: 201, `ownedOnly` true, `CARD_NOT_OWNED` computed from the cloner's copies (`available` 0 where the source's owner had 1); no error in the API log across the run
 
 ## Trades

@@ -88,11 +88,13 @@ function copyLimit(cards: ValidationCard[]): Issue[] {
     if (isBasicEnergy(card)) {
       continue;
     }
-    byName.set(card.name, [...(byName.get(card.name) ?? []), card]);
+    const key = baseName(card.name).toLowerCase();
+    byName.set(key, [...(byName.get(key) ?? []), card]);
   }
 
   const issues: Issue[] = [];
-  for (const [name, printings] of byName) {
+  for (const printings of byName.values()) {
+    const name = baseName(printings[0]?.name ?? '');
     const count = printings.reduce((sum, card) => sum + card.count, 0);
     if (count > DECK_MAX_COPIES) {
       issues.push({
@@ -163,6 +165,15 @@ function ownership(
     }
   }
   return issues;
+}
+
+/**
+ * The mirror prints a card's subtitle into its name - "Professor's Research
+ * (Professor Turo)", "Boss's Orders (Ghetsis)" - and spells "Ho-Oh" two ways.
+ * The copy limit counts the name without either difference.
+ */
+function baseName(name: string): string {
+  return name.replace(/ \([^)]*\)$/, '');
 }
 
 function isBasicEnergy(card: ValidationCard): boolean {
