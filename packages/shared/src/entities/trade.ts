@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { TradeItemSideSchema, TradeStatusSchema } from '../enums.js';
 import { CardIdSchema, TradeIdSchema, TradeItemIdSchema, UserIdSchema } from '../primitives/id.js';
+import { PaginationQuerySchema, cursorPageOf } from '../primitives/pagination.js';
+import { InventoryCardSchema } from './inventory.js';
 
 export const TradeItemSchema = z.object({
   id: TradeItemIdSchema,
@@ -104,3 +106,68 @@ export const TRADE_NOTIFICATION_TYPES = [
   'trade.expired',
 ] as const;
 export type TradeNotificationType = (typeof TRADE_NOTIFICATION_TYPES)[number];
+
+export const TRADE_TABS = ['all', 'incoming', 'sent', 'completed'] as const;
+export const TradeTabSchema = z.enum(TRADE_TABS);
+export type TradeTab = z.infer<typeof TradeTabSchema>;
+
+export const TradeInboxQuerySchema = z.object({
+  tab: TradeTabSchema.default('all'),
+  cursor: z.string().min(1).max(512).optional(),
+  pageSize: PaginationQuerySchema.shape.pageSize,
+});
+export type TradeInboxQuery = z.infer<typeof TradeInboxQuerySchema>;
+
+export const TradePartySchema = z.object({
+  id: UserIdSchema,
+  displayName: z.string(),
+  avatarUrl: z.string().nullable(),
+});
+export type TradeParty = z.infer<typeof TradePartySchema>;
+
+export const TradeViewItemSchema = TradeItemSchema.omit({ tradeId: true }).extend({
+  card: InventoryCardSchema,
+});
+export type TradeViewItem = z.infer<typeof TradeViewItemSchema>;
+
+/** `role` is the caller's side of the trade; null when an admin reads it. */
+export const TradeViewSchema = TradeSchema.omit({
+  initiatorId: true,
+  recipientId: true,
+  items: true,
+}).extend({
+  initiator: TradePartySchema,
+  recipient: TradePartySchema,
+  role: z.enum(['initiator', 'recipient']).nullable(),
+  items: z.array(TradeViewItemSchema),
+});
+export type TradeView = z.infer<typeof TradeViewSchema>;
+
+export const TradePageSchema = cursorPageOf(TradeViewSchema);
+export type TradePage = z.infer<typeof TradePageSchema>;
+
+/** Who acted, as a side of the trade rather than a user id. */
+export const TRADE_ACTORS = ['initiator', 'recipient', 'admin', 'system'] as const;
+
+export const TradeTimelineEntrySchema = z.object({
+  action: z.string(),
+  status: TradeStatusSchema,
+  at: z.coerce.date(),
+  by: z.enum(TRADE_ACTORS),
+});
+export type TradeTimelineEntry = z.infer<typeof TradeTimelineEntrySchema>;
+
+export const TradeChainEntrySchema = z.object({
+  id: TradeIdSchema,
+  status: TradeStatusSchema,
+  createdAt: z.coerce.date(),
+  resolvedAt: z.coerce.date().nullable(),
+});
+export type TradeChainEntry = z.infer<typeof TradeChainEntrySchema>;
+
+/** `chain` runs oldest first and includes this trade. */
+export const TradeDetailSchema = TradeViewSchema.extend({
+  timeline: z.array(TradeTimelineEntrySchema),
+  chain: z.array(TradeChainEntrySchema),
+});
+export type TradeDetail = z.infer<typeof TradeDetailSchema>;
