@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import {
+  DECK_NAME_MAX,
   DeckDetailSchema,
   DeckPageSchema,
   type CreateDeck,
@@ -32,6 +33,8 @@ const DETAIL_SELECT = {
 type DetailRow = Prisma.DeckGetPayload<{ select: typeof DETAIL_SELECT }>;
 
 type Visibility = { userId: string; isPublic: boolean };
+
+const COPY_SUFFIX = ' (copy)';
 
 @Injectable()
 export class DecksService {
@@ -128,6 +131,38 @@ export class DecksService {
     });
   }
 
+  /**
+   * Any deck the caller can see, so a stranger's public deck too. The copy is
+   * private and asks nothing of the caller's inventory: owning its cards is
+   * the validator's question, not the clone's.
+   */
+  async clone(user: AuthUser, id: string): Promise<DeckDetail> {
+    const source = await this.prisma.deck.findUnique({
+      where: { id },
+      select: {
+        userId: true,
+        isPublic: true,
+        name: true,
+        format: true,
+        cards: { select: { cardId: true, count: true } },
+      },
+    });
+    assertVisible(source, user);
+
+    const row = await this.prisma.deck.create({
+      data: {
+        userId: user.id,
+        name: copyName(source.name),
+        format: source.format,
+        isPublic: false,
+        cards: { createMany: { data: source.cards } },
+      },
+      select: DETAIL_SELECT,
+    });
+
+    return toDetail(row);
+  }
+
   async remove(user: AuthUser, id: string): Promise<void> {
     const deck = await this.prisma.deck.findUnique({
       where: { id },
@@ -166,6 +201,10 @@ async function assertCardsExist(tx: TransactionClient, cards: DeckCardInput[]): 
   if (unknown.length > 0) {
     throw new BadRequestException(`Unknown card: ${unknown.join(', ')}`);
   }
+}
+
+function copyName(name: string): string {
+  return `${name.slice(0, DECK_NAME_MAX - COPY_SUFFIX.length).trimEnd()}${COPY_SUFFIX}`;
 }
 
 function toDetail(row: DetailRow): DeckDetail {

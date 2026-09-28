@@ -11,11 +11,13 @@ export const DeckCardSchema = z.object({
 });
 export type DeckCard = z.infer<typeof DeckCardSchema>;
 
+export const DECK_NAME_MAX = 64;
+
 /** `format` is open on the way out, like the column; inputs are held to `DeckFormatSchema`. */
 export const DeckSchema = z.object({
   id: DeckIdSchema,
   userId: UserIdSchema,
-  name: z.string().min(1).max(64),
+  name: z.string().min(1).max(DECK_NAME_MAX),
   format: z.string().min(1),
   isPublic: z.boolean(),
   cards: z.array(DeckCardSchema),
@@ -48,7 +50,7 @@ export const DeckCardsInputSchema = z
     message: 'A card may appear once; put its copies in count',
   });
 
-const DeckNameSchema = z.string().trim().min(1).max(64);
+const DeckNameSchema = z.string().trim().min(1).max(DECK_NAME_MAX);
 
 export const CreateDeckSchema = z.strictObject({
   name: DeckNameSchema,

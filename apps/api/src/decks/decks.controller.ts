@@ -49,6 +49,11 @@ export class DecksController {
     return this.decks.update(user, id, body);
   }
 
+  @Post(':id/clone')
+  clone(@CurrentUser() user: AuthUser, @Param('id') id: string): Promise<DeckDetail> {
+    return this.decks.clone(user, id);
+  }
+
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':id')
   remove(@CurrentUser() user: AuthUser, @Param('id') id: string): Promise<void> {
