@@ -420,7 +420,7 @@ An inactive template answers 404 rather than 403: members cannot see inactive te
 | GET / POST | `/decks` | member | The caller's decks, page-paged / create |
 | GET | `/decks/:id` | public | A public deck, or the caller's own; anything else is 404 |
 | PATCH / DELETE | `/decks/:id` | member (owner) | Edit / delete |
-| POST | `/decks/:id/clone` | member | Clone a deck |
+| POST | `/decks/:id/clone` | member | Copy a visible deck into a private one the caller owns |
 | POST | `/decks/:id/validate` | member | Legality check |
 
 **`POST /decks`** and **`PATCH /decks/:id`**
@@ -461,6 +461,21 @@ A PATCH takes any non-empty subset. **`cards` replaces the whole decklist** — 
 - a duplicate `cardId`, an unknown card, format `glc`, a blank name, `count` 0 and 101, a client-sent `userId`, an empty PATCH: 400 each, nothing written
 - ten simultaneous PATCHes of one deck with different decklists: ten 200s, and the deck ended holding exactly one of the ten lists whole, no mix of two and no error in the log
 - delete: 204, then 404 on repeat; the deck and its three `DeckCard` rows gone; the `cards` count, every inventory row and every other deck's rows unchanged
+
+**`POST /decks/:id/clone`** copies any deck the caller can see — their own, or anyone's public one — into a new deck the caller owns. It takes no body and answers 201 with the new deck in the shape above. The copy keeps `format` and every `{ cardId, count }`, is always private, and is named `"<name> (copy)"`, the original cut short so the result still fits 64 characters. A private deck that is not the caller's is the same 404 as a missing one, so a clone cannot probe for it either.
+
+**Cloning asks nothing of the caller's inventory.** Owning the cards is a question for `/decks/:id/validate`, in whatever mode it runs, not a precondition of the copy — a planned deck is the point of cloning someone else's.
+
+**The decklist is one INSERT.** The copy is a single `deck.create` whose cards are a nested `createMany`, so a 60-card deck costs one `decks` insert and one multi-row `deck_cards` insert, not a row per card.
+
+**Visibility is `isPublic` on `PATCH /decks/:id`.** Nothing caches a deck, so turning it private takes effect on the next request: the public read, a stranger's clone and — once PD-67 lists them — the owner's public profile all stop seeing it at once. Copies already taken stay with whoever took them.
+
+**Measured, 2026-09-28**, through HTTP with Prisma's query log on:
+
+- a member cloning another member's public deck of 15 cards × 4: 201, owned by the cloner, private, named `Sixty (copy)`; identical `(cardId, count)` list; the log showed exactly one `INSERT INTO "public"."decks"` and one `INSERT INTO "public"."deck_cards"`; the cloner owned none of the 60 cards
+- another member cloning a private deck, and a missing id: identical 404s; signed out: 401
+- the owner cloning their own private deck with a 63-character name: 201, private, a 64-character name ending ` (copy)`
+- the source turned private: its public read by the other member and signed out, and a second clone, each 404 at once; the earlier copy still 200 for its new owner
 
 ## Trades
 
