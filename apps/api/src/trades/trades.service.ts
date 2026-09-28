@@ -20,6 +20,7 @@ import { NotificationsService } from '../notifications/index.js';
 import { PrismaService } from '../prisma/index.js';
 import { TradeCloseService } from './trade-close.service.js';
 import { TRADE_SELECT, toTrade, tradeLines, type TradeRow } from './trade-row.js';
+import { TradeSettlementService } from './trade-settlement.service.js';
 
 type Terms = { offered: TradeLine[]; requested: TradeLine[]; currencyFromInitiator: number };
 
@@ -45,6 +46,7 @@ export class TradesService {
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
     private readonly closer: TradeCloseService,
+    private readonly settlement: TradeSettlementService,
   ) {}
 
   async propose(user: AuthUser, input: ProposeTrade): Promise<Trade> {
@@ -102,6 +104,28 @@ export class TradesService {
       action: 'trade.cancel',
       notify: 'trade.cancelled',
     });
+  }
+
+  async accept(user: AuthUser, id: string): Promise<Trade> {
+    const trade = await this.loadAsParty(user, id);
+    assertRole(trade, user, 'recipient');
+
+    await this.prisma.withTransaction(async (tx) => {
+      await this.closer.close(tx, trade, {
+        to: 'ACCEPTED',
+        action: 'trade.accept',
+        actorId: user.id,
+        release: false,
+      });
+      await this.settlement.settle(tx, trade);
+    });
+
+    await Promise.all([
+      this.inventory.invalidateSummary(trade.initiatorId),
+      this.inventory.invalidateSummary(trade.recipientId),
+    ]);
+    await this.notify([trade.initiatorId], 'trade.accepted', trade.id, user.id);
+    return this.read(id);
   }
 
   /** PENDING only here; an ACCEPTED trade answers TRADE_NOT_PENDING until PD-73. */

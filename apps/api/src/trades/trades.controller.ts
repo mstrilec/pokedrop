@@ -20,6 +20,12 @@ export class TradesController {
   }
 
   @HttpCode(HttpStatus.OK)
+  @Post(':id/accept')
+  accept(@CurrentUser() user: AuthUser, @Param('id') id: string): Promise<Trade> {
+    return this.trades.accept(user, id);
+  }
+
+  @HttpCode(HttpStatus.OK)
   @Post(':id/decline')
   decline(@CurrentUser() user: AuthUser, @Param('id') id: string): Promise<Trade> {
     return this.trades.decline(user, id);
