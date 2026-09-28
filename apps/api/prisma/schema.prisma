@@ -426,6 +426,10 @@ model Deck {
   /// map, which the provider extends with new formats over time.
   format    String
   isPublic  Boolean  @default(false)
+  /// Strict mode: a card beyond the owner's available copies is an error
+  /// rather than a warning. Read by the validation engine only; changing it
+  /// never touches the decklist.
+  ownedOnly Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

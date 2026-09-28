@@ -20,6 +20,7 @@ export const DeckSchema = z.object({
   name: z.string().min(1).max(DECK_NAME_MAX),
   format: z.string().min(1),
   isPublic: z.boolean(),
+  ownedOnly: z.boolean(),
   cards: z.array(DeckCardSchema),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
@@ -56,6 +57,7 @@ export const CreateDeckSchema = z.strictObject({
   name: DeckNameSchema,
   format: DeckFormatSchema,
   isPublic: z.boolean().default(false),
+  ownedOnly: z.boolean().default(false),
   cards: DeckCardsInputSchema.default([]),
 });
 export type CreateDeck = z.infer<typeof CreateDeckSchema>;
@@ -66,6 +68,7 @@ export const UpdateDeckSchema = z
     name: DeckNameSchema.optional(),
     format: DeckFormatSchema.optional(),
     isPublic: z.boolean().optional(),
+    ownedOnly: z.boolean().optional(),
     cards: DeckCardsInputSchema.optional(),
   })
   .refine((patch) => Object.keys(patch).length > 0, { message: 'Nothing to update' });
