@@ -15,7 +15,7 @@ function policy(): { limit: number; ttl: number } {
 /**
  * Overrides `default` rather than registering a `moderate` throttler: the
  * guard runs every registered throttler on every route, and a second one would
- * silently limit the health probes.
+ * silently limit the health probes. Pack opening and trade creation share it.
  */
 export const MODERATE_THROTTLE = {
   default: { limit: () => policy().limit, ttl: () => policy().ttl },
