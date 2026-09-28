@@ -26,6 +26,7 @@ import { QueueModule } from './queue/index.js';
 import { RedisModule } from './redis/index.js';
 import { SyncModule } from './sync/index.js';
 import { ThrottleModule } from './throttle/index.js';
+import { TradesModule } from './trades/index.js';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { ThrottleModule } from './throttle/index.js';
     InventoryModule,
     PacksModule,
     DecksModule,
+    TradesModule,
     HealthModule,
     QueueModule,
     SyncModule,

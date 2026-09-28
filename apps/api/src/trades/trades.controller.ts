@@ -1,0 +1,21 @@
+import { Body, Controller, Post } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import type { Trade } from '@pokedrop/shared';
+import { CurrentUser } from '../common/decorators/current-user.decorator.js';
+import type { AuthUser } from '../common/request-auth.js';
+import { MODERATE_THROTTLE } from '../common/throttle.js';
+import { ProposeTradeDto } from './trades.dto.js';
+import { TradesService } from './trades.service.js';
+
+@ApiTags('trades')
+@Controller('trades')
+export class TradesController {
+  constructor(private readonly trades: TradesService) {}
+
+  @Throttle(MODERATE_THROTTLE)
+  @Post()
+  propose(@CurrentUser() user: AuthUser, @Body() body: ProposeTradeDto): Promise<Trade> {
+    return this.trades.propose(user, body);
+  }
+}
