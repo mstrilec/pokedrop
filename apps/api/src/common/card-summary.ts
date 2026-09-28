@@ -1,8 +1,8 @@
 import type { Prisma } from '@prisma/client';
-import { toNumber } from '../common/decimal.js';
+import { toNumber } from './decimal.js';
 
-/** The slim card a reveal and a history row show - the inventory's projection. */
-export const PACK_CARD_SELECT = {
+/** The slim card a reveal, a history row and a decklist show - the inventory's projection. */
+export const CARD_SUMMARY_SELECT = {
   id: true,
   setId: true,
   name: true,
@@ -17,9 +17,9 @@ export const PACK_CARD_SELECT = {
   priceUpdatedAt: true,
 } satisfies Prisma.CardSelect;
 
-export type PackCardRow = Prisma.CardGetPayload<{ select: typeof PACK_CARD_SELECT }>;
+export type CardSummaryRow = Prisma.CardGetPayload<{ select: typeof CARD_SUMMARY_SELECT }>;
 
-export function toPackCard(row: PackCardRow): Record<string, unknown> {
+export function toCardSummary(row: CardSummaryRow): Record<string, unknown> {
   return {
     ...row,
     latestPriceUsd: toNumber(row.latestPriceUsd),

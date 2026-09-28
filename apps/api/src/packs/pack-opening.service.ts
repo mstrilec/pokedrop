@@ -11,7 +11,7 @@ import { domainError } from '../common/errors/domain-error.js';
 import { isUniqueViolation } from '../common/errors/prisma-error.js';
 import { InventoryService } from '../inventory/index.js';
 import { PrismaService, type TransactionClient } from '../prisma/index.js';
-import { PACK_CARD_SELECT, toPackCard } from './pack-card.js';
+import { CARD_SUMMARY_SELECT, toCardSummary } from '../common/card-summary.js';
 import { EmptySlotError, generatePack, type PulledCard } from './pack-generator.js';
 import { PACK_OPEN_LOCK_MS, PackOpenLock } from './pack-open.lock.js';
 import { loadPool } from './pack-pool.js';
@@ -214,7 +214,7 @@ export class PackOpeningService {
   ): Promise<PackOpenResult> {
     const rows = await this.prisma.card.findMany({
       where: { id: { in: [...new Set(placed.map((card) => card.cardId))] } },
-      select: PACK_CARD_SELECT,
+      select: CARD_SUMMARY_SELECT,
     });
     const byId = new Map(rows.map((row) => [row.id, row]));
 
@@ -228,7 +228,7 @@ export class PackOpeningService {
         const row = byId.get(card.cardId);
         return {
           ...card,
-          card: row === undefined ? undefined : toPackCard(row),
+          card: row === undefined ? undefined : toCardSummary(row),
         };
       }),
     });

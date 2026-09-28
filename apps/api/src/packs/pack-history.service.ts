@@ -7,7 +7,7 @@ import {
 } from '@pokedrop/shared';
 import { PrismaService } from '../prisma/index.js';
 import { decodeHistoryCursor, encodeHistoryCursor } from './history.cursor.js';
-import { PACK_CARD_SELECT, toPackCard } from './pack-card.js';
+import { CARD_SUMMARY_SELECT, toCardSummary } from '../common/card-summary.js';
 
 @Injectable()
 export class PackHistoryService {
@@ -50,7 +50,7 @@ export class PackHistoryService {
               position: true,
               cardId: true,
               rarity: true,
-              card: { select: PACK_CARD_SELECT },
+              card: { select: CARD_SUMMARY_SELECT },
             },
           },
         },
@@ -72,7 +72,7 @@ export class PackHistoryService {
           position: card.position,
           cardId: card.cardId,
           rarity: card.rarity,
-          card: toPackCard(card.card),
+          card: toCardSummary(card.card),
         })),
       })),
       pageSize: query.pageSize,
