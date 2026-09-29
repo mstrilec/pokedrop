@@ -86,7 +86,7 @@ export class TradesService {
       return created;
     });
 
-    await this.notify([row.recipientId], 'trade.proposed', row.id, user.id);
+    await this.notify([row.recipientId], 'trade.proposed', row.id);
     return toTrade(row);
   }
 
@@ -126,7 +126,7 @@ export class TradesService {
       this.inventory.invalidateSummary(trade.initiatorId),
       this.inventory.invalidateSummary(trade.recipientId),
     ]);
-    await this.notify([trade.initiatorId], 'trade.accepted', trade.id, user.id);
+    await this.notify([trade.initiatorId], 'trade.accepted', trade.id);
     return this.read(id);
   }
 
@@ -193,7 +193,7 @@ export class TradesService {
       return created;
     });
 
-    await this.notify([original.initiatorId], 'trade.countered', row.id, user.id);
+    await this.notify([original.initiatorId], 'trade.countered', row.id);
     return toTrade(row);
   }
 
@@ -236,7 +236,7 @@ export class TradesService {
       );
     }
 
-    await this.notify([trade.initiatorId, trade.recipientId], 'trade.voided', trade.id, admin.id);
+    await this.notify([trade.initiatorId, trade.recipientId], 'trade.voided', trade.id);
     return this.read(id);
   }
 
@@ -262,7 +262,7 @@ export class TradesService {
       }),
     );
 
-    await this.notify([counterparty(trade, user.id)], step.notify, trade.id, user.id);
+    await this.notify([counterparty(trade, user.id)], step.notify, trade.id);
     return this.read(id);
   }
 
@@ -313,14 +313,9 @@ export class TradesService {
     }
   }
 
-  private notify(
-    userIds: string[],
-    type: TradeNotificationType,
-    tradeId: string,
-    actorId: string | null,
-  ): Promise<void> {
+  private notify(userIds: string[], type: TradeNotificationType, tradeId: string): Promise<void> {
     return this.notifications.notify(
-      userIds.map((userId) => ({ userId, type, payload: { tradeId, actorId } })),
+      userIds.map((userId) => ({ userId, type, payload: { tradeId } })),
     );
   }
 }

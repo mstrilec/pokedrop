@@ -1,12 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import type { NotificationPayload, NotificationType } from '@pokedrop/shared';
 import { PrismaService } from '../prisma/index.js';
 
 export type NotificationEntry = {
-  userId: string;
-  type: string;
-  payload: Prisma.InputJsonObject;
-};
+  [T in NotificationType]: { userId: string; type: T; payload: NotificationPayload<T> };
+}[NotificationType];
 
 /**
  * Called after the triggering transaction commits, never inside it: a

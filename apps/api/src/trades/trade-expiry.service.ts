@@ -86,7 +86,7 @@ export class TradeExpiryService {
           [trade.initiatorId, trade.recipientId].map((userId) => ({
             userId,
             type: 'trade.expired',
-            payload: { tradeId: trade.id, actorId: null },
+            payload: { tradeId: trade.id },
           })),
         );
       }
