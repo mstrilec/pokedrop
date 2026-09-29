@@ -81,7 +81,7 @@ A reset of a breaker that is closed with no failures answers 200 and writes noth
 
 **Why audit first.** Redis is not in the transaction, so the two cannot be atomic; the order decides what can be left behind. A failed enqueue rolls the audit row back. A refused duplicate rolls it back. What remains:
 
-- **Accepted residual 1:** the commit fails after `add` succeeded — a job with no audit row. The window is one `COMMIT` of a one-row insert.
+- **Accepted residual 1:** the commit fails after `add` succeeded — a job with no audit row. The window is one `COMMIT` of a one-row insert. The same outcome follows when Redis fails between step 1 and `add` — see [Degradation](#degradation).
 - **Accepted residual 2:** two admins trigger catalog and prices at the same moment, both pass step 1, and both jobs are queued. The cost is contention for 30 requests a minute, which the processors' stall handling already absorbs. A Redis lock is not worth it.
 
 Both go into `docs/DataModel.md` beside the other accepted boundaries.
@@ -147,7 +147,9 @@ With Redis down, `ProviderBreakerService.isOpen()` returns false, so the selecto
 | --- | --- | --- |
 | Redis | 503 — step 1 times out | nothing |
 | Postgres | 500 — the audit insert fails first | nothing; `add` never ran |
-| Redis, between step 1 and `add` | 503 — `add` times out, the transaction rolls back | nothing |
+| Redis, between step 1 and `add` | 503 — `add` times out, the transaction rolls back | **a job with no audit row**, once Redis returns (see below) |
+
+**Measured by probe 0.2:** with Redis stopped, `getDeduplicationJobId`, `getJobCounts` and `add` each stayed pending past 5 s rather than failing, and an `add` issued while Redis was down was stored once it came back. So the timeout is load-bearing, and a trigger whose `add` is already in ioredis' offline queue when the timeout fires leaves a job with no audit row. Step 1's read times out first when Redis is down before the trigger starts, so this needs Redis to fail in the milliseconds between step 1 and `add`; it joins accepted residual 1.
 
 A 503 carries no `code`: it is not a domain error, and retrying is the only thing a client can do.
 
@@ -164,6 +166,12 @@ No automated tests in v1. Probes against the running stack — HTTP, psql, `redi
 1. `add` with a held dedup key: which `job.id` comes back.
 2. A producer `Queue` with Redis stopped: hang or fail.
 3. The `failed` event and `getState()` for a job that exhausted its attempts, and for one failed as stalled.
+
+Measured 2026-09-29, BullMQ 5.81.5:
+
+1. A second `add` under a held key stored nothing and **returned the holder's id** (`pd81-a` for a request carrying `jobId: pd81-b`). Queue defaults (`attempts`, `backoff`) survived beside `deduplication`. A job on a paused queue reported `getState() = waiting` but was counted under `paused`, not `waiting`. `getJobState` of an unknown id is `unknown`.
+2. Every call stayed pending past 5 s with Redis stopped, and a pending `add` was stored after recovery — see [Degradation](#degradation).
+3. `failed` fired on every attempt: states `delayed`, `delayed`, then `failed` with `attemptsMade 3`. The dedup key was released after the final failure. The stalled case is measured in the implementation, by killing the process mid-run.
 
 | # | Scenario | Expected |
 | --- | --- | --- |
