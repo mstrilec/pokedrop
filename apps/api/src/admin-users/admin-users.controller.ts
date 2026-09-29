@@ -14,7 +14,12 @@ import type { AdminUserPage, AdminUserRow, GrantResult } from '@pokedrop/shared'
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
 import type { AuthUser } from '../common/request-auth.js';
-import { AdminUserListQueryDto, ChangeRoleDto, GrantCurrencyDto } from './admin-users.dto.js';
+import {
+  AdminUserListQueryDto,
+  ChangeRoleDto,
+  GrantCurrencyDto,
+  SuspendUserDto,
+} from './admin-users.dto.js';
 import { AdminUsersService } from './admin-users.service.js';
 
 @ApiTags('admin')
@@ -46,5 +51,21 @@ export class AdminUsersController {
     @Body() body: ChangeRoleDto,
   ): Promise<AdminUserRow> {
     return this.users.changeRole(admin, id, body.role);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post(':id/suspend')
+  suspend(
+    @CurrentUser() admin: AuthUser,
+    @Param('id') id: string,
+    @Body() body: SuspendUserDto,
+  ): Promise<AdminUserRow> {
+    return this.users.suspend(admin, id, body.reason);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post(':id/unsuspend')
+  unsuspend(@CurrentUser() admin: AuthUser, @Param('id') id: string): Promise<AdminUserRow> {
+    return this.users.unsuspend(admin, id);
   }
 }

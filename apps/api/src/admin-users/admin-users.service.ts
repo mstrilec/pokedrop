@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma, Role } from '@prisma/client';
 import {
   AdminUserPageSchema,
@@ -17,6 +17,7 @@ import { isUniqueViolation } from '../common/errors/prisma-error.js';
 import type { AuthUser } from '../common/request-auth.js';
 import { NotificationsService } from '../notifications/index.js';
 import { PrismaService, type TransactionClient } from '../prisma/index.js';
+import { TRADE_SELECT, TradeCloseService, type TradeRow } from '../trades/index.js';
 
 const ROW_SELECT = {
   id: true,
@@ -36,6 +37,7 @@ export class AdminUsersService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
+    private readonly closer: TradeCloseService,
   ) {}
 
   async list(query: AdminUserListQuery): Promise<AdminUserPage> {
@@ -165,6 +167,107 @@ export class AdminUsersService {
     return GrantResultSchema.parse({ userId: id, balance: user.currency, transaction: entry });
   }
 
+  /**
+   * Trades are closed before `users` is touched: an accept takes the trade's
+   * row and then the user rows, and taking them in the same order here makes
+   * the two queue instead of deadlocking.
+   */
+  async suspend(admin: AuthUser, id: string, reason: string): Promise<AdminUserRow> {
+    this.assertNotSelf(admin, id);
+
+    let voided: TradeRow[] = [];
+    try {
+      voided = await this.prisma.withTransaction(async (tx) => {
+        const target = await this.target(tx, id);
+        if (target.suspendedAt !== null) {
+          throw new Unchanged();
+        }
+
+        const pending = await tx.trade.findMany({
+          where: { status: 'PENDING', OR: [{ initiatorId: id }, { recipientId: id }] },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          select: TRADE_SELECT,
+        });
+        const closed: TradeRow[] = [];
+        for (const trade of pending) {
+          try {
+            await this.closer.close(tx, trade, {
+              to: 'VOIDED',
+              action: 'trade.void',
+              actorId: admin.id,
+              release: true,
+              meta: { reason: 'account suspended' },
+            });
+            closed.push(trade);
+          } catch (error) {
+            if (codeOf(error) !== ERROR_CODES.TRADE_NOT_PENDING) {
+              throw error;
+            }
+          }
+        }
+
+        if (target.role === 'ADMIN') {
+          await this.assertNotLastAdmin(tx, id);
+        }
+        const { count } = await tx.user.updateMany({
+          where: { id, suspendedAt: null },
+          data: { suspendedAt: new Date() },
+        });
+        if (count === 0) {
+          throw new Unchanged();
+        }
+        await tx.session.deleteMany({ where: { userId: id } });
+        await this.audit.record(tx, {
+          actorId: admin.id,
+          action: 'user.suspend',
+          entity: 'User',
+          entityId: id,
+          meta: { reason, voidedTradeIds: closed.map((trade) => trade.id) },
+        });
+        return closed;
+      });
+    } catch (error) {
+      if (!(error instanceof Unchanged)) {
+        throw error;
+      }
+    }
+
+    await this.notifications.notify(
+      voided.flatMap((trade) =>
+        [trade.initiatorId, trade.recipientId].map((userId) => ({
+          userId,
+          type: 'trade.voided' as const,
+          payload: { tradeId: trade.id },
+        })),
+      ),
+    );
+    return this.row(id);
+  }
+
+  async unsuspend(admin: AuthUser, id: string): Promise<AdminUserRow> {
+    this.assertNotSelf(admin, id);
+
+    await this.prisma.withTransaction(async (tx) => {
+      await this.target(tx, id);
+      const { count } = await tx.user.updateMany({
+        where: { id, suspendedAt: { not: null } },
+        data: { suspendedAt: null },
+      });
+      if (count === 0) {
+        return;
+      }
+      await this.audit.record(tx, {
+        actorId: admin.id,
+        action: 'user.unsuspend',
+        entity: 'User',
+        entityId: id,
+        meta: {},
+      });
+    });
+
+    return this.row(id);
+  }
+
   private assertNotSelf(admin: AuthUser, id: string): void {
     if (admin.id === id) {
       throw domainError(
@@ -219,4 +322,17 @@ export class AdminUsersService {
  */
 function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
+/** Thrown to roll back a suspension that finds the account already suspended. */
+class Unchanged extends Error {}
+
+function codeOf(error: unknown): unknown {
+  if (!(error instanceof HttpException)) {
+    return undefined;
+  }
+  const response = error.getResponse();
+  return typeof response === 'object' && response !== null && 'code' in response
+    ? response.code
+    : undefined;
 }
