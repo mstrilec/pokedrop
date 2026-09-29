@@ -71,7 +71,7 @@ Reference: `docs/API.md` (Users / Profile, admin rows) · `docs/PRD.md` §4, §5
 
 - **`AdminUsersController`** (`apps/api/src/admin-users/`), `@Roles(['ADMIN'])` on the class, `@Controller('admin/users')`. Thin.
 - **`AdminUsersService`** — list, grant, role change, suspend, unsuspend.
-- **`lockActiveAdmins(tx)`** — a private helper: `SELECT id FROM users WHERE role = 'ADMIN' AND "suspendedAt" IS NULL ORDER BY id FOR UPDATE`. Used by role change and suspend.
+- **`lockActiveAdmins(tx)`** — a private helper: `SELECT id FROM users WHERE role = 'ADMIN' AND "suspendedAt" IS NULL ORDER BY id FOR NO KEY UPDATE`. Used by role change and suspend. (Amended after review: `FOR UPDATE` also conflicts with the `KEY SHARE` an audit insert takes on its actor's row, which can deadlock a suspension that has already audited a void.)
 - **`SessionGuard`** — one added branch.
 - **`buildAuth`** — the additional field and the session-creation hook.
 
