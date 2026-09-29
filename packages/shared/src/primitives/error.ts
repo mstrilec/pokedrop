@@ -16,6 +16,7 @@ export const ERROR_CODES = {
   LAST_ADMIN: 'LAST_ADMIN',
   SELF_TARGET: 'SELF_TARGET',
   GRANT_ID_CONFLICT: 'GRANT_ID_CONFLICT',
+  SYNC_IN_PROGRESS: 'SYNC_IN_PROGRESS',
 } as const;
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
 

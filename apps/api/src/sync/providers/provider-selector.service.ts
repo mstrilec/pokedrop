@@ -6,6 +6,7 @@ import {
   type CardSourceProvider,
   type CardSourceRegistry,
 } from './card-source-provider.js';
+import { chooseProvider } from './provider-choice.js';
 import { ProviderUnavailableError } from './provider.errors.js';
 import { ProviderBreakerService } from './provider-breaker.service.js';
 
@@ -46,36 +47,36 @@ export class ProviderSelectorService {
    * marked resilience.
    */
   async select(): Promise<ProviderChoice> {
-    const primary = this.mustResolve(this.primary);
-
-    if (!(await this.breaker.isOpen(this.primary))) {
-      return { provider: primary, isFallback: false, reason: 'configured primary' };
-    }
-
-    for (const [name, provider] of this.registry) {
-      if (name === this.primary) {
-        continue;
-      }
-
-      if (!(await this.breaker.isOpen(name))) {
-        this.logger.warn(
-          `Breaker open for ${this.primary}; this run will use ${name} as a fallback`,
-        );
-        return {
-          provider,
-          isFallback: true,
-          reason: `breaker open for ${this.primary}`,
-        };
+    const names = [...this.registry.keys()];
+    const open = new Set<CardSourceName>();
+    for (const name of names) {
+      if (await this.breaker.isOpen(name)) {
+        open.add(name);
       }
     }
+
+    const chosen = chooseProvider(this.primary, names, open);
 
     // Every registered provider is failing. Running anyway would spend a sweep
     // on a source already known to be down, and the mirror is no less current
     // for being left alone.
-    throw new ProviderUnavailableError(
-      this.primary,
-      'every registered provider has an open breaker',
+    if (chosen === null) {
+      throw new ProviderUnavailableError(
+        this.primary,
+        'every registered provider has an open breaker',
+      );
+    }
+
+    const provider = this.mustResolve(chosen.name);
+
+    if (!chosen.isFallback) {
+      return { provider, isFallback: false, reason: 'configured primary' };
+    }
+
+    this.logger.warn(
+      `Breaker open for ${this.primary}; this run will use ${chosen.name} as a fallback`,
     );
+    return { provider, isFallback: true, reason: `breaker open for ${this.primary}` };
   }
 
   /**
