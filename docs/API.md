@@ -746,6 +746,51 @@ The unread count and the list are both served by the single `(userId, readAt)` i
 - a trigger failing every notification insert: a proposal still 201 and `PENDING`, no notification, `Notification write failed (trade.proposed to …)` in the log; the next transition after dropping it notified normally
 - 40 000 notifications over three users: the unread count a bitmap scan of `(userId, readAt)`, 1.4 ms for 1 335 unread; the first page a bitmap scan of the same index and a top-N heapsort, 4.4 ms over 13 335 rows (1.5 ms unread-only); the HTTP page in 66 ms
 
+## Wallet
+
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| GET | `/wallet` | member | The caller's balance and ledger, newest first, keyset-paged |
+
+**`GET /wallet`** — `type` (`GRANT`, `PACK_SPEND`, `TRADE`; absent for all), `cursor`, `pageSize` (1–100, default 24). `TRADE` also matches `TRADE_REVERSAL`: a void is part of the trade it undoes. Newest first by the same `(createdAt, id)` cursor as the trade inbox; `total` counts the filter. There is no user parameter — the ledger is the session user's and nobody else's, admins included.
+
+```json
+{
+  "balance": 600,
+  "items": [
+    { "id": "…", "type": "TRADE_REVERSAL", "amount": -30, "balanceAfter": 600,
+      "source": { "kind": "trade", "tradeId": "…", "counterparty": { "id": "…", "displayName": "Misty", "avatarUrl": null } },
+      "createdAt": "…" },
+    { "id": "…", "type": "PACK_SPEND", "amount": -300, "balanceAfter": 700,
+      "source": { "kind": "pack", "openingId": "…", "templateName": "Base Set Booster" }, "createdAt": "…" },
+    { "id": "…", "type": "GRANT", "amount": 1000, "balanceAfter": 1000, "source": { "kind": "welcome" }, "createdAt": "…" }
+  ],
+  "pageSize": 24, "total": 3, "nextCursor": null
+}
+```
+
+- **`balanceAfter`** is the ledger's running total up to and including the row — a window sum over the caller's whole ledger in `(createdAt, id)` order, taken before the filter, so a filtered page still shows the real balance after each row. It costs one pass over the caller's ledger per request.
+- **`source`** is what caused the row: `welcome` (the verification grant), `grant` (any other — the seed's, and PD-80's admin grants), `pack` with the opening's id for [`GET /packs/history`](#opening-history), or `trade` with the trade's id and the other party. `null` when the reference no longer resolves. Rows join their source in the same query.
+- **`balance`** is the stored `User.currency`, the figure every debit is guarded against.
+
+**Every balance change writes a ledger row in the transaction that changes it** — the welcome grant, a pack open (a zero row for a free pack), both sides of a settlement and of a reversal; there is no other write to `users.currency`. **The ledger is checked on every read:** the stored balance and the ledger's sum are read in one statement, so a write landing between two reads cannot pass for a disagreement, and a disagreement is logged as `Ledger mismatch for <user>: balance …, ledger …`. It is not repaired and not shown to the member. The same check across every user:
+
+```sql
+SELECT id FROM users u
+WHERE currency <> COALESCE((SELECT SUM(amount) FROM currency_transactions t WHERE t."userId" = u.id), 0);
+```
+
+**Measured, 2026-09-29**, through HTTP with the database checked after each step:
+
+- a welcome grant of 1 000, a 300-coin pack, a trade paying 100, a trade receiving 30 and an admin void of it: five rows newest first with `balanceAfter` 600, 630, 600, 700, 1 000 and `balance` 600; sources `trade` (twice with the same `tradeId`, the reversal included), `trade`, `pack` with the opening and template name, `welcome`
+- `type=TRADE` gave the three trade rows including the reversal with the same `balanceAfter` as unfiltered; `PACK_SPEND` and `GRANT` one each; `balance` unchanged by the filter
+- paged by 2 and, filtered, by 1: every row once, `nextCursor` null at the end
+- the counterparty's wallet showed only their own four rows — the grant as `grant`, the mirrored trade rows — and nothing of the first user's
+- `type=TRADE_REVERSAL`, a malformed cursor, `pageSize=101`: 400 each; signed out: 401
+- the stored balance raised by 5 without a ledger row: the response showed 605 and the log `Ledger mismatch … balance 605, ledger 600`; restored, the next read logged nothing
+- the check above over every user in the database (the seed's five included): no mismatch
+- one user with 5 005 ledger rows: the page in 5.4 ms (`WindowAgg` over a sequential scan — the user owned nearly every row — then a top-N heapsort), 15–31 ms through HTTP
+
 ## Prices
 
 | Method | Path | Auth | Notes |
