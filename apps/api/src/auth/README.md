@@ -45,6 +45,8 @@ Note `sign-up/email` and `get-session` — not `sign-up` and `session`, which is
 
 `POST /api/auth/update-user` is switched off with `disabledPaths` and answers 404: a profile changes only through `PATCH /api/v1/users/me`, where the shared schema validates it (PD-76).
 
+`databaseHooks.session.create.before` refuses a session for a suspended user (`suspendedAt` set) with 403 `ACCOUNT_SUSPENDED`. Every path that creates a session passes through it — sign-in, sign-up, verification — so none of them lets a suspended account back in (PD-80).
+
 ## Mail
 
 Two messages, both Better Auth's own flows. The provider generates the token, builds the URL and enforces expiry and single use; this module only delivers.

@@ -131,8 +131,11 @@ The endpoint that *requests* a reset email does not exist yet — it appears onc
 | PATCH | `/users/me` | member | Edit profile / privacy toggles |
 | GET | `/users/:id` | public | Public profile |
 | GET | `/users/:id/decks` | public | That user's public decks, page-paged — see [Decks](#decks) |
-| POST | `/admin/users/:id/currency` | admin | Grant/adjust currency |
-| PATCH | `/admin/users/:id/role` | admin | Promote/demote |
+| GET | `/admin/users` | admin | Search and page every account — see [Admin / Users](#admin--users) |
+| POST | `/admin/users/:id/currency` | admin | Grant or adjust currency, once per `grantId` |
+| PATCH | `/admin/users/:id/role` | admin | Promote/demote; never the last active admin |
+| POST | `/admin/users/:id/suspend` | admin | Suspend, ending every session and voiding pending trades |
+| POST | `/admin/users/:id/unsuspend` | admin | Lift a suspension |
 
 **Two shapes of a user, built separately.** `GET /users/me` is the owner's: `id, email, displayName, avatarUrl, role, currency, createdAt`, `privacy: { showCollectionValue, showSetCompletion }` and `showcase`. `GET /users/:id` is everyone's, signed in or not, and is assembled field by field rather than by removing fields from the full user, so nothing added to `User` later can reach it by accident:
 
@@ -968,6 +971,56 @@ registered under no tier, and `@nestjs/throttler` 6.7.0 applies every registered
 tier to every route, so registering one would tighten the whole service from 100
 to 30 a minute to bound one endpoint. The daily reserve is what protects the
 quota, and it does so however many callers there are.
+
+## Admin / Users
+
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| GET | `/admin/users` | admin | Every account, searchable, page-paged |
+| POST | `/admin/users/:id/currency` | admin | `{ grantId, amount, reason }` — grant or adjust, once per `grantId` |
+| PATCH | `/admin/users/:id/role` | admin | `{ role }` — never the last active admin, never oneself |
+| POST | `/admin/users/:id/suspend` | admin | `{ reason }` — ends every session and voids pending trades |
+| POST | `/admin/users/:id/unsuspend` | admin | Lifts a suspension |
+
+**`GET /admin/users`** — `q` (1–100), `role` (`MEMBER` / `ADMIN`), `suspended` (`true` / `false`), `page`, `pageSize`; newest account first. Each row is `id, email, displayName, avatarUrl, role, currency, emailVerified, suspendedAt, createdAt`. `q` matches email or display name case-insensitively, and matches `%`, `_` and `\` literally: Prisma's `contains` hands its value to `ILIKE` unescaped — measured, `_` matched every user — so the service escapes them first. Reads are not audited.
+
+**Grants.** `grantId` is a UUID the client generates, `amount` a non-zero integer from −1 000 000 to 1 000 000 (negative adjusts down), `reason` 1–500 characters. One transaction, in this order: the target must exist (404); the `GRANT` ledger row is inserted with `refId = grantId` — the first write, so a replay stops on the ledger's unique `(userId, type, refId)` before it touches the balance; `UPDATE users SET currency = currency + amount WHERE … AND currency + amount >= 0` — no row is 409 `INSUFFICIENT_FUNDS` and everything rolls back; the `user.currency_grant` audit row `{ grantId, amount, reason }`. After commit the user gets `currency.granted { amount }`. The answer is `{ userId, balance, transaction: { id, amount, createdAt } }` with 200, for the first request and a replay alike. A replay with the same amount returns the original row and the current balance and writes nothing; with a different amount it is 409 `GRANT_ID_CONFLICT`. An admin may grant to themselves — the audit row says so — and to a suspended user.
+
+**Role changes.** Targeting oneself is 403 `SELF_TARGET`; the same role is 200 and writes nothing. Otherwise the change and its `user.role_change` audit row `{ from, to }` are one transaction, and the target's next request sees the new role — the session loads its user from the database every time.
+
+**The last active admin.** Demoting or suspending an active admin (`role = ADMIN` and not suspended) first runs `SELECT id FROM users WHERE role = 'ADMIN' AND "suspendedAt" IS NULL ORDER BY id FOR UPDATE`, and refuses with 409 `LAST_ADMIN` if the target is the only row. Because nobody can target themselves, a lone admin is never reachable; the lock is for two admins acting on each other at once. The second waits on the first's locks, and when the first commits PostgreSQL re-checks the waiting rows against the `WHERE` and drops the one that no longer matches, so the second counts what is really left. Id order means two of them never deadlock.
+
+**Suspension.** Targeting oneself is 403 `SELF_TARGET`; an already suspended user is 200 and nothing is written. Otherwise, in one transaction and in this order:
+
+1. every `PENDING` trade the user is on either side of is voided as an admin void — status `VOIDED`, the initiator's lock released, a `trade.void` audit row with `reason: "account suspended"`; one that a concurrent accept, decline or cancel closed first is skipped
+2. the last-admin lock, if the target is an active admin
+3. `suspendedAt` set — by a guarded `UPDATE … WHERE "suspendedAt" IS NULL`, so of two simultaneous suspensions one writes and the other rolls back as a no-op
+4. every session of the user deleted
+5. the `user.suspend` audit row `{ reason, voidedTradeIds }`
+
+Both parties of each voided trade get `trade.voided` after commit. Trades come first because an accept locks the trade and then the users; taking them in the same order makes a suspension and an accept queue rather than deadlock.
+
+**What a suspended user meets:**
+
+- **On their next request, 401** — their sessions are gone, so nothing identifies them.
+- **Signing in, 403 `ACCOUNT_SUSPENDED`** — Better Auth's `databaseHooks.session.create.before` refuses a session for a suspended user on every path that creates one.
+- **A session that survived anyway, 403 `ACCOUNT_SUSPENDED`.** A sign-in whose hook ran just before the suspension committed can insert its session just after the suspension deleted the others; `SessionGuard` refuses any session whose user is suspended, and serves them as anonymous on `@Public()` routes. Better Auth's own `get-session` would still report such a session; no `/api/v1` route honours it.
+- **Their public profile stays up.** Suspension withdraws access; it erases nothing.
+
+**Unsuspending** clears `suspendedAt` with a `user.unsuspend` audit row, and restores only the ability to sign in: deleted sessions stay deleted, voided trades stay voided. Not suspended → 200, nothing written.
+
+**Accepted boundary:** a trade proposal already in flight when a suspension commits can commit just after it, leaving one `PENDING` trade from a suspended user. The trade core does not re-check suspension; an admin void or the expiry job closes it.
+
+**Measured, 2026-09-29**, through HTTP with the database checked after every scenario and the ledger and lock reconciliations at zero after each:
+
+- the list: `q=PD80-M` found the three probe members by email, `q=waterFLOWER` the one renamed "Misty Waterflower"; `q=%`, `q=pd80_` and `q=\` found nothing; `role=ADMIN` two; page 3 of 3 at `pageSize=2`; `suspended=maybe` 400; a member 403, signed out 401
+- a member promoted reached an admin route on their next request; demoted, the same cookie was 403 on the next; the same role again wrote no audit row; self 403 `SELF_TARGET`, unknown id 404, `role: "OWNER"` 400
+- two admins demoting each other at once, with the seed admin out of the count: 5 of 5 one 200 and one 409 `LAST_ADMIN`; then with a psql transaction holding the admin locks for 2 s so both requests provably queued: 3 of 3 the same, one active admin left each time. The same for two admins suspending each other: 3 of 3, each order winning at least once
+- a grant of 500: 200, one ledger row carrying the `grantId`, one audit row, one `currency.granted { amount: 500 }`, the wallet showing it as `grant`; the same body again: an identical 200 and still one of each; the same `grantId` for 900: 409 `GRANT_ID_CONFLICT`; −10 000 against 500: 409 `INSUFFICIENT_FUNDS`, ledger and balance byte-identical; −200: balance 300; a self-grant 200; a grant of 50 to a suspended user: 200 and notified; an unknown id 404; a bad `grantId`, a zero amount, a blank reason, an extra key, 1 000 001: 400 each
+- a trigger failing `audit_logs` inserts: a grant 500 with no ledger row and the balance unchanged; a suspension 500 with the user still active, their session kept and their pending trade still `PENDING` with its lock
+- a member signed in twice, with one pending trade they proposed and one they received: suspended → both cookies 401, `get-session` null, sign-in 403 `ACCOUNT_SUSPENDED`, the public profile 200; both trades `VOIDED`, both locks released (1/1 → 1/0), a `trade.void` row each, one `user.suspend` row listing both, four `trade.voided` notifications; suspended again → 200, no second row; self 403, unknown 404, an empty body 400; unsuspended → signed in again, the trades still `VOIDED`, a second unsuspend wrote nothing
+- a session left in place for a user suspended directly in the database — the race-created session — was 403 `ACCOUNT_SUSPENDED` on `/users/me` and `/wallet` and served anonymously on `GET /users/:id`; a sign-up body carrying `suspendedAt` was 400 `FIELD_NOT_ALLOWED` and created nothing
+- an accept of the member's pending trade racing their suspension, five times: once the accept won (200, then the suspension found nothing pending), four times the suspension won (the accept 409 `TRADE_NOT_PENDING`, the trade `VOIDED`); never a deadlock, never a lock or balance out of reconciliation
 
 ## Admin / Sync
 
