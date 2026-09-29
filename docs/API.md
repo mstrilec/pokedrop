@@ -106,7 +106,7 @@ Sign-*in* does not leak either: a wrong password and an unknown address return b
 
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/auth/sign-up/email` | Register. `role` and `currency` in the body are ignored |
+| POST | `/auth/sign-up/email` | Register. `role`, `currency` and `suspendedAt` in the body are refused; `name` and `image` are validated as `PATCH /users/me` validates them |
 | POST | `/auth/sign-in/email` | Sign in → session cookie |
 | POST | `/auth/sign-out` | Current session |
 | GET | `/auth/list-sessions` | Active sessions with IP and user agent |
@@ -124,6 +124,8 @@ These are **not** under `/api/v1`. They are Better Auth's contract, and versioni
 The endpoint that *requests* a reset email does not exist yet — it appears once a mail transport is configured.
 
 ## Users / Profile
+
+**Sign-up validates the name and image** with `ProfileIdentitySchema`, the rules `PATCH /users/me` uses: a display name trimmed to 1–64 characters, an optional `https` avatar URL. Better Auth's own body schema takes any string for both, so `databaseHooks.user.create.before` checks them and refuses with 400 `INVALID_PROFILE`, creating nothing; it also stores the trimmed name. Measured 2026-09-29: an empty name, a blank one, 65 characters, an `x` image and an `http` image each 400 with no user created; `"  Ash K  "` with an `https` image 200, stored as `Ash K`. Accounts created before this check may still hold such values, so `GET /users/me` reads name and avatar as stored — measured: a user with an empty name and `x` avatar read their own profile, 200.
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
@@ -192,6 +194,8 @@ Served entirely from the mirror. No route here can reach an external API — `Ca
 
 **Sorting is `name_asc` or `name_desc`, and `id` always rides along.** 16 216 of the 20 670 cards share a name — `Pikachu` alone appears 134 times — so an order by name alone lets PostgreSQL return ties differently between requests, and offset pagination then shows one row twice and another never. `ORDER BY name, id` plans as an `Incremental Sort` with `Presorted Key: name`, so the btree still does the work. Verified: two pages of 50 share no ids and cover 100 distinct cards.
 
+**`q` matches `%`, `_` and `\` literally.** Prisma's `contains` hands its value to `ILIKE` unescaped, so the service escapes them first (`common/escape-like.ts`, shared with the inventory and admin user searches). Measured 2026-09-29: `q=_` found the two cards whose names hold an underscore ("_____'s Pikachu") where it had matched all 20 670; `q=%` and `q=\` found none.
+
 **`q` is a case-insensitive substring match and is not index-backed.** The database uses a `C` collation, under which only a case-*sensitive* prefix gets an index condition; every case-insensitive form degrades to a filter. Measured on the full catalog: 0.84 ms for a matching query, and 9.0 ms worst case for one matching nothing, which is the only shape that reads all 20 670 rows. `pg_trgm` is the recorded upgrade and is deliberately not taken, because the operator-class index it needs is one Prisma cannot declare — see `DataModel.md` on why a hand-added index reads as schema drift.
 
 `set` and `rarity` are index-backed, and the two together plan as a `BitmapAnd` of both btrees — confirmed against the SQL Prisma actually generates, not a hand-written approximation. `type` matches with array containment and the planner treats it as a filter, because a common type covers a sixth of the table.
@@ -235,7 +239,7 @@ Served entirely from the mirror. No route here can reach an external API — `Ca
 |---|---|
 | `cursor` | optional, opaque, 1–512 chars; the previous page's `nextCursor` |
 | `pageSize` | 1–100, default 24 |
-| `q` | optional, 1–100 chars; case-insensitive contains on the card name |
+| `q` | optional, 1–100 chars; case-insensitive contains on the card name, `%`, `_` and `\` matched literally |
 | `set` / `rarity` / `type` | optional; exact `setId`, exact rarity, one type by array containment — the catalog's rules |
 | `minQuantity` | optional integer ≥ 1; rows with `quantity >= N` (2 = duplicates, 4 = a playset) |
 | `sort` | `acquired_desc` (default) · `acquired_asc` · `name_asc` · `name_desc` · `price_desc` · `price_asc` |
@@ -1004,22 +1008,22 @@ Both parties of each voided trade get `trade.voided` after commit. Trades come f
 
 - **On their next request, 401** — their sessions are gone, so nothing identifies them.
 - **Signing in, 403 `ACCOUNT_SUSPENDED`** — Better Auth's `databaseHooks.session.create.before` refuses a session for a suspended user on every path that creates one.
-- **A session that survived anyway, 403 `ACCOUNT_SUSPENDED`.** A sign-in whose hook ran just before the suspension committed can insert its session just after the suspension deleted the others; `SessionGuard` refuses any session whose user is suspended, and serves them as anonymous on `@Public()` routes. Better Auth's own `get-session` would still report such a session; no `/api/v1` route honours it.
+- **A session that survived anyway, 403 `ACCOUNT_SUSPENDED` — once.** A sign-in whose hook ran just before the suspension committed can insert its session just after the suspension deleted the others. `SessionGuard` refuses any session whose user is suspended, serves it as anonymous on `@Public()` routes, and deletes it, so it cannot come back. Better Auth's own `get-session` would report such a session until its first `/api/v1` use.
 - **Their public profile stays up.** Suspension withdraws access; it erases nothing.
 
-**Unsuspending** clears `suspendedAt` with a `user.unsuspend` audit row, and restores only the ability to sign in: deleted sessions stay deleted, voided trades stay voided. Not suspended → 200, nothing written.
+**Unsuspending** clears `suspendedAt` with a `user.unsuspend` audit row, deletes any session the user still has — a suspended account holds no legitimate one, so whatever is left slipped in during the suspension and was never used — and restores only the ability to sign in: voided trades stay voided. Not suspended → 200, nothing written.
 
 **Accepted boundary:** a trade proposal already in flight when a suspension commits can commit just after it, leaving one `PENDING` trade from a suspended user. The trade core does not re-check suspension; an admin void or the expiry job closes it.
 
 **Measured, 2026-09-29**, through HTTP with the database checked after every scenario and the ledger and lock reconciliations at zero after each:
 
-- the list: `q=PD80-M` found the three probe members by email, `q=waterFLOWER` the one renamed "Misty Waterflower"; `q=%`, `q=pd80_` and `q=\` found nothing; `role=ADMIN` two; page 3 of 3 at `pageSize=2`; `suspended=maybe` 400; a member 403, signed out 401
+- the list: `q=PD80-M` found the three probe members by email, `q=waterFLOWER` the one renamed "Misty Waterflower"; `q=%` and `q=pd80_` found nothing; a display name `back\slash` was found by `q=\` alone among the probe accounts (PD-133); `role=ADMIN` two; page 3 of 3 at `pageSize=2`; `suspended=maybe` 400; a member 403, signed out 401
 - a member promoted reached an admin route on their next request; demoted, the same cookie was 403 on the next; the same role again wrote no audit row; self 403 `SELF_TARGET`, unknown id 404, `role: "OWNER"` 400
 - two admins demoting each other at once, with the seed admin out of the count: 5 of 5 one 200 and one 409 `LAST_ADMIN`; then with a psql transaction holding the admin locks for 2 s so both requests provably queued: 3 of 3 the same, one active admin left each time. The same for two admins suspending each other: 3 of 3, each order winning at least once
 - a grant of 500: 200, one ledger row carrying the `grantId`, one audit row, one `currency.granted { amount: 500 }`, the wallet showing it as `grant`; the same body again: an identical 200 and still one of each; the same `grantId` for 900: 409 `GRANT_ID_CONFLICT`; −10 000 against 500: 409 `INSUFFICIENT_FUNDS`, ledger and balance byte-identical; −200: balance 300; a self-grant 200; a grant of 50 to a suspended user: 200 and notified; an unknown id 404; a bad `grantId`, a zero amount, a blank reason, an extra key, 1 000 001: 400 each
 - a trigger failing `audit_logs` inserts: a grant 500 with no ledger row and the balance unchanged; a suspension 500 with the user still active, their session kept and their pending trade still `PENDING` with its lock
 - a member signed in twice, with one pending trade they proposed and one they received: suspended → both cookies 401, `get-session` null, sign-in 403 `ACCOUNT_SUSPENDED`, the public profile 200; both trades `VOIDED`, both locks released (1/1 → 1/0), a `trade.void` row each, one `user.suspend` row listing both, four `trade.voided` notifications; suspended again → 200, no second row; self 403, unknown 404, an empty body 400; unsuspended → signed in again, the trades still `VOIDED`, a second unsuspend wrote nothing
-- a session left in place for a user suspended directly in the database — the race-created session — was 403 `ACCOUNT_SUSPENDED` on `/users/me` and `/wallet` and served anonymously on `GET /users/:id`; a sign-up body carrying `suspendedAt` was 400 `FIELD_NOT_ALLOWED` and created nothing
+- a session left in place for a user suspended directly in the database — the race-created session — was 403 `ACCOUNT_SUSPENDED` on `/users/me` and `/wallet` and served anonymously on `GET /users/:id`; after PD-133 the first such request also deleted it, and the same cookie was 401 once the account was unsuspended; two such sessions left unused were both deleted by the unsuspension, both cookies 401 afterwards; a sign-up body carrying `suspendedAt` was 400 `FIELD_NOT_ALLOWED` and created nothing
 - a user with 4 000 pending trades, each locking one copy: suspended in 1.25 s, all 4 000 `VOIDED`, the lock 4 000 → 0, 4 000 `trade.void` rows, 8 000 notifications, one `user.suspend` row listing 4 000 ids. Voiding them one at a time, as first built, ran past Prisma's 5 s interactive-transaction timeout: 500, and the account stayed unsuspended
 - an account created through sign-up with `name: ""` and `image: "x"`: listed with those values and suspended, both 200 (a 500 before the admin row stopped requiring a form-valid name and URL)
 - an accept of the member's pending trade racing their suspension, five times: once the accept won (200, then the suspension found nothing pending), four times the suspension won (the accept 409 `TRADE_NOT_PENDING`, the trade `VOIDED`); never a deadlock, never a lock or balance out of reconciliation

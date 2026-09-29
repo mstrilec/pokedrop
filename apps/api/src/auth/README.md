@@ -47,6 +47,8 @@ Note `sign-up/email` and `get-session` — not `sign-up` and `session`, which is
 
 `databaseHooks.session.create.before` refuses a session for a suspended user (`suspendedAt` set) with 403 `ACCOUNT_SUSPENDED`. Every path that creates a session passes through it — sign-in, sign-up, verification — so none of them lets a suspended account back in (PD-80).
 
+`databaseHooks.user.create.before` validates `name` and `image` with the shared `ProfileIdentitySchema` — Better Auth's own sign-up body accepts any string for both — refusing with 400 `INVALID_PROFILE` and storing the trimmed name (PD-133).
+
 ## Mail
 
 Two messages, both Better Auth's own flows. The provider generates the token, builds the URL and enforces expiry and single use; this module only delivers.
