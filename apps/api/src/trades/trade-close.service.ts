@@ -73,4 +73,65 @@ export class TradeCloseService {
       meta: { ...options.meta, from, to: options.to },
     });
   }
+
+  /**
+   * `close` for every PENDING trade a user is party to, in a fixed number of
+   * statements however many there are: a spammer's thousands of proposals
+   * must not push a suspension past the transaction timeout. The rows are
+   * locked in id order, and one an accept is settling is waited for and, no
+   * longer PENDING, skipped - the same serialisation `close` gets.
+   */
+  async voidAllPendingOf(
+    tx: TransactionClient,
+    userId: string,
+    actorId: string,
+    meta: Prisma.InputJsonObject,
+  ): Promise<VoidedTrade[]> {
+    const voided = await tx.$queryRaw<VoidedTrade[]>`
+      UPDATE trades SET status = 'VOIDED', "resolvedAt" = now()
+      WHERE status = 'PENDING' AND id IN (
+        SELECT id FROM trades
+        WHERE status = 'PENDING' AND ${userId} IN ("initiatorId", "recipientId")
+        ORDER BY id
+        FOR UPDATE
+      )
+      RETURNING id, "initiatorId", "recipientId"`;
+    if (voided.length === 0) {
+      return [];
+    }
+
+    const initiatorOf = new Map(voided.map((trade) => [trade.id, trade.initiatorId]));
+    const offered = await tx.tradeItem.findMany({
+      where: { tradeId: { in: [...initiatorOf.keys()] }, side: 'OFFERED' },
+      select: { tradeId: true, cardId: true, quantity: true },
+    });
+    const locked = new Map<string, Map<string, number>>();
+    for (const item of offered) {
+      const initiator = initiatorOf.get(item.tradeId) ?? '';
+      const cards = locked.get(initiator) ?? new Map<string, number>();
+      cards.set(item.cardId, (cards.get(item.cardId) ?? 0) + item.quantity);
+      locked.set(initiator, cards);
+    }
+    for (const initiator of [...locked.keys()].sort()) {
+      const cards = locked.get(initiator) ?? new Map<string, number>();
+      await this.inventory.release(
+        tx,
+        initiator,
+        [...cards].map(([cardId, quantity]) => ({ cardId, quantity })),
+      );
+    }
+
+    await tx.auditLog.createMany({
+      data: voided.map((trade) => ({
+        actorId,
+        action: 'trade.void',
+        entity: 'Trade',
+        entityId: trade.id,
+        meta: { ...meta, from: 'PENDING', to: 'VOIDED' },
+      })),
+    });
+    return voided;
+  }
 }
+
+export type VoidedTrade = { id: string; initiatorId: string; recipientId: string };

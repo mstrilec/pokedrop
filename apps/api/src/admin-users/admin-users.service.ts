@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma, Role } from '@prisma/client';
 import {
   AdminUserPageSchema,
@@ -17,7 +17,7 @@ import { isUniqueViolation } from '../common/errors/prisma-error.js';
 import type { AuthUser } from '../common/request-auth.js';
 import { NotificationsService } from '../notifications/index.js';
 import { PrismaService, type TransactionClient } from '../prisma/index.js';
-import { TRADE_SELECT, TradeCloseService, type TradeRow } from '../trades/index.js';
+import { TradeCloseService, type VoidedTrade } from '../trades/index.js';
 
 const ROW_SELECT = {
   id: true,
@@ -175,7 +175,7 @@ export class AdminUsersService {
   async suspend(admin: AuthUser, id: string, reason: string): Promise<AdminUserRow> {
     this.assertNotSelf(admin, id);
 
-    let voided: TradeRow[] = [];
+    let voided: VoidedTrade[] = [];
     try {
       voided = await this.prisma.withTransaction(async (tx) => {
         const target = await this.target(tx, id);
@@ -183,28 +183,9 @@ export class AdminUsersService {
           throw new Unchanged();
         }
 
-        const pending = await tx.trade.findMany({
-          where: { status: 'PENDING', OR: [{ initiatorId: id }, { recipientId: id }] },
-          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-          select: TRADE_SELECT,
+        const closed = await this.closer.voidAllPendingOf(tx, id, admin.id, {
+          reason: 'account suspended',
         });
-        const closed: TradeRow[] = [];
-        for (const trade of pending) {
-          try {
-            await this.closer.close(tx, trade, {
-              to: 'VOIDED',
-              action: 'trade.void',
-              actorId: admin.id,
-              release: true,
-              meta: { reason: 'account suspended' },
-            });
-            closed.push(trade);
-          } catch (error) {
-            if (codeOf(error) !== ERROR_CODES.TRADE_NOT_PENDING) {
-              throw error;
-            }
-          }
-        }
 
         if (target.role === 'ADMIN') {
           await this.assertNotLastAdmin(tx, id);
@@ -292,14 +273,18 @@ export class AdminUsersService {
   /**
    * Locks every active admin in id order before counting them. A concurrent
    * change waits here, and once the first commits PostgreSQL re-checks the
-   * waiting rows against the WHERE, so it counts what is really left.
+   * waiting rows against the WHERE, so it counts what is really left. NO KEY
+   * UPDATE, not UPDATE: it still conflicts with itself, but not with the KEY
+   * SHARE an audit or session insert takes on its actor's row - with FOR
+   * UPDATE a suspension that had already audited a void could deadlock
+   * against another admin's lock.
    */
   private async assertNotLastAdmin(tx: TransactionClient, targetId: string): Promise<void> {
     const admins = await tx.$queryRaw<{ id: string }[]>`
       SELECT id FROM users
       WHERE role = 'ADMIN' AND "suspendedAt" IS NULL
       ORDER BY id
-      FOR UPDATE`;
+      FOR NO KEY UPDATE`;
     if (admins.length <= 1 && admins.some((admin) => admin.id === targetId)) {
       throw domainError(
         HttpStatus.CONFLICT,
@@ -326,13 +311,3 @@ function escapeLike(value: string): string {
 
 /** Thrown to roll back a suspension that finds the account already suspended. */
 class Unchanged extends Error {}
-
-function codeOf(error: unknown): unknown {
-  if (!(error instanceof HttpException)) {
-    return undefined;
-  }
-  const response = error.getResponse();
-  return typeof response === 'object' && response !== null && 'code' in response
-    ? response.code
-    : undefined;
-}
