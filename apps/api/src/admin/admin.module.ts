@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { QueueModule } from '../queue/index.js';
 import { AdminController } from './admin.controller.js';
+import { AdminSyncControlService } from './admin-sync-control.service.js';
 import { AdminSyncService } from './admin-sync.service.js';
 
 /**
@@ -11,6 +12,6 @@ import { AdminSyncService } from './admin-sync.service.js';
 @Module({
   imports: [QueueModule],
   controllers: [AdminController],
-  providers: [AdminSyncService],
+  providers: [AdminSyncService, AdminSyncControlService],
 })
 export class AdminModule {}
