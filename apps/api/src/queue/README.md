@@ -145,8 +145,10 @@ running`.
 **With Redis down, calls hang rather than fail.** Measured:
 `getDeduplicationJobId`, `getJobCounts` and `add` each stayed pending past 5 s,
 and an `add` issued while Redis was down was stored once it returned — ioredis
-queues commands offline, and BullMQ's connection never gives up. Anything on a
-request path wraps its calls in a timeout (`admin/with-timeout.ts`).
+queues commands offline, and BullMQ's connection never gives up. The admin sync
+routes wrap every call in a timeout (`admin/with-timeout.ts`). **PD-52's
+`PriceRefreshService` does not yet**: its `catch → 503` assumes a failure that,
+with Redis down, never arrives — the member's request hangs instead.
 
 **Correlate on the job id.** The worker's equivalent of a request id is
 `job.id`:

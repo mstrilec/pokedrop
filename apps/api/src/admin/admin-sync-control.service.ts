@@ -58,17 +58,22 @@ export class AdminSyncControlService {
   /**
    * The audit row goes first and the enqueue second, inside one transaction:
    * Redis cannot join it, so the order decides what a failure leaves behind.
-   * A failed or refused enqueue rolls the row back; only a failed COMMIT after
-   * a successful add leaves a job unaudited.
+   * A failed or refused enqueue rolls the row back; a job is left unaudited
+   * only by a failed COMMIT after the add, or by an add that timed out and
+   * reached Redis later.
    */
   async trigger(admin: AuthUser, kind: SyncTriggerKind): Promise<SyncTriggerResult> {
     const { queue, blocker } = TRIGGERS[kind];
 
-    for (const name of [queue, blocker]) {
-      const holder = await this.redisCall(this.holderOf(name), 'dedup read');
-      if (holder !== null) {
-        throw inProgress(name, holder);
-      }
+    const [own, other] = await this.redisCall(
+      Promise.all([this.holderOf(queue), this.holderOf(blocker)]),
+      'dedup read',
+    );
+    if (own !== null) {
+      throw inProgress(queue, own);
+    }
+    if (other !== null) {
+      throw inProgress(blocker, other);
     }
 
     const jobId = randomUUID();
@@ -81,16 +86,15 @@ export class AdminSyncControlService {
         entityId: jobId,
         meta: { kind, queue },
       });
-      await this.redisCall(
+      // Another trigger may have taken the key since the read above. A
+      // deduplicated add stores nothing and returns the holder's id, from the
+      // same atomic script that checked the key.
+      const added = await this.redisCall(
         this.queues[queue].add(queue, {}, syncJobOptions(queue, jobId)),
         'enqueue',
       );
-      // Another trigger may have taken the key between the read above and this
-      // add. The holder, not add's return value, says whose job it is; a null
-      // holder means ours has already run to its end.
-      const holder = await this.redisCall(this.holderOf(queue), 'dedup read');
-      if (holder !== null && holder !== jobId) {
-        throw inProgress(queue, holder);
+      if (added.id !== jobId) {
+        throw inProgress(queue, added.id ?? 'unknown');
       }
     });
 
