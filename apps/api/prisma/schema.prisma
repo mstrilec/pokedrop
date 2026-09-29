@@ -52,6 +52,7 @@ enum TransactionType {
   GRANT
   PACK_SPEND
   TRADE
+  TRADE_REVERSAL
 }
 
 enum SyncKind {

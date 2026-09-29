@@ -25,7 +25,7 @@ export type TradeItemSide = z.infer<typeof TradeItemSideSchema>;
 export const PriceSourceSchema = z.enum(['TCGPLAYER', 'CARDMARKET']);
 export type PriceSource = z.infer<typeof PriceSourceSchema>;
 
-export const TransactionTypeSchema = z.enum(['GRANT', 'PACK_SPEND', 'TRADE']);
+export const TransactionTypeSchema = z.enum(['GRANT', 'PACK_SPEND', 'TRADE', 'TRADE_REVERSAL']);
 export type TransactionType = z.infer<typeof TransactionTypeSchema>;
 
 export const SyncKindSchema = z.enum(['CATALOG', 'PRICE', 'PRICE_ACTIVE']);
