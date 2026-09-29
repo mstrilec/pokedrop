@@ -34,7 +34,7 @@ incremented once per `add` — rather than reading the `waiting` list.
 | `price-sync` | PD-52 | PD-48 |
 | `price-sweep` | PD-49's nightly cron | PD-49 |
 | `price-active` | PD-50's cron, four times a day | PD-50 |
-| `trade-expiry` | PD-74 | PD-74 |
+| `trade-expiry` | PD-74's cron, hourly at :15 | PD-74, in the worker only |
 
 `price-sweep` is not `price-sync` filled by a fourth producer. PD-49's sweep is
 its own coordinator job on its own queue, calling `PriceBatchService` directly

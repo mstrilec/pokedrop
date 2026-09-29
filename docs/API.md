@@ -663,6 +663,27 @@ Every row carries both parties as `{ id, displayName, avatarUrl }`, the caller's
 - an unknown tab, a malformed cursor, `pageSize=101`: 400 each
 - with 2 000 users and 20 000 trades inserted in a rolled-back transaction: every tab planned as a bitmap scan of its composite index — `completed` and `all` a `BitmapOr` of both, `status = ANY(…)` in the index condition — executing in 0.05–0.11 ms
 
+
+### Expiry
+
+**A `PENDING` trade older than `TRADE_EXPIRY_DAYS` (default 7) is cancelled by the worker**, hourly at :15 UTC, so its initiator's cards come back within the hour. Age is `createdAt`: a counter is a new trade and restarts the clock. Each stale trade is closed in its own transaction through the same guarded update as a user's cancel — status `CANCELLED`, the initiator's lock released — and audited as `trade.expire` with no actor, which the timeline shows as `by: system`. Both parties get `trade.expired` after commit.
+
+**A trade someone else closes first is skipped, not re-closed.** If an accept, decline or cancel commits while the job holds that trade in its batch, the guarded update finds it no longer `PENDING` and the job counts it as closed by someone else; nothing is released twice. A trade that fails for any other reason stays `PENDING` with its lock, the rest of the batch still expires, and the job ends failed so BullMQ records it and retries — safe, because a run that finds nothing to do changes nothing.
+
+**Every run ends with the lock reconciliation** from [DataModel.md](DataModel.md) (Trade) and logs an error naming how many inventory rows hold a lock no pending trade accounts for. It detects a leak; it does not repair one.
+
+The job runs in the worker process only — `TradeExpiryModule` is imported by `WorkerModule` and not by `AppModule` — so with no worker running, nothing expires.
+
+**Measured, 2026-09-29**, with the API and the worker running and jobs enqueued by hand:
+
+- two trades backdated eight days, one fresh, one old but already accepted: one run expired the two stale ones — and the seed's own pending trade, eleven days old — leaving the fresh one `PENDING` and the accepted one `ACCEPTED`; each expired trade's lock released and nothing else — one initiator's lock from 2 to 1 (the fresh trade still held its copy), the other's from 1 to 0 — a `trade.expire` audit row with no actor for each, two `trade.expired` notifications each, and the timeline reading `trade.expire → CANCELLED by system`; cards, coins and the reconciliation unchanged
+- a second run straight after: `Expired 0`, database byte-identical
+- an accept racing a run over thirty stale trades, twice: the run closed all thirty and the accept got 409 `TRADE_NOT_PENDING` — one terminal state each time
+- a trade declined in another transaction that held its row while the run reached it: the run logged `1 closed first by someone else`, wrote no expiry row and released nothing, and the reconciliation stayed at zero
+- an injected failure on one of two stale trades' audit insert: the other expired, the failing one stayed `PENDING` with its lock, the job ended failed (`1 trades could not be expired`), and the next run expired it
+- one lock raised by hand without a trade: the run logged `1 inventory rows hold a lock no pending trade accounts for`
+- the hourly cron is registered like PD-50's; it was not observed firing
+
 ## Prices
 
 | Method | Path | Auth | Notes |
