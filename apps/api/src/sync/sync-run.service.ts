@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SyncKind, SyncStatus, type SyncRun } from '@prisma/client';
+import type { Job } from 'bullmq';
 import { PrismaService } from '../prisma/index.js';
 
 /**
@@ -92,6 +93,39 @@ export class SyncRunService {
       where: { id },
       data: { status, finishedAt: new Date(), error: error ?? null },
     });
+  }
+
+  /**
+   * Closes the run a job left open when BullMQ gave up on it. BullMQ emits
+   * `failed` on every attempt, so only a job whose state is now `failed` is
+   * final; a stalled job is failed with attempts to spare, which is why this
+   * does not count them. The RUNNING condition leaves a run the processor
+   * closed itself untouched.
+   */
+  async closeIfFinallyFailed(kind: SyncKind, job: Job | undefined, error: Error): Promise<void> {
+    if (job?.id === undefined) {
+      return;
+    }
+    try {
+      if ((await job.getState()) !== 'failed') {
+        return;
+      }
+      const { count } = await this.prisma.syncRun.updateMany({
+        where: { kind, jobId: job.id, status: SyncStatus.RUNNING },
+        data: {
+          status: SyncStatus.FAILED,
+          finishedAt: new Date(),
+          error: `job failed after ${job.attemptsMade} attempts: ${error.message}`,
+        },
+      });
+      if (count > 0) {
+        this.logger.warn(`job ${job.id}: closed its ${kind} run as FAILED - ${error.message}`);
+      }
+    } catch (closeError) {
+      this.logger.error(
+        `job ${job.id}: could not close its ${kind} run - ${closeError instanceof Error ? closeError.message : String(closeError)}`,
+      );
+    }
   }
 
   /** Reads the cursor a resumed run left behind, defaulting to the first page. */

@@ -1,4 +1,4 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { SyncKind, SyncStatus } from '@prisma/client';
 import type { Job } from 'bullmq';
@@ -180,6 +180,11 @@ export class PriceActiveProcessor extends WorkerHost {
 
     await this.runs.close(run.id, status, notes.length > 0 ? notes.join('; ') : undefined);
     log(`finished ${status}: ${processed} processed, ${failed} failed`);
+  }
+
+  @OnWorkerEvent('failed')
+  async onFailed(job: Job | undefined, error: Error): Promise<void> {
+    await this.runs.closeIfFinallyFailed(SyncKind.PRICE_ACTIVE, job, error);
   }
 
   /**
