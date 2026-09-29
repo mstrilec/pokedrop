@@ -28,6 +28,7 @@ import { RedisModule } from './redis/index.js';
 import { SyncModule } from './sync/index.js';
 import { ThrottleModule } from './throttle/index.js';
 import { TradesModule } from './trades/index.js';
+import { UsersModule } from './users/index.js';
 import { WalletModule } from './wallet/index.js';
 
 @Module({
@@ -49,6 +50,7 @@ import { WalletModule } from './wallet/index.js';
     TradesModule,
     NotificationCenterModule,
     WalletModule,
+    UsersModule,
     HealthModule,
     QueueModule,
     SyncModule,
