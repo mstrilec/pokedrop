@@ -43,6 +43,8 @@ Better Auth's own, outside the versioned prefix, verified against the running ha
 
 Note `sign-up/email` and `get-session` — not `sign-up` and `session`, which is what `docs/API.md` claimed until this was checked.
 
+`POST /api/auth/update-user` is switched off with `disabledPaths` and answers 404: a profile changes only through `PATCH /api/v1/users/me`, where the shared schema validates it (PD-76).
+
 ## Mail
 
 Two messages, both Better Auth's own flows. The provider generates the token, builds the URL and enforces expiry and single use; this module only delivers.

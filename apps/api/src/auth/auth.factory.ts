@@ -82,6 +82,10 @@ export function buildAuth(config: AppConfig, deps: AuthDependencies) {
 
     trustedOrigins: config.app.corsOrigins,
 
+    // A profile changes only through PATCH /users/me, where the shared schema
+    // validates it; this one would write an unvalidated name or avatar URL.
+    disabledPaths: ['/update-user'],
+
     emailAndPassword: {
       enabled: true,
 
