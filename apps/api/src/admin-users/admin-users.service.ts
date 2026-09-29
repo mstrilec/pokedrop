@@ -4,13 +4,18 @@ import {
   AdminUserPageSchema,
   AdminUserRowSchema,
   ERROR_CODES,
+  GrantResultSchema,
   type AdminUserListQuery,
   type AdminUserPage,
   type AdminUserRow,
+  type GrantCurrency,
+  type GrantResult,
 } from '@pokedrop/shared';
 import { AuditService } from '../audit/index.js';
 import { domainError } from '../common/errors/domain-error.js';
+import { isUniqueViolation } from '../common/errors/prisma-error.js';
 import type { AuthUser } from '../common/request-auth.js';
+import { NotificationsService } from '../notifications/index.js';
 import { PrismaService, type TransactionClient } from '../prisma/index.js';
 
 const ROW_SELECT = {
@@ -30,6 +35,7 @@ export class AdminUsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async list(query: AdminUserListQuery): Promise<AdminUserPage> {
@@ -91,6 +97,72 @@ export class AdminUsersService {
     });
 
     return this.row(id);
+  }
+
+  /**
+   * The ledger row is the first write, keyed by grantId, so a replay stops on
+   * the unique index before it can touch the balance.
+   */
+  async grant(admin: AuthUser, id: string, body: GrantCurrency): Promise<GrantResult> {
+    let result: GrantResult;
+    try {
+      result = await this.prisma.withTransaction(async (tx) => {
+        await this.target(tx, id);
+        const entry = await tx.currencyTransaction.create({
+          data: { userId: id, amount: body.amount, type: 'GRANT', refId: body.grantId },
+          select: { id: true, amount: true, createdAt: true },
+        });
+        const updated = await tx.$queryRaw<{ currency: number }[]>`
+          UPDATE users SET currency = currency + ${body.amount}
+          WHERE id = ${id} AND currency + ${body.amount} >= 0
+          RETURNING currency`;
+        const balance = updated[0]?.currency;
+        if (balance === undefined) {
+          throw domainError(
+            HttpStatus.CONFLICT,
+            ERROR_CODES.INSUFFICIENT_FUNDS,
+            'This would take the balance below zero',
+          );
+        }
+        await this.audit.record(tx, {
+          actorId: admin.id,
+          action: 'user.currency_grant',
+          entity: 'User',
+          entityId: id,
+          meta: { grantId: body.grantId, amount: body.amount, reason: body.reason },
+        });
+        return GrantResultSchema.parse({ userId: id, balance, transaction: entry });
+      });
+    } catch (error) {
+      if (!isUniqueViolation(error)) {
+        throw error;
+      }
+      return this.replayGrant(id, body);
+    }
+
+    await this.notifications.notify([
+      { userId: id, type: 'currency.granted', payload: { amount: body.amount } },
+    ]);
+    return result;
+  }
+
+  private async replayGrant(id: string, body: GrantCurrency): Promise<GrantResult> {
+    const entry = await this.prisma.currencyTransaction.findFirstOrThrow({
+      where: { userId: id, type: 'GRANT', refId: body.grantId },
+      select: { id: true, amount: true, createdAt: true },
+    });
+    if (entry.amount !== body.amount) {
+      throw domainError(
+        HttpStatus.CONFLICT,
+        ERROR_CODES.GRANT_ID_CONFLICT,
+        'This grantId was already used for a different amount',
+      );
+    }
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id },
+      select: { currency: true },
+    });
+    return GrantResultSchema.parse({ userId: id, balance: user.currency, transaction: entry });
   }
 
   private assertNotSelf(admin: AuthUser, id: string): void {

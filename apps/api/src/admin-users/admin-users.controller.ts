@@ -1,10 +1,20 @@
-import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import type { AdminUserPage, AdminUserRow } from '@pokedrop/shared';
+import type { AdminUserPage, AdminUserRow, GrantResult } from '@pokedrop/shared';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
 import type { AuthUser } from '../common/request-auth.js';
-import { AdminUserListQueryDto, ChangeRoleDto } from './admin-users.dto.js';
+import { AdminUserListQueryDto, ChangeRoleDto, GrantCurrencyDto } from './admin-users.dto.js';
 import { AdminUsersService } from './admin-users.service.js';
 
 @ApiTags('admin')
@@ -16,6 +26,17 @@ export class AdminUsersController {
   @Get()
   list(@Query() query: AdminUserListQueryDto): Promise<AdminUserPage> {
     return this.users.list(query);
+  }
+
+  /** 200 for the first request and a replay alike, as a pack open answers. */
+  @HttpCode(HttpStatus.OK)
+  @Post(':id/currency')
+  grant(
+    @CurrentUser() admin: AuthUser,
+    @Param('id') id: string,
+    @Body() body: GrantCurrencyDto,
+  ): Promise<GrantResult> {
+    return this.users.grant(admin, id, body);
   }
 
   @Patch(':id/role')
