@@ -8,6 +8,7 @@ import { AUTH_INSTANCE } from '../../auth/index.js';
 import type { AuthInstance } from '../../auth/index.js';
 import { Public } from '../decorators/public.decorator.js';
 import { domainError } from '../errors/domain-error.js';
+import { PrismaService } from '../../prisma/index.js';
 import { setAuthContext } from '../request-auth.js';
 
 @Injectable()
@@ -15,6 +16,7 @@ export class SessionGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     @Inject(AUTH_INSTANCE) private readonly auth: AuthInstance,
+    private readonly prisma: PrismaService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -27,6 +29,12 @@ export class SessionGuard implements CanActivate {
     // A session can outlive its user's suspension by a moment: one created by
     // a sign-in racing the suspending transaction. It is never honoured.
     const suspended = session !== null && session.user.suspendedAt != null;
+
+    // Deleted, not just refused: left in place it would work again the moment
+    // the account was unsuspended.
+    if (suspended) {
+      await this.prisma.session.deleteMany({ where: { id: session.session.id } });
+    }
 
     if (session && !suspended) {
       setAuthContext(request, session);

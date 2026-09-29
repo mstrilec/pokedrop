@@ -13,6 +13,7 @@ import {
 } from '@pokedrop/shared';
 import { AuditService } from '../audit/index.js';
 import { domainError } from '../common/errors/domain-error.js';
+import { escapeLike } from '../common/escape-like.js';
 import { isUniqueViolation } from '../common/errors/prisma-error.js';
 import type { AuthUser } from '../common/request-auth.js';
 import { NotificationsService } from '../notifications/index.js';
@@ -237,6 +238,9 @@ export class AdminUsersService {
       if (count === 0) {
         return;
       }
+      // A suspended account holds no legitimate session; any left is one a
+      // sign-in slipped in during the suspension, and must not revive now.
+      await tx.session.deleteMany({ where: { userId: id } });
       await this.audit.record(tx, {
         actorId: admin.id,
         action: 'user.unsuspend',
@@ -298,15 +302,6 @@ export class AdminUsersService {
     const row = await this.prisma.user.findUniqueOrThrow({ where: { id }, select: ROW_SELECT });
     return AdminUserRowSchema.parse(row);
   }
-}
-
-/**
- * Prisma passes `contains` to ILIKE unescaped: measured, `_` matched every
- * user and `pokedrop_test` matched `pokedrop.test`. Backslash is ILIKE's
- * default escape character.
- */
-function escapeLike(value: string): string {
-  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
 }
 
 /** Thrown to roll back a suspension that finds the account already suspended. */
