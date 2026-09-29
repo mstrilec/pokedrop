@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/index.js';
 import { QueueModule } from './queue/index.js';
 import { RedisModule } from './redis/index.js';
 import { SyncModule } from './sync/index.js';
+import { TradeExpiryModule } from './trades/index.js';
 
 /**
  * Deliberately not AppModule. That one brings controllers, four global guards,
@@ -25,6 +26,7 @@ import { SyncModule } from './sync/index.js';
     RedisModule,
     QueueModule,
     SyncModule,
+    TradeExpiryModule,
   ],
 })
 export class WorkerModule {}
