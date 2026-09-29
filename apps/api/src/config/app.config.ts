@@ -40,6 +40,9 @@ export function buildAppConfig(env: Env) {
     decks: {
       size: env.DECK_SIZE,
     },
+    trades: {
+      expiryDays: env.TRADE_EXPIRY_DAYS,
+    },
     auth: {
       secret: env.AUTH_SECRET,
       baseUrl: env.AUTH_BASE_URL,

@@ -79,6 +79,8 @@ export const EnvSchema = z
 
     DECK_SIZE: z.coerce.number().int().min(1).max(100).default(60),
 
+    TRADE_EXPIRY_DAYS: z.coerce.number().int().min(1).max(90).default(7),
+
     MAIL_SMTP_URL: z.string().min(1).default('smtp://localhost:1025'),
 
     MAIL_FROM: z.string().min(1).default('PokeDrop <no-reply@pokedrop.local>'),
