@@ -91,7 +91,7 @@ Locking in id order means two such transactions cannot deadlock on each other.
 
 ### User list
 
-`GET /admin/users` — `pageOf` rows, newest `createdAt` first, then `id`. `q` matches `email` or `displayName` case-insensitively (`contains`, `mode: 'insensitive'`); `role` and `suspended` filter exactly. A read, and not audited — see [PD-79's remainder](#pd-79s-remainder).
+`GET /admin/users` — `pageOf` rows, newest `createdAt` first, then `id`. `q` matches `email` or `displayName` case-insensitively (`contains`, `mode: 'insensitive'`), with `\`, `%` and `_` escaped first — Prisma passes `contains` to `ILIKE` unescaped, so without it `_` matched every user; `role` and `suspended` filter exactly. A read, and not audited — see [PD-79's remainder](#pd-79s-remainder).
 
 ### Grant
 
