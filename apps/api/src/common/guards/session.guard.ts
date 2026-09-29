@@ -1,11 +1,13 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { fromNodeHeaders } from 'better-auth/node';
 import type { Request } from 'express';
+import { ERROR_CODES } from '@pokedrop/shared';
 import { AUTH_INSTANCE } from '../../auth/index.js';
 import type { AuthInstance } from '../../auth/index.js';
 import { Public } from '../decorators/public.decorator.js';
+import { domainError } from '../errors/domain-error.js';
 import { setAuthContext } from '../request-auth.js';
 
 @Injectable()
@@ -22,7 +24,11 @@ export class SessionGuard implements CanActivate {
       headers: fromNodeHeaders(request.headers),
     });
 
-    if (session) {
+    // A session can outlive its user's suspension by a moment: one created by
+    // a sign-in racing the suspending transaction. It is never honoured.
+    const suspended = session !== null && session.user.suspendedAt != null;
+
+    if (session && !suspended) {
       setAuthContext(request, session);
     }
 
@@ -33,6 +39,14 @@ export class SessionGuard implements CanActivate {
 
     if (isPublic !== undefined) {
       return true;
+    }
+
+    if (suspended) {
+      throw domainError(
+        HttpStatus.FORBIDDEN,
+        ERROR_CODES.ACCOUNT_SUSPENDED,
+        'This account is suspended',
+      );
     }
 
     if (!session) {

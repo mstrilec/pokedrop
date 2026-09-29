@@ -104,6 +104,10 @@ model User {
   /// guarantee: a card traded away stays listed here and is filtered out on
   /// read, so the showcase never shows a card its owner no longer has.
   showcaseCardIds     String[] @default([])
+  /// Set while an admin has suspended the account. Enforced three ways - the
+  /// suspending transaction deletes the sessions, Better Auth's session hook
+  /// refuses new ones, and SessionGuard refuses any that slipped between.
+  suspendedAt         DateTime?
 
   sessions             Session[]
   accounts             Account[]

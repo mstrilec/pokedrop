@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
+import { APIError } from 'better-auth/api';
 import type { AppConfig } from '../config/index.js';
 import type { WelcomeGrantService } from '../economy/index.js';
 import type { MailService, RenderedMail } from '../mail/index.js';
@@ -181,6 +182,28 @@ export function buildAuth(config: AppConfig, deps: AuthDependencies) {
       additionalFields: {
         role: { type: 'string', required: true, defaultValue: 'MEMBER', input: false },
         currency: { type: 'number', required: true, defaultValue: 0, input: false },
+        suspendedAt: { type: 'date', required: false, input: false },
+      },
+    },
+
+    // Every path that creates a session - sign-in, sign-up, verification -
+    // passes here, so a suspended account cannot obtain one by any of them.
+    databaseHooks: {
+      session: {
+        create: {
+          before: async (session) => {
+            const owner = await deps.prisma.user.findUnique({
+              where: { id: session.userId },
+              select: { suspendedAt: true },
+            });
+            if (owner?.suspendedAt) {
+              throw APIError.from('FORBIDDEN', {
+                message: 'This account is suspended',
+                code: 'ACCOUNT_SUSPENDED',
+              });
+            }
+          },
+        },
       },
     },
   });
