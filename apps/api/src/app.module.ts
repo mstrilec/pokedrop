@@ -20,6 +20,7 @@ import { PacksModule } from './packs/index.js';
 import { AppLoggingModule } from './logging/index.js';
 import { EconomyModule } from './economy/index.js';
 import { MailModule } from './mail/index.js';
+import { NotificationCenterModule } from './notifications/index.js';
 import { PricesModule } from './prices/index.js';
 import { PrismaModule } from './prisma/index.js';
 import { QueueModule } from './queue/index.js';
@@ -45,6 +46,7 @@ import { TradesModule } from './trades/index.js';
     PacksModule,
     DecksModule,
     TradesModule,
+    NotificationCenterModule,
     HealthModule,
     QueueModule,
     SyncModule,
