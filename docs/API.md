@@ -65,6 +65,7 @@ A client has to handle both. That is a feature rather than an oversight: `code` 
 | `CARDS_UNAVAILABLE` | 409 | Not enough available copies — locked copies do not count. At a trade proposal or counter, or at settlement, where the message names the user and the card |
 | `TRADE_NOT_PENDING` | 409 | The trade already left `PENDING`; the message names its status |
 | `COUNTER_LIMIT` | 409 | A negotiation already holds 10 trades |
+| `TRADE_NOT_REVERSIBLE` | 409 | An admin void of an `ACCEPTED` trade cannot be applied: a party no longer has available what they received, or the trade is no longer `ACCEPTED`; the message says which |
 
 The codes are exported from `@pokedrop/shared` as `ERROR_CODES`. Every existing error is unchanged — the key is absent, not `null`, when there is no code.
 
@@ -581,7 +582,7 @@ Every value counts copies. Each series is `{ name, value }` rows — Recharts' `
 | POST | `/trades/:id/decline` | member (recipient) | Releases the initiator's locks |
 | POST | `/trades/:id/counter` | member (recipient) | A new `PENDING` trade; the original `COUNTERED`; locks move in one transaction — throttled |
 | POST | `/trades/:id/cancel` | member (initiator) | Releases the locks |
-| POST | `/admin/trades/:id/void` | admin | `{ reason }`; voids a `PENDING` trade — an `ACCEPTED` one is PD-73 |
+| POST | `/admin/trades/:id/void` | admin | `{ reason }`; closes a `PENDING` trade, or reverses an `ACCEPTED` one where it still can |
 
 **`POST /trades`** and **`POST /trades/:id/counter`**
 
@@ -683,6 +684,26 @@ The job runs in the worker process only — `TradeExpiryModule` is imported by `
 - an injected failure on one of two stale trades' audit insert: the other expired, the failing one stayed `PENDING` with its lock, the job ended failed (`1 trades could not be expired`), and the next run expired it
 - one lock raised by hand without a trade: the run logged `1 inventory rows hold a lock no pending trade accounts for`
 - the hourly cron is registered like PD-50's; it was not observed firing
+
+
+### Voiding an accepted trade
+
+**`POST /admin/trades/:id/void` on an `ACCEPTED` trade runs the settlement backwards in one transaction:** the guarded update from `ACCEPTED` to `VOIDED`, then the coins back — each user row locked in id order, the party who received coins debited only if they still have them — then every card back, taken from the receiver's **available** copies only, in `(userId, cardId)` order. Copies locked in another pending trade are not available: a void never breaks someone's escrow to undo a trade. Any shortfall answers 409 `TRADE_NOT_REVERSIBLE` naming the user and what they lack, and rolls back whole — **a void either fully reverses the swap or changes nothing.** Both inventory summaries are invalidated after commit; both parties get `trade.voided`.
+
+The ledger records the reversal as `TRADE_REVERSAL` rows under the trade's id, the opposite of its `TRADE` rows. The audit row is `trade.void` with the admin as actor, `from: ACCEPTED` and the reason; the timeline shows it as `by: admin` without the reason or the admin's id.
+
+Leaving `ACCEPTED` never releases a lock. A settled trade's own lock was consumed at settlement, so "releasing" it would lower one belonging to another of the initiator's pending trades — `TradeCloseService` makes that combination impossible at the type level.
+
+A `PENDING` trade is voided as before, its lock released. Any other status answers 409 `TRADE_NOT_PENDING` naming it. Two admins voiding at once: one reversal, the other 409.
+
+**Measured, 2026-09-29**, through HTTP with the database checked after each step:
+
+- a settled trade with cards and coins both ways (A gave Charizard and 100, B gave Pikachu and 30): the void returned both cards to their first owners — A's deleted row recreated, B's emptied row deleted — and the balances to 500 and 300; `TRADE_REVERSAL` rows `+70`/`-70` beside the `TRADE` rows; one `trade.void` audit row `ACCEPTED → VOIDED` with the admin and reason; two notifications; both summary keys gone; the timeline `propose → accept → void by admin`; cards, coins and the lock reconciliation unchanged
+- the receiver's card locked in their own new proposal: 409 `TRADE_NOT_REVERSIBLE` naming them and the card, database byte-identical; after they cancelled it, the void went through
+- the coins' receiver having spent them: 409 naming the amount, byte-identical; after a top-up, the void went through
+- two admins voiding one accepted trade at once: one 200, one 409, one audit row
+- a declined trade: 409 `TRADE_NOT_PENDING` "already DECLINED"; a second void of a voided trade: 409; a member on the route: 403
+- the initiator voided out of one settled trade while another of their trades still held the same card: that lock untouched (3 held, 1 locked afterwards), the other trade still `PENDING`, the reconciliation empty
 
 ## Prices
 

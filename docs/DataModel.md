@@ -150,7 +150,9 @@ WHERE COALESCE(i."lockedQuantity", 0) <> COALESCE(p.q, 0);
 `id, tradeId, side(OFFERED|REQUESTED), cardId, quantity`
 
 ### CurrencyTransaction — *audit trail for balances*
-`id, userId, amount, type(GRANT|PACK_SPEND|TRADE), refId, createdAt`
+`id, userId, amount, type(GRANT|PACK_SPEND|TRADE|TRADE_REVERSAL), refId, createdAt`
+
+`TRADE_REVERSAL` is its own type because the unique `(userId, type, refId)` already holds a settled trade's `TRADE` rows: an admin void of that trade writes the opposite amounts under the same `refId`, and the pair stays readable as a settlement and its reversal. The key also makes a second reversal of one trade impossible.
 
 ### AuditLog — *admin & sensitive actions*
 `id, actorId?, action, entity, entityId, meta(json), createdAt`
