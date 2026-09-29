@@ -16,6 +16,7 @@ import {
 } from '@pokedrop/shared';
 import { toNumber } from '../common/decimal.js';
 import { PrismaService } from '../prisma/index.js';
+import { escapeLike } from '../common/escape-like.js';
 import { CacheService, cacheKeys } from '../redis/index.js';
 
 const CardSetListSchema = z.array(CardSetSchema);
@@ -52,7 +53,9 @@ export class CatalogService {
       ...(query.rarity === undefined ? {} : { rarity: query.rarity }),
       ...(query.type === undefined ? {} : { types: { has: query.type } }),
       ...(query.supertype === undefined ? {} : { supertype: query.supertype }),
-      ...(query.q === undefined ? {} : { name: { contains: query.q, mode: 'insensitive' } }),
+      ...(query.q === undefined
+        ? {}
+        : { name: { contains: escapeLike(query.q), mode: 'insensitive' } }),
     };
 
     // `id` is not decoration. 16 216 of 20 670 rows share a name, so without a

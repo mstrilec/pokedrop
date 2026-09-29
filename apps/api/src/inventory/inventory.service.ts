@@ -12,6 +12,7 @@ import {
 import { domainError } from '../common/errors/domain-error.js';
 import { toNumber } from '../common/decimal.js';
 import { PrismaService, type TransactionClient } from '../prisma/index.js';
+import { escapeLike } from '../common/escape-like.js';
 import { CacheService, cacheKeys } from '../redis/index.js';
 import { loadSummary } from './inventory.summary.js';
 import {
@@ -242,7 +243,9 @@ function filterClauses(query: InventoryQuery): Prisma.InventoryItemWhereInput[] 
     ...(query.set === undefined ? {} : { setId: query.set }),
     ...(query.rarity === undefined ? {} : { rarity: query.rarity }),
     ...(query.type === undefined ? {} : { types: { has: query.type } }),
-    ...(query.q === undefined ? {} : { name: { contains: query.q, mode: 'insensitive' } }),
+    ...(query.q === undefined
+      ? {}
+      : { name: { contains: escapeLike(query.q), mode: 'insensitive' } }),
   };
 
   const clauses: Prisma.InventoryItemWhereInput[] = [];
