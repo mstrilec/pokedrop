@@ -134,6 +134,47 @@ The endpoint that *requests* a reset email does not exist yet — it appears onc
 | POST | `/admin/users/:id/currency` | admin | Grant/adjust currency |
 | PATCH | `/admin/users/:id/role` | admin | Promote/demote |
 
+**Two shapes of a user, built separately.** `GET /users/me` is the owner's: `id, email, displayName, avatarUrl, role, currency, createdAt`, `privacy: { showCollectionValue, showSetCompletion }` and `showcase`. `GET /users/:id` is everyone's, signed in or not, and is assembled field by field rather than by removing fields from the full user, so nothing added to `User` later can reach it by accident:
+
+```json
+{
+  "id": "…", "displayName": "Ash", "avatarUrl": null, "joinedAt": "…",
+  "showcase": [{ "id": "base1-4", "name": "Charizard", "…": "…" }],
+  "publicDeckCount": 1,
+  "collection": { "collectionValueUsd": 1166.87, "pricedCards": 2 },
+  "completion": { "uniqueCards": 2, "setCompletion": [{ "setId": "base1", "name": "Base", "owned": 2, "total": 102 }] }
+}
+```
+
+- **`collection` and `completion` are absent — not `null`, not zero — unless their owner turned them on** (`showCollectionValue`, `showSetCompletion`, both off by default). They come from the cached inventory summary (PD-54), which is only read when one of them is on. The toggles are read from the row on every request, so a change shows on the next one.
+- **Never in the public shape:** email, balance, role, the toggles themselves, private decks. Query parameters change nothing about it. An unknown id is 404 `User not found`.
+- **`showcase`** is up to six cards the owner chose, in their order, as the inventory's slim card. Only cards still owned appear — a copy locked in a pending trade is still owned; a card traded away drops out on the next read, with no write needed.
+- **`publicDeckCount`** — the decks themselves are [`GET /users/:id/decks`](#decks), which the deck module owns.
+
+**`PATCH /users/me`** takes any of:
+
+| Field | Rule |
+|---|---|
+| `displayName` | trimmed, 1–64 characters |
+| `avatarUrl` | an `https` URL up to 2 048 characters, or `null` to clear it |
+| `showCollectionValue` / `showSetCompletion` | boolean |
+| `showcaseCardIds` | up to 6 distinct card ids, each one the caller holds at least one copy of — otherwise 400 `Not in your collection: …` |
+
+The body is strict: `role`, `currency`, `email` or any other key is a 400 `Unrecognized key`, so there is no route by which a member changes their own role or balance. An empty body changes nothing and returns the profile. The answer is the updated `GET /users/me`.
+
+**This is the only way to change a profile.** Better Auth's own `POST /api/auth/update-user` would write `name` and `image` without this validation, so it is switched off (`disabledPaths` in the auth config) and answers 404.
+
+**Measured, 2026-09-29**, through HTTP with the database checked after each step:
+
+- a new member's `GET /users/me`: email, balance, `role: MEMBER`, both toggles `false`, an empty showcase
+- a showcase of two owned cards and a padded name: saved in order, the name trimmed; a card not held, a duplicate, seven ids, `role`, `currency`, `email`, an `http` avatar, a `javascript:` avatar, a blank name, a non-boolean toggle: 400 each, and the row's role, balance and email unchanged; an `https` avatar and `null` both accepted
+- `GET /users/:id` signed out and as another member, with and without `?email=true` and similar parameters: the same keys — no email, balance or role anywhere in the body — and no `collection` or `completion` while both toggles were off
+- value on: `collection` present, `completion` absent; completion on: both; value off again: `collection` gone from the very next response, not merely emptied
+- a showcased card locked in a pending trade still shown; one traded away gone from both shapes while its id stayed in the array; saving it again → 400; the new owner could showcase it
+- one public and one private deck: `publicDeckCount: 1`; an unknown id: 404; `GET /users/me` signed out: 401
+- `POST /api/auth/update-user` with a name and a `javascript:` image: 404, the row untouched; sign-up, sign-in and `get-session` unaffected
+- the public profile with the summary cached: 5 ms through HTTP
+
 ## Catalog
 
 Served entirely from the mirror. No route here can reach an external API — `CatalogModule` imports nothing, and the provider tokens live in `SyncModule`, which it does not import. Verified by pointing `POKEMONTCG_BASE_URL` at an unroutable host and watching every route answer 200 in single-digit milliseconds.

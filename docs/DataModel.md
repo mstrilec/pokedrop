@@ -17,7 +17,7 @@
 ## Entities
 
 ### User
-`id, email, emailVerified, displayName, avatarUrl, role(MEMBER|ADMIN), currency, createdAt, updatedAt`
+`id, email, emailVerified, displayName, avatarUrl, role(MEMBER|ADMIN), currency, createdAt, updatedAt, showCollectionValue, showSetCompletion, showcaseCardIds`
 → many `InventoryItem`, `Deck`, `Trade`, `PackOpening`, `CurrencyTransaction`, `Notification`.
 
 **There is no `passwordHash`.** Better Auth stores the credential password hashed on `Account.password`; a column here would look like the real one and eventually be written to. Verified against the running adapter.
@@ -25,6 +25,8 @@
 `emailVerified` and `updatedAt` are required by Better Auth's core schema. `displayName` and `avatarUrl` are the Better Auth fields `name` and `image` under our own names — the rename is declared once, in the `user.fields` block of the auth config, and the adapter fails to find its columns without it.
 
 `role` and `currency` are ours, not Better Auth's. The adapter only learns of them through `user.additionalFields`, and both must be declared there with `input: false`. That flag is load-bearing: with `input: true` a sign-up body carrying `role: "ADMIN"` creates an administrator, which was confirmed by trying it.
+
+`showCollectionValue`, `showSetCompletion` and `showcaseCardIds` are ours too, and deliberately **not** declared to Better Auth: nothing in its flows reads or writes them, and an undeclared field is one no auth endpoint can accept. Both toggles default to `false`. `showcaseCardIds` is an ordered `text[]` of at most six card ids with no foreign key — a card its owner trades away stays in the array and is filtered out on read, so it needs no cleanup on every trade. See [API.md](API.md) (Users / Profile).
 
 ### Session / Account / Verification
 Better Auth core tables, taken verbatim from `@better-auth/core` rather than from prose, and regenerable with `npx auth@latest generate --adapter prisma`.
