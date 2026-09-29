@@ -96,6 +96,15 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  /// Privacy toggles for the public profile. Both off by default: nothing about
+  /// a collection is public until its owner says so.
+  showCollectionValue Boolean  @default(false)
+  showSetCompletion   Boolean  @default(false)
+  /// Up to six card ids, in display order. No foreign key and no ownership
+  /// guarantee: a card traded away stays listed here and is filtered out on
+  /// read, so the showcase never shows a card its owner no longer has.
+  showcaseCardIds     String[] @default([])
+
   sessions             Session[]
   accounts             Account[]
   inventoryItems       InventoryItem[]
