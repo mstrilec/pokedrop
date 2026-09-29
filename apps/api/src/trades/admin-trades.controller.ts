@@ -30,6 +30,6 @@ export class AdminTradesController {
     @Param('id') id: string,
     @Body() body: VoidTradeDto,
   ): Promise<Trade> {
-    return this.trades.voidPending(admin, id, body.reason);
+    return this.trades.voidTrade(admin, id, body.reason);
   }
 }

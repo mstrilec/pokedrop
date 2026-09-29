@@ -197,22 +197,44 @@ export class TradesService {
     return toTrade(row);
   }
 
-  /** PENDING only here; an ACCEPTED trade answers TRADE_NOT_PENDING until PD-73. */
-  async voidPending(admin: AuthUser, id: string, reason: string): Promise<Trade> {
+  /**
+   * PENDING: closed, its lock released. ACCEPTED: the swap reversed, or - if a
+   * party no longer has what they received - refused with the reason and
+   * nothing changed. Any other status is already over.
+   */
+  async voidTrade(admin: AuthUser, id: string, reason: string): Promise<Trade> {
     const trade = await this.prisma.trade.findUnique({ where: { id }, select: TRADE_SELECT });
     if (trade === null) {
       throw new NotFoundException('Trade not found');
     }
 
-    await this.prisma.withTransaction((tx) =>
-      this.closer.close(tx, trade, {
-        to: 'VOIDED',
-        action: 'trade.void',
-        actorId: admin.id,
-        release: true,
-        meta: { reason },
-      }),
-    );
+    if (trade.status === 'ACCEPTED') {
+      await this.prisma.withTransaction(async (tx) => {
+        await this.closer.close(tx, trade, {
+          from: 'ACCEPTED',
+          to: 'VOIDED',
+          action: 'trade.void',
+          actorId: admin.id,
+          release: false,
+          meta: { reason },
+        });
+        await this.settlement.reverse(tx, trade);
+      });
+      await Promise.all([
+        this.inventory.invalidateSummary(trade.initiatorId),
+        this.inventory.invalidateSummary(trade.recipientId),
+      ]);
+    } else {
+      await this.prisma.withTransaction((tx) =>
+        this.closer.close(tx, trade, {
+          to: 'VOIDED',
+          action: 'trade.void',
+          actorId: admin.id,
+          release: true,
+          meta: { reason },
+        }),
+      );
+    }
 
     await this.notify([trade.initiatorId, trade.recipientId], 'trade.voided', trade.id, admin.id);
     return this.read(id);

@@ -7,14 +7,25 @@ import { InventoryService } from '../inventory/index.js';
 import type { TransactionClient } from '../prisma/index.js';
 import { offeredChanges, type TradeRow } from './trade-row.js';
 
+/**
+ * `release` returns the initiator's OFFERED lock, which only a PENDING trade
+ * holds - so leaving ACCEPTED can never release. A settled trade's cards were
+ * already moved; releasing "its" lock would strip one belonging to another of
+ * the initiator's pending trades, and nothing would notice.
+ */
 export type CloseOptions = {
   to: Exclude<TradeStatus, 'PENDING'>;
   action: string;
   actorId: string | null;
-  /** False for accept, whose settlement consumes the lock, and for counter, which releases in lock order. */
-  release: boolean;
   meta?: Prisma.InputJsonObject;
-};
+} & (
+  | {
+      from?: 'PENDING';
+      /** False for accept, whose settlement consumes the lock, and for counter, which releases in lock order. */
+      release: boolean;
+    }
+  | { from: 'ACCEPTED'; release: false }
+);
 
 @Injectable()
 export class TradeCloseService {
@@ -24,17 +35,18 @@ export class TradeCloseService {
   ) {}
 
   /**
-   * The only way out of PENDING. The guarded update takes the trade's row lock
-   * first, so every transition of one trade is serialised and the loser of a
-   * race finds it no longer PENDING.
+   * The only way a trade changes status. The guarded update takes the trade's
+   * row lock first, so every transition of one trade is serialised and the
+   * loser of a race finds it no longer in the status it expected.
    */
   async close(
     tx: TransactionClient,
     trade: Pick<TradeRow, 'id' | 'initiatorId' | 'items'>,
     options: CloseOptions,
   ): Promise<void> {
+    const from = options.from ?? 'PENDING';
     const { count } = await tx.trade.updateMany({
-      where: { id: trade.id, status: 'PENDING' },
+      where: { id: trade.id, status: from },
       data: { status: options.to, resolvedAt: new Date() },
     });
     if (count === 0) {
@@ -44,7 +56,7 @@ export class TradeCloseService {
       });
       throw domainError(
         HttpStatus.CONFLICT,
-        ERROR_CODES.TRADE_NOT_PENDING,
+        from === 'PENDING' ? ERROR_CODES.TRADE_NOT_PENDING : ERROR_CODES.TRADE_NOT_REVERSIBLE,
         `This trade is already ${current?.status ?? 'gone'}`,
       );
     }
@@ -58,7 +70,7 @@ export class TradeCloseService {
       action: options.action,
       entity: 'Trade',
       entityId: trade.id,
-      meta: { from: 'PENDING', to: options.to, ...options.meta },
+      meta: { ...options.meta, from, to: options.to },
     });
   }
 }
