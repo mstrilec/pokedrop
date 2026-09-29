@@ -65,6 +65,7 @@ A client has to handle both. That is a feature rather than an oversight: `code` 
 | `CARDS_UNAVAILABLE` | 409 | Not enough available copies — locked copies do not count. At a trade proposal or counter, or at settlement, where the message names the user and the card |
 | `TRADE_NOT_PENDING` | 409 | The trade already left `PENDING`; the message names its status |
 | `COUNTER_LIMIT` | 409 | A negotiation already holds 10 trades |
+| `SYNC_IN_PROGRESS` | 409 | A catalog sync or price sweep is already queued or running — of the same kind, or the other of the two, which share a provider budget; the message names the job |
 | `TRADE_NOT_REVERSIBLE` | 409 | An admin void of an `ACCEPTED` trade cannot be applied: a party no longer has available what they received, or the trade is no longer `ACCEPTED`; the message says which |
 
 The codes are exported from `@pokedrop/shared` as `ERROR_CODES`. Every existing error is unchanged — the key is absent, not `null`, when there is no code.
@@ -1032,20 +1033,54 @@ Both parties of each voided trade get `trade.voided` after commit. Trades come f
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| POST | `/admin/sync/catalog` | admin | Enqueue catalog sync |
-| POST | `/admin/sync/prices` | admin | Enqueue price sync |
-| GET | `/admin/sync/status` | admin | Last run per `SyncKind`, plus breaker state per provider |
+| POST | `/admin/sync/catalog` | admin | Enqueue a catalog sync — 202 `{ jobId, kind }` |
+| POST | `/admin/sync/prices` | admin | Enqueue a full price sweep — 202 `{ jobId, kind }` |
+| POST | `/admin/sync/breakers/:provider/reset` | admin | Clear a provider's breaker |
+| GET | `/admin/sync/status` | admin | Last run per `SyncKind`, queue depth, breakers, the provider the next run would use |
 | GET | `/admin/metrics` | admin | DAU, packs opened, trade volume, freshness |
 
-**`GET /admin/sync/status` is read only and returns two things**: the last run
-of each `SyncKind` — provider, status, timestamps, processed and failed counts,
-and the error or reason — and the breaker state per provider, as `failures` and
-an `openUntil` that says when the primary will be tried again.
+### Triggers
 
-`openUntil` rather than "opened at", because it answers the question an operator
-is actually asking during an outage.
+`POST /admin/sync/catalog` queues `catalog-sync` (kind `CATALOG`), the job the 3 am cron runs; `POST /admin/sync/prices` queues `price-sweep` (kind `PRICE`), the full sweep the 4 am cron runs. The active refresh has no button — it already runs four times a day. Neither takes a body. The answer is **202** `{ jobId, kind }`: the run is queued, not done, and a processor picks it up in the worker or the API process.
 
-**The last run is now reported for three kinds, not two: `CATALOG`, `PRICE`
+**One run at a time, from either side.** Each queue has a BullMQ deduplication key, held while a job waits, is delayed, runs or retries, and released when it completes or finally fails. The crons enqueue under the same key, so a cron firing over a manual run is skipped and logged, and a trigger over a cron's run is refused. The refusal is **409 `SYNC_IN_PROGRESS`**, naming the job: `A catalog sync is already queued or running (job 680e…)`.
+
+**A catalog trigger is also refused while a price sweep holds its key, and the reverse.** The two share one daily budget of 1 000 requests and a ceiling of 30 a minute; the crons keep them an hour apart, and a button would not. One code covers both refusals, since a client does the same thing either way — waits — and the message says which job is in the way.
+
+**The audit row is written first, then the job is queued, in one transaction.** Redis cannot join a Postgres transaction, so the order decides what a failure leaves: a failed or refused enqueue rolls the `sync.trigger` row back. The job id is generated before the enqueue so the row can name it, and the `SyncRun` the processor later opens carries the same id. After the `add`, the trigger reads the key's holder again — not `add`'s return value — so a trigger that lost a race rolls back its row and answers 409. Accepted: a job with no audit row if the `COMMIT` fails after the `add`, or if Redis fails between the trigger's first read and its `add` (the `add` waits in ioredis' offline queue and lands when Redis returns); and two admins triggering a catalog sync and a price sweep at the same instant both getting a job. See [DataModel.md](DataModel.md), AuditLog.
+
+**With Redis unavailable a trigger is 503**, after at most 2 s, and nothing is written. BullMQ's connection waits for Redis rather than failing — measured, every call stayed pending past 5 s — so every admin call to the queue or the breaker keys runs under a 2 s timeout. The body carries the fixed `"Internal server error"` message every response at 500 and above carries; the status is the signal.
+
+### Breaker reset
+
+`POST /admin/sync/breakers/:provider/reset` deletes the provider's failure counter and its open key, and answers 200 with the state after: `{ provider, failures: 0, openUntil: null }`. With every breaker open, a trigger's run fails with `every registered provider has an open breaker` until a cooldown expires; this is the operator's way out. An open key with no expiry counts as open, as the selector reads it. A provider with neither key answers 200 and writes nothing; an unknown provider is 404 `Provider not found`. Otherwise a `sync.breaker_reset` row records the state before the reset, written before the `DEL` in one transaction.
+
+### Status
+
+```ts
+{
+  runs: SyncRunSummary[] | null,          // null: sync_runs unreadable
+  queues: QueueDepth[] | null,            // null: the queue Redis unreadable
+  breakers: ProviderBreakerState[] | null,// null: the breaker keys unreadable
+  primaryProvider: string,                // configured
+  nextProvider: string | null,            // what the next run would choose; null: every breaker open
+}
+SyncRunSummary = { kind, provider, status, startedAt, finishedAt, durationMs, processed, failed, error, jobId, stale }
+QueueDepth = { queue, waiting, active, delayed, failed }  // catalog-sync, price-sweep, price-active, price-sync
+ProviderBreakerState = { provider, failures, openUntil }
+```
+
+**Each section is read on its own**, so one dependency down costs its section and not the page, and the answer is always 200. `null` means unknown; `[]` means none. `durationMs` is null while a run is open. `waiting` includes jobs on a paused queue, which BullMQ counts separately.
+
+`openUntil` rather than "opened at", because it answers the question an operator is actually asking during an outage.
+
+**`stale`** is true for a `RUNNING` row that nothing will ever close — its job is missing, `completed` or `failed`, or the row has no job id — null when the queue cannot be read, and false for every closed run. The worker closes a run as `FAILED` when BullMQ gives up on its job, including a job that stalled twice after its process was killed; `stale` reports what escapes even that. A stale row harms nothing, and the next run of its kind replaces it here. See `apps/api/src/sync/README.md`, "A run nobody will close".
+
+**`nextProvider`** applies the selector's own rule — the primary unless its breaker is open, then the first registered provider whose breaker is closed. With Redis unreadable it names the primary, because the selector then treats every breaker as closed; `breakers: null` says the breakers themselves are unknown.
+
+**Postgres wholly down cannot be shown here**: signing in and loading the session need it, so the request fails before it reaches this endpoint. `runs: null` is for `sync_runs` being unreadable while the rest of the database answers.
+
+**The last run is reported for three kinds: `CATALOG`, `PRICE`
 and `PRICE_ACTIVE`.** `PRICE_ACTIVE` is PD-50's addition — the row for the
 job that refreshes prices for cards someone owns, has in a deck, or has
 traded recently, four times a day. It is a separate row rather than folded
@@ -1061,13 +1096,19 @@ job's last run with the other's every time they interleave — and against a
 four-times-a-day cadence next to a once-nightly one, they interleave
 constantly.
 
-**With Redis unavailable it still answers 200**, reporting every breaker as
-closed. A breaker that cannot be read is the same to this endpoint as one that
-is shut, which is also what the selector assumes.
+**Measured, 2026-09-29**, through HTTP against the running stack, with the queues paused for every scenario but one so no provider request was spent:
 
-Triggering a sync and clearing a breaker are PD-81's half of this surface, in
-M10. This exists now because PD-43's third acceptance criterion is a statement
-about an endpoint.
+- a trigger: 202 in 79 ms; one `sync.trigger` row naming the job; the processor's `SyncRun` carrying the same `jobId` 10 s later
+- a second trigger while the first waited: 409 `SYNC_IN_PROGRESS` naming it, no second row, one job; a price trigger while the catalog job waited: 409; the reverse, after draining: 409
+- two admins triggering at once, five times: each time one 202 and one 409, one audit row, one job
+- the real catalog cron, driven twice over a manual run: both times `Skipped the catalog sync: job e05d… is still queued or running`
+- a `sync.trigger` insert made to fail: 500, no job queued, the key free
+- Redis stopped: a trigger 503 in 2 073 ms, no row, and no job once Redis was back; the status 200 in 2 067 ms with `queues`, `breakers` and a running row's `stale` null and `nextProvider` the primary
+- `sync_runs` renamed away: the status 200 with `runs: null` and the rest readable
+- a `RUNNING` row naming a job that does not exist: `stale: true`
+- a breaker at 5 failures and open for 900 s: reset 200, both keys gone, a row with `{ failures: 5, openUntil }`; again: 200 and no row; an open key with no TTL: shown open, `nextProvider` the fallback, reset 200; `ghost`: 404
+- a member on every new route 403, signed out 401
+- the one real run, triggered from the endpoint: `PARTIAL`, 19 670 processed, 4 failed, its row's `jobId` the trigger's, `stale: false` throughout. The host slept during it, so it lost its BullMQ lock: the processor closed its run, BullMQ refused to mark the job finished (`Missing lock … moveToFinished`) and ran it again under the same job id, which opened a second run from page 1. The key stayed held the whole time, so no trigger or cron could add a third. That run was stopped by hand; with its job removed, its `RUNNING` row read `stale: true`. See `apps/api/src/sync/README.md`, "A run nobody will close"
 
 ## Health
 

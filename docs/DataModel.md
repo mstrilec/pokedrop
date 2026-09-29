@@ -180,13 +180,17 @@ Append-only by convention; nothing in application code updates or deletes these 
 | `trade.void` | `Trade` | `POST /admin/trades/:id/void`, and each trade a suspension voids | the admin |
 | `trade.propose` · `trade.accept` (the settlement) · `trade.decline` · `trade.cancel` · `trade.counter` | `Trade` | the member routes | the member |
 | `trade.expire` | `Trade` | the expiry job | null — the system |
+| `sync.trigger` | `SyncJob` | `POST /admin/sync/catalog` · `/prices` | the admin |
+| `sync.breaker_reset` | `Provider` | `POST /admin/sync/breakers/:provider/reset` | the admin |
 
 **Not audited, deliberately:**
 
 - **Admin reads** — `GET /admin/sync/status`, `/admin/pack-templates`, `/admin/trades/:id`, `/admin/users`. They change nothing, and a row per page view would bury the rows that matter.
-- **Admin writes that change nothing** — a role set to the role already held, a suspension of a suspended account, an unsuspension of an active one, a replayed `grantId`. The row records a change; there was none.
+- **Admin writes that change nothing** — a role set to the role already held, a suspension of a suspended account, an unsuspension of an active one, a replayed `grantId`, a sync trigger refused with `SYNC_IN_PROGRESS`, a reset of a breaker with nothing to clear. The row records a change; there was none.
 
-Sync triggers (`POST /admin/sync/…`) arrive with PD-81 and must write `sync.trigger` rows in the same way; until then no admin route that mutates goes unaudited — checked route by route on 2026-09-29.
+**Sync triggers are the one audited action whose effect lives outside Postgres.** `sync.trigger` names a `SyncJob` by its BullMQ job id, not a `SyncRun`: no run row exists when the job is queued, and the processor later writes one with the same id, so `sync_runs."jobId" = audit_logs."entityId"` joins them. The audit row is written first and the enqueue second, inside one transaction, because Redis cannot join it and the order decides what a failure leaves: a failed or refused enqueue rolls the row back. Two outcomes are accepted rather than prevented — a job with no audit row, when the `COMMIT` fails after the `add`, or when Redis fails in the moment between the trigger's first read and its `add` (the `add` waits in ioredis' offline queue and lands once Redis returns — measured); and two admins triggering a catalog sync and a price sweep at the same instant both getting a job, which costs only contention for the shared rate limit. `sync.breaker_reset` is written before the `DEL` of the breaker keys, so a failed `DEL` leaves no row. A reset of a breaker that has nothing to clear writes nothing.
+
+Every admin route that mutates is audited — checked route by route on 2026-09-29, after PD-81.
 
 ### Notification
 `id, userId, type, payload(json), readAt, createdAt`

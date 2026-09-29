@@ -30,9 +30,9 @@ incremented once per `add` — rather than reading the `waiting` list.
 
 | Name | Filled by | Consumed by |
 | --- | --- | --- |
-| `catalog-sync` | PD-42's cron, PD-81's admin endpoint | PD-42 |
+| `catalog-sync` | PD-42's cron, PD-81's admin trigger | PD-42 |
 | `price-sync` | PD-52 | PD-48 |
-| `price-sweep` | PD-49's nightly cron | PD-49 |
+| `price-sweep` | PD-49's nightly cron, PD-81's admin trigger | PD-49 |
 | `price-active` | PD-50's cron, four times a day | PD-50 |
 | `trade-expiry` | PD-74's cron, hourly at :15 | PD-74, in the worker only |
 
@@ -128,6 +128,25 @@ installed yet — PD-42 adds it, because that is the first ticket with a schedul
 to keep. When it does, the scheduled method's entire body is a `queue.add(...)`.
 Doing the work in the callback would lose every retry, backoff and failure
 record this module provides.
+
+**A sync is enqueued only through `syncJobOptions`** (`sync-dedup.ts`). One
+dedup key per queue — `catalog-sync`, `price-sweep` — is held while a job waits,
+is delayed, runs or retries, and released when it completes or finally fails.
+That key is what stops the cron and the admin trigger queueing a second run
+beside the first; an `add` without it slips past both. Measured on BullMQ
+5.81.5: a second `add` under a held key stores nothing and returns the holder's
+id, and the queue's default job options survive beside `deduplication`. The
+crons read the holder first and log `Skipped …: job N is still queued or
+running`.
+
+**A paused queue counts its jobs as `paused`, not `waiting`**, although
+`getState()` on such a job says `waiting`. The admin status sums the two.
+
+**With Redis down, calls hang rather than fail.** Measured:
+`getDeduplicationJobId`, `getJobCounts` and `add` each stayed pending past 5 s,
+and an `add` issued while Redis was down was stored once it returned — ioredis
+queues commands offline, and BullMQ's connection never gives up. Anything on a
+request path wraps its calls in a timeout (`admin/with-timeout.ts`).
 
 **Correlate on the job id.** The worker's equivalent of a request id is
 `job.id`:

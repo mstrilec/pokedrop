@@ -1131,3 +1131,59 @@ this is the last ticket of M4 — that belongs in its own ticket.
 provider that is deprecated and stops serving keys on 2027-03-01. The next ticket
 that wants a scheduled provider call has to take it from one of these four, and
 `RequestBudgetService` is where it will find that out.
+
+## A run nobody will close
+
+PD-81. A `SyncRun` is closed by the processor that opened it, on every path it
+anticipates. Four ways leave it `RUNNING` anyway, and each has its own answer.
+
+**A throw escapes `process()`.** A Prisma error in `recordProgress`, or
+`resume()` meeting a provider no longer registered. BullMQ retries under the
+same job id and the run resumes, as before. When BullMQ gives up,
+`@OnWorkerEvent('failed')` on the catalog, sweep and active processors calls
+`SyncRunService.closeIfFinallyFailed`, which sets `FAILED`, `finishedAt` and
+`error: "job failed after N attempts: …"` on the `RUNNING` row carrying that job
+id — and on nothing else, so a second call or a run the processor already closed
+is untouched.
+
+"Gives up" is `job.getState() === 'failed'`, not a count of attempts. Measured:
+`failed` fires on every attempt, with the job `delayed`, `delayed`, then `failed`;
+and a stalled job is failed with attempts to spare, so a count would miss it.
+
+**The process is killed.** The job's lock lapses after 30 s, and a live worker's
+stalled check puts it back in the queue; the retry resumes the row from its
+cursor. BullMQ allows one stall: a second fails the job with `job stalled more
+than allowable limit`, and the handler above closes the row. Measured by killing
+the API mid-sweep twice: after the first kill the same row resumed about 30 s
+after restart, after the second it was `FAILED` about 60 s after restart, and the
+dedup key was released.
+
+**The provider is gone.** A row naming a provider not in the registry, with its
+job retried: closed `FAILED` with the registry's message once the retries run
+out — measured under 25 s.
+
+**No worker is alive.** Then the API is not either: it is itself a worker for
+every queue (`queue/README.md`). While the admin status answers, a stalled check
+is running somewhere. Nothing handles this case because it cannot be observed.
+
+What escapes all of that — a process that died inside the `failed` handler, a
+job hash removed from Redis — is reported rather than repaired: the admin status
+marks a `RUNNING` row `stale` when its job is missing, `completed` or `failed`
+(`docs/API.md`, Admin / Sync). A stale row harms nothing: `lastClosedCursor`
+ignores `RUNNING`, and the next run of its kind replaces it in the status.
+
+**A job can run twice, and nothing here stops it yet.** BullMQ delivers at least
+once. Measured on 2026-09-29: the host slept during a real catalog sync, the
+worker could not renew the job's lock, and when the processor returned —
+having closed its run `PARTIAL` — BullMQ refused to mark the job finished
+(`Missing lock for job … moveToFinished`) and ran it again under the same job
+id. `findResumable` only adopts a `RUNNING` row, so the second attempt opened a
+fresh run from page 1 and began spending the budget again. The dedup key stayed
+held throughout, so nothing else could queue beside it; the cost is one repeated
+run, not a pile-up. The fix — a processor that finds a `SUCCEEDED` or `PARTIAL`
+run for its own job id and returns at once — changes all three processors'
+retry semantics and is left to its own ticket.
+
+`select()` now asks `chooseProvider` (`providers/provider-choice.ts`) for the
+choice. The rule is unchanged; it lives in a pure function so the admin status
+can report what the next run would choose without importing this module.
