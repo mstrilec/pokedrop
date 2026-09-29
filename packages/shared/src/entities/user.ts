@@ -29,8 +29,26 @@ export const ProfilePrivacySchema = z.object({
 });
 export type ProfilePrivacy = z.infer<typeof ProfilePrivacySchema>;
 
-/** `showcase` holds only cards the user still owns, in the order they chose. */
+/**
+ * The rules for who a user says they are, wherever they say it: sign-up and
+ * PATCH /users/me. Better Auth's own sign-up body takes any string for both.
+ */
+export const ProfileIdentitySchema = z.object({
+  displayName: z.string().trim().min(1).max(64),
+  avatarUrl: z
+    .url({ protocol: /^https$/ })
+    .max(2048)
+    .nullable(),
+});
+
+/**
+ * `showcase` holds only cards the user still owns, in the order they chose.
+ * Name and avatar are read as the table holds them: accounts created before
+ * sign-up was validated may carry values the form would refuse.
+ */
 export const MyProfileSchema = UserSchema.extend({
+  displayName: z.string(),
+  avatarUrl: z.string().nullable(),
   privacy: ProfilePrivacySchema,
   showcase: z.array(InventoryCardSchema),
 });
@@ -38,12 +56,8 @@ export type MyProfile = z.infer<typeof MyProfileSchema>;
 
 /** Strict: `role`, `currency` and `email` are unknown keys here, and so a 400. */
 export const UpdateMyProfileSchema = z.strictObject({
-  displayName: z.string().trim().min(1).max(64).optional(),
-  avatarUrl: z
-    .url({ protocol: /^https$/ })
-    .max(2048)
-    .nullable()
-    .optional(),
+  displayName: ProfileIdentitySchema.shape.displayName.optional(),
+  avatarUrl: ProfileIdentitySchema.shape.avatarUrl.optional(),
   showCollectionValue: z.boolean().optional(),
   showSetCompletion: z.boolean().optional(),
   showcaseCardIds: z

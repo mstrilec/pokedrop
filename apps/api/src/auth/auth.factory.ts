@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { APIError } from 'better-auth/api';
+import { ProfileIdentitySchema } from '@pokedrop/shared';
 import type { AppConfig } from '../config/index.js';
 import type { WelcomeGrantService } from '../economy/index.js';
 import type { MailService, RenderedMail } from '../mail/index.js';
@@ -189,6 +190,31 @@ export function buildAuth(config: AppConfig, deps: AuthDependencies) {
     // Every path that creates a session - sign-in, sign-up, verification -
     // passes here, so a suspended account cannot obtain one by any of them.
     databaseHooks: {
+      user: {
+        create: {
+          before: (user) => {
+            const identity = ProfileIdentitySchema.safeParse({
+              displayName: user.name,
+              avatarUrl: user.image ?? null,
+            });
+            if (!identity.success) {
+              throw APIError.from('BAD_REQUEST', {
+                message: identity.error.issues
+                  .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+                  .join('; '),
+                code: 'INVALID_PROFILE',
+              });
+            }
+            return Promise.resolve({
+              data: {
+                ...user,
+                name: identity.data.displayName,
+                image: identity.data.avatarUrl,
+              },
+            });
+          },
+        },
+      },
       session: {
         create: {
           before: async (session) => {
