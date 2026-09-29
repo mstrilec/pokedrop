@@ -85,9 +85,21 @@ export const AdminUserListQuerySchema = z.object({
 });
 export type AdminUserListQuery = z.infer<typeof AdminUserListQuerySchema>;
 
-export const AdminUserRowSchema = UserSchema.extend({
+/**
+ * What the table can hold rather than what a form accepts: Better Auth's
+ * sign-up takes any name and image, and an admin must be able to see - and
+ * suspend - the account that sent a bad one.
+ */
+export const AdminUserRowSchema = z.object({
+  id: UserIdSchema,
+  email: z.string(),
+  displayName: z.string(),
+  avatarUrl: z.string().nullable(),
+  role: RoleSchema,
+  currency: z.number().int(),
   emailVerified: z.boolean(),
   suspendedAt: z.coerce.date().nullable(),
+  createdAt: z.coerce.date(),
 });
 export type AdminUserRow = z.infer<typeof AdminUserRowSchema>;
 
