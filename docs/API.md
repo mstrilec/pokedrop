@@ -705,6 +705,47 @@ A `PENDING` trade is voided as before, its lock released. Any other status answe
 - a declined trade: 409 `TRADE_NOT_PENDING` "already DECLINED"; a second void of a voided trade: 409; a member on the route: 403
 - the initiator voided out of one settled trade while another of their trades still held the same card: that lock untouched (3 held, 1 locked afterwards), the other trade still `PENDING`, the reconciliation empty
 
+## Notifications
+
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| GET | `/notifications` | member | The caller's notifications, newest first, keyset-paged; `unread=true` for unread only |
+| GET | `/notifications/unread-count` | member | `{ count }` for the bell |
+| PATCH | `/notifications/:id/read` | member (owner) | 204; idempotent — an already-read one keeps its first `readAt` |
+| PATCH | `/notifications/read-all` | member | `{ updated }`, the number it marked |
+
+**Kinds in v1:** `trade.proposed`, `trade.accepted`, `trade.declined`, `trade.countered`, `trade.cancelled`, `trade.expired`, `trade.voided` — payload `{ tradeId }` — and `currency.granted`, payload `{ amount }`, signed, emitted by PD-80's admin grants. The writer is `NotificationsService.notify(entries)`, typed so a kind can only be written with its own payload; it runs after the triggering transaction commits and logs a failure instead of throwing, so a notification never undoes the action it reports.
+
+**No actor id in any payload.** Who acted follows from the kind — the counterparty for most trade kinds, an admin for `trade.voided`, the system for `trade.expired` — and an admin's user id is not a member's to see, the same rule as the trade timeline. Trade notifications written before this (with an `actorId`) are safe to read: see below.
+
+**`GET /notifications`** — `unread` (`true` / `false`, default `false`), `cursor`, `pageSize` (1–100, default 24). Newest first by the same `(createdAt, id)` cursor as the trade inbox; one that does not decode is a 400. `total` counts the filter. Each row:
+
+```json
+{
+  "id": "…", "type": "trade.accepted", "payload": { "tradeId": "…" },
+  "counterparty": { "id": "…", "displayName": "Misty", "avatarUrl": null },
+  "readAt": null, "createdAt": "…"
+}
+```
+
+- **`payload` is the stored JSON parsed through its kind's schema**, so a key the schema does not name never reaches a client — including the `actorId` older rows carry. A kind the API does not know, or a payload that does not fit its kind, reads as `{}` rather than failing the page.
+- **`counterparty`** is the other party of the trade a trade notification is about, read live with the page — one query for all of it — so the row can say who without a request per notification, and a renamed user reads correctly. Only trades the reader is a party to are looked up; any other `tradeId` gives `null`, as does every non-trade kind.
+
+**Mark-as-read is scoped to the caller.** Another user's notification is the same 404 `Notification not found` as a missing one. Both writes are a single `UPDATE … WHERE "userId" = … AND "readAt" IS NULL`.
+
+The unread count and the list are both served by the single `(userId, readAt)` index; see [DataModel.md](DataModel.md) (Notification).
+
+**Measured, 2026-09-29**, through HTTP with the database checked after each step:
+
+- a proposal, a counter and an admin void of the counter: the recipient got `trade.proposed`, the initiator `trade.countered`, both `trade.voided` — four rows, each payload exactly `{ tradeId }`; the list showed the other party as `counterparty` on every one
+- rows inserted by hand: a `trade.voided` payload carrying an admin's `actorId` and an extra key read as `{ tradeId }` alone; an unknown kind and a malformed `currency.granted` read as `{}`; a trade notification naming a trade the reader is not in read with `counterparty: null`
+- six rows, four sharing one `createdAt`, paged by two and by four: every row once, `nextCursor` null on the last page
+- a malformed cursor, `unread=yes`: 400 each; signed out: 401 on both reads; a `PATCH` without an `Origin`: 403 from the CSRF guard
+- mark-as-read: 204, and again 204 with `readAt` unchanged; another user's notification and a missing id: identical 404s, the other user's row still unread
+- read-all: `{ "updated": 5 }`, then `{ "updated": 0 }`; the unread count 0 for that user and unchanged for the other
+- a trigger failing every notification insert: a proposal still 201 and `PENDING`, no notification, `Notification write failed (trade.proposed to …)` in the log; the next transition after dropping it notified normally
+- 40 000 notifications over three users: the unread count a bitmap scan of `(userId, readAt)`, 1.4 ms for 1 335 unread; the first page a bitmap scan of the same index and a top-N heapsort, 4.4 ms over 13 335 rows (1.5 ms unread-only); the HTTP page in 66 ms
+
 ## Prices
 
 | Method | Path | Auth | Notes |

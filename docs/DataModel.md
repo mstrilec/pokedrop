@@ -170,6 +170,8 @@ Append-only by convention; nothing in application code updates or deletes these 
 
 Cascades from the user — ephemeral and theirs alone. **Index:** `(userId, readAt)`, which serves the unread badge.
 
+`type` stays an open string, but each kind the application writes has a payload schema in `@pokedrop/shared` (`NOTIFICATION_PAYLOAD_SCHEMAS`), and reads go through it — see [API.md](API.md) (Notifications). No payload carries an actor's user id.
+
 Deliberately **only that one index.** Measured over 40 000 notifications, the notification-list query (`userId`, newest first, limit 20) uses the same index for the lookup and finishes the ordering with a top-N heapsort in 0.2 ms, so a second index on `(userId, createdAt)` would cost writes and buy nothing at this size.
 
 ## Relationships
