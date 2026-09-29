@@ -169,6 +169,25 @@ Append-only by convention; nothing in application code updates or deletes these 
 
 **Indexes:** `(entity, entityId)` for one object's history, `(actorId, createdAt)` for one admin's. Measured over 40 000 rows: an entity lookup is an index scan returning in 0.07 ms.
 
+**The writer** is `AuditService.record(tx, entry)` (`apps/api/src/audit`, a global module). It takes the caller's transaction, so an action that rolls back leaves no row — measured for a refused pack-template save, a grant and a suspension whose audit insert was made to fail. `TradeCloseService.voidAllPendingOf` writes a suspension's trade rows with one `createMany` in the same transaction. One object's history is `WHERE entity = … AND "entityId" = … ORDER BY "createdAt", id` on the first index; the trade timeline reads it exactly that way.
+
+**What is audited** — every admin action that changes something, and the trade transitions:
+
+| Action | Entity | Written by | `actorId` |
+|---|---|---|---|
+| `pack_template.create` · `pack_template.update` | `PackTemplate` | `POST` / `PATCH /admin/pack-templates` | the admin |
+| `user.currency_grant` · `user.role_change` · `user.suspend` · `user.unsuspend` | `User` | `/admin/users/:id/…` | the admin |
+| `trade.void` | `Trade` | `POST /admin/trades/:id/void`, and each trade a suspension voids | the admin |
+| `trade.propose` · `trade.accept` (the settlement) · `trade.decline` · `trade.cancel` · `trade.counter` | `Trade` | the member routes | the member |
+| `trade.expire` | `Trade` | the expiry job | null — the system |
+
+**Not audited, deliberately:**
+
+- **Admin reads** — `GET /admin/sync/status`, `/admin/pack-templates`, `/admin/trades/:id`, `/admin/users`. They change nothing, and a row per page view would bury the rows that matter.
+- **Admin writes that change nothing** — a role set to the role already held, a suspension of a suspended account, an unsuspension of an active one, a replayed `grantId`. The row records a change; there was none.
+
+Sync triggers (`POST /admin/sync/…`) arrive with PD-81 and must write `sync.trigger` rows in the same way; until then no admin route that mutates goes unaudited — checked route by route on 2026-09-29.
+
 ### Notification
 `id, userId, type, payload(json), readAt, createdAt`
 
