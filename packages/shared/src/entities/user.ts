@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { RoleSchema } from '../enums.js';
-import { UserIdSchema } from '../primitives/id.js';
+import { CurrencyTransactionIdSchema, UserIdSchema } from '../primitives/id.js';
+import { PaginationQuerySchema, pageOf } from '../primitives/pagination.js';
 import { InventoryCardSchema, InventorySummarySchema } from './inventory.js';
 
 export const UserSchema = z.object({
@@ -71,3 +72,54 @@ export const PublicProfileSchema = z.object({
   completion: InventorySummarySchema.pick({ uniqueCards: true, setCompletion: true }).optional(),
 });
 export type PublicProfile = z.infer<typeof PublicProfileSchema>;
+
+export const AdminUserListQuerySchema = z.object({
+  q: z.string().trim().min(1).max(100).optional(),
+  role: RoleSchema.optional(),
+  suspended: z
+    .enum(['true', 'false'])
+    .transform((value) => value === 'true')
+    .optional(),
+  page: PaginationQuerySchema.shape.page,
+  pageSize: PaginationQuerySchema.shape.pageSize,
+});
+export type AdminUserListQuery = z.infer<typeof AdminUserListQuerySchema>;
+
+export const AdminUserRowSchema = UserSchema.extend({
+  emailVerified: z.boolean(),
+  suspendedAt: z.coerce.date().nullable(),
+});
+export type AdminUserRow = z.infer<typeof AdminUserRowSchema>;
+
+export const AdminUserPageSchema = pageOf(AdminUserRowSchema);
+export type AdminUserPage = z.infer<typeof AdminUserPageSchema>;
+
+export const ChangeRoleSchema = z.strictObject({ role: RoleSchema });
+export type ChangeRole = z.infer<typeof ChangeRoleSchema>;
+
+/** `grantId` makes a retry harmless, as `openId` does for a pack open. Negative adjusts down. */
+export const GrantCurrencySchema = z.strictObject({
+  grantId: z.uuid(),
+  amount: z
+    .number()
+    .int()
+    .min(-1_000_000)
+    .max(1_000_000)
+    .refine((amount) => amount !== 0, 'amount must not be zero'),
+  reason: z.string().trim().min(1).max(500),
+});
+export type GrantCurrency = z.infer<typeof GrantCurrencySchema>;
+
+export const GrantResultSchema = z.object({
+  userId: UserIdSchema,
+  balance: z.number().int().min(0),
+  transaction: z.object({
+    id: CurrencyTransactionIdSchema,
+    amount: z.number().int(),
+    createdAt: z.coerce.date(),
+  }),
+});
+export type GrantResult = z.infer<typeof GrantResultSchema>;
+
+export const SuspendUserSchema = z.strictObject({ reason: z.string().trim().min(1).max(500) });
+export type SuspendUser = z.infer<typeof SuspendUserSchema>;
