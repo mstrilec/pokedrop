@@ -94,6 +94,22 @@ export default tseslint.config(
       // rather than apps/web, so in this monorepo it can do nothing but warn
       // that a directory we deliberately do not have is missing.
       '@next/next/no-html-link-for-pages': 'off',
+
+      // PD-85: colors and spacing come from the tokens in app/globals.css. A
+      // hex value or an arbitrary px/rem gap in a component bypasses them.
+      'no-restricted-syntax': [
+        'error',
+        ...['Literal[value', 'TemplateElement[value.raw'].flatMap((node) => [
+          {
+            selector: `${node}=/(^|\\[)#[0-9a-fA-F]{3,8}(\\]|$)/]`,
+            message: 'Use a color token from app/globals.css instead of a hex value.',
+          },
+          {
+            selector: `${node}=/(^|[\\s:])-?(p[xytrblse]?|m[xytrblse]?|gap(-[xy])?|space-[xy]|inset(-[xy])?|top|right|bottom|left)-\\[[^\\]]*\\d(px|rem)/]`,
+            message: 'Use the 4px spacing scale (p-4, gap-3, ...) instead of an arbitrary length.',
+          },
+        ]),
+      ],
     },
   },
 
