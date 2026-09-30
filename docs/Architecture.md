@@ -192,16 +192,15 @@ The query string is logged as part of the URL, which is worth having for catalog
 
 ```
 app/
-├── (marketing)/                 # public landing, login, register
-├── (app)/
-│   ├── dashboard/
-│   ├── packs/                   # open packs + reveal
-│   ├── inventory/
-│   ├── decks/[deckId]/          # builder
-│   ├── cards/[cardId]/          # detail page
-│   ├── profile/[userId]/        # public profile
-│   ├── trades/                  # inbox, propose, detail
-│   └── admin/                   # role-gated
+├── (public)/                    # no session: landing + the shareable pages
+│   ├── cards/[id]/              # card detail (SEO)
+│   ├── profile/[id]/            # public profile, also "My profile"
+│   └── decks/[id]/              # public deck, or the owner's builder
+├── (auth)/                      # register, verify-email, sign-in, forgot/reset password
+├── (app)/                       # session required, app shell
+│   ├── dashboard/  packs/  inventory/  cards/  sets/  decks/
+│   ├── trades/  settings/  wallet/  notifications/
+│   └── admin/                   # role = ADMIN, admin sub-nav
 ├── api/                         # optional route handlers / BFF proxy
 components/
 ├── ui/                          # shadcn/ui primitives

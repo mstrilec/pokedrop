@@ -9,6 +9,7 @@ Architecture & design reference for the Pokémon TCG web application (collection
 | Doc | What it covers |
 |---|---|
 | [Foundation.md](Foundation.md) | What M0 built, why, how it works, and the traps it left behind. |
+| [Frontend.md](Frontend.md) | What M11 built in the web app: route zones, styling toolchain, and its traps. |
 | [PRD.md](PRD.md) | Product requirements — the source of truth for scope, goals, and decisions. |
 | [Architecture.md](Architecture.md) | System topology, module structure (backend + frontend), data flow, sync, caching, provider adapter. |
 | [Migrations.md](Migrations.md) | How the schema changes: the rules, the rollback path, and what CI enforces. |
