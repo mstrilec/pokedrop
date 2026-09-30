@@ -40,5 +40,24 @@ export function applyZodSchemas(document: OpenAPIObject): OpenAPIObject {
     document.components.schemas[name] = schema;
   }
 
+  // Swagger names a body's schema after the DTO class (`CreateDeckDto`) and,
+  // finding no decorated properties on it, registers it empty. Point every
+  // reference at the Zod schema registered under the name the class was made
+  // with, and drop the empty shell.
+  const renames = [...registry.keys()].filter(
+    (name) => `${name}Dto` in document.components!.schemas!,
+  );
+  if (renames.length > 0) {
+    let paths = JSON.stringify(document.paths);
+    for (const name of renames) {
+      paths = paths.replaceAll(
+        `"#/components/schemas/${name}Dto"`,
+        `"#/components/schemas/${name}"`,
+      );
+      delete document.components.schemas[`${name}Dto`];
+    }
+    document.paths = JSON.parse(paths) as OpenAPIObject['paths'];
+  }
+
   return document;
 }

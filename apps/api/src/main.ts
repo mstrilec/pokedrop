@@ -9,6 +9,7 @@ import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module.js';
 import { notFoundHandler } from './common/errors/not-found.handler.js';
 import { requestIdMiddleware } from './common/request-id.js';
+import { SESSION_COOKIE, SESSION_SCHEME, applyOpenApiConventions } from './common/openapi.js';
 import { applyZodSchemas } from './common/zod-dto.js';
 import { AUTH_BASE_PATH, AUTH_INSTANCE, type AuthInstance } from './auth/index.js';
 import { APP_CONFIG, type AppConfig } from './config/index.js';
@@ -60,11 +61,29 @@ async function bootstrap(): Promise<void> {
 
   const openApiConfig = new DocumentBuilder()
     .setTitle('PokeDrop API')
-    .setDescription('Pack opening, collection, deck building and peer-to-peer trading.')
+    .setDescription(
+      'Pack opening, collection, deck building and peer-to-peer trading. ' +
+        'Sign-up, sign-in and sessions are Better Auth routes under `/api/auth/*`, outside this document — see docs/API.md, "Auth". ' +
+        'Routes marked [Admin] require the ADMIN role.',
+    )
     .setVersion('1')
+    .addCookieAuth(
+      SESSION_COOKIE,
+      {
+        type: 'apiKey',
+        in: 'cookie',
+        name: SESSION_COOKIE,
+        description:
+          'The Better Auth session cookie, set by `POST /api/auth/sign-in/email`. Prefixed `__Secure-` when secure cookies are on.',
+      },
+      SESSION_SCHEME,
+    )
     .build();
 
-  const document = applyZodSchemas(SwaggerModule.createDocument(app, openApiConfig));
+  const document = applyOpenApiConventions(
+    applyZodSchemas(SwaggerModule.createDocument(app, openApiConfig)),
+    app,
+  );
   SwaggerModule.setup('docs', app, document);
 
   // init() mounts the Nest router, so anything registered after it sits behind

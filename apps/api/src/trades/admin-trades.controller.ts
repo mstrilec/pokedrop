@@ -7,6 +7,8 @@ import type { AuthUser } from '../common/request-auth.js';
 import { TradeReadsService } from './trade-reads.service.js';
 import { VoidTradeDto } from './trades.dto.js';
 import { TradesService } from './trades.service.js';
+import { Doc, returns } from '../common/openapi.js';
+import { TradeDetailSchema, TradeSchema } from '@pokedrop/shared';
 
 @ApiTags('admin')
 @Roles(['ADMIN'])
@@ -18,12 +20,17 @@ export class AdminTradesController {
   ) {}
 
   /** An admin reads any trade here rather than through a bypass on the member route. */
+  @Doc('Any trade, with its timeline and counter chain', returns('TradeDetail', TradeDetailSchema))
   @Get(':id')
   detail(@Param('id') id: string): Promise<TradeDetail> {
     return this.reads.detailForAdmin(id);
   }
 
   @HttpCode(HttpStatus.OK)
+  @Doc(
+    'Void a trade: release a pending one, reverse an accepted one',
+    returns('Trade', TradeSchema),
+  )
   @Post(':id/void')
   voidTrade(
     @CurrentUser() admin: AuthUser,

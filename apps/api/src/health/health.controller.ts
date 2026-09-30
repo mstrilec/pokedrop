@@ -7,6 +7,7 @@ import type { HealthCheckResult } from '@nestjs/terminus';
 import { PrismaService } from '../prisma/index.js';
 import { HealthCheckFilter } from './health-check.filter.js';
 import { RedisHealthIndicator } from './redis.health.js';
+import { Doc } from '../common/openapi.js';
 
 const DEPENDENCY_TIMEOUT_MS = 1500;
 
@@ -23,12 +24,14 @@ export class HealthController {
     private readonly redis: RedisHealthIndicator,
   ) {}
 
+  @Doc('Liveness: the process only, no dependency checks', 'The Terminus health report')
   @Get('live')
   @HealthCheck()
   live(): Promise<HealthCheckResult> {
     return this.health.check([]);
   }
 
+  @Doc('Readiness: Postgres and Redis; 503 when either is down', 'The Terminus health report')
   @Get('ready')
   @HealthCheck()
   ready(): Promise<HealthCheckResult> {
