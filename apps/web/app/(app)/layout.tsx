@@ -4,7 +4,6 @@ import { redirect } from 'next/navigation';
 import { HOME, signInUrl } from '@/lib/routes';
 import { SessionProvider } from '@/lib/session/context';
 import { identityOf } from '@/lib/session/identity';
-import { SessionKeepAlive } from '@/lib/session/keep-alive';
 import { getSession } from '@/lib/session/server';
 
 export default async function AppLayout({ children }: LayoutProps<'/'>) {
@@ -18,7 +17,6 @@ export default async function AppLayout({ children }: LayoutProps<'/'>) {
 
   return (
     <SessionProvider identity={identityOf(session.profile)}>
-      <SessionKeepAlive />
       <main className="flex-1 p-8">{children}</main>
     </SessionProvider>
   );
