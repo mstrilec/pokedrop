@@ -429,8 +429,8 @@ import { headers } from 'next/headers';
 import { env } from '../env';
 import { createClient } from './core';
 
-// Task 1, Step 4 measured that Next's incoming x-forwarded-for ends with the
-// connecting address; the API trusts one hop and reads that entry.
+// Next never sets a trustworthy address itself; the edge proxy in front of it
+// does, and the API trusts exactly that one hop (docs/Frontend.md).
 export async function serverHeaders(): Promise<Record<string, string>> {
   const incoming = await headers();
   const out: Record<string, string> = { Origin: env.WEB_ORIGIN };
@@ -550,13 +550,15 @@ export default async function Probe() {
 }
 ```
 
+curl stands in for the edge proxy (amended after probe 0: the edge, not Next, sets the address):
+
 ```bash
 source "$S/env86.sh"
-for u in "$WEB" "$WEB" "$LAN" "$LAN"; do curl -s "$u/probe" | grep -o '<pre id="probe">[^<]*'; done
-curl -s "$WEB/probe" -H 'X-Forwarded-For: 6.6.6.6' | grep -o '<pre id="probe">[^<]*'
+for a in 1.1.1.1 1.1.1.1 2.2.2.2 2.2.2.2; do echo -n "render $a "; curl -s "$WEB/probe" -H "X-Forwarded-For: $a" | grep -o '<pre id="probe">[^<]*'; done
+for a in 3.3.3.3 3.3.3.3 4.4.4.4; do echo -n "rewrite $a "; curl -s -D - -o /dev/null "$WEB/api/v1/sets" -H "X-Forwarded-For: $a" | grep -i 'x-ratelimit-remaining'; done
 ```
 
-Expected: the two `$WEB` renders count down one bucket, the two `$LAN` renders a separate one, and the spoofed render continues the `$WEB` bucket.
+Expected: each address has its own bucket — `1.1.1.1` counts down twice from its own start, `2.2.2.2` starts fresh, and the same through the rewrite for `3.3.3.3` and `4.4.4.4`.
 
 - [ ] **Step 8: Retry only for GET (PD-86 AC 3).** Create `$S/fake.mjs`, an API that always answers 503 and logs each request:
 
@@ -977,7 +979,7 @@ EOF
 - Modify: `.env.example`, `docs/API.md`, `docs/Frontend.md`, `docs/Architecture.md` (§5 tree: drop the optional `api/` BFF line)
 - Modify: `docs/superpowers/specs/2026-09-30-pd-86-pd-89-api-client-and-session-design.md` (Verification: probe users, not seeded users — the seed creates no credentials)
 
-- [ ] **Step 1: `.env.example`.** Change `AUTH_BASE_URL` to `http://localhost:3000` with the comment: *The web app's public origin. Better Auth builds verification and reset links from it, and they reach the API through the web app's `/api` rewrite.* Beside `TRUST_PROXY_HOPS`, add that the web app's rewrite and its server renders are one hop, with the value Task 1 measured. Add a `Web` section documenting `API_INTERNAL_URL` and `WEB_ORIGIN` as read by `apps/web` from its process environment (Next does not load the root `.env`), their defaults, and that rewrites are fixed at `next build`.
+- [ ] **Step 1: `.env.example`.** Change `AUTH_BASE_URL` to `http://localhost:3000` with the comment: *The web app's public origin. Better Auth builds verification and reset links from it, and they reach the API through the web app's `/api` rewrite.* Beside `TRUST_PROXY_HOPS` (which stays `0` for development), add: in production `1`, and only behind an edge proxy (Caddy or Cloudflare Tunnel) that sets `X-Forwarded-For` from the real connection, with Next bound to `127.0.0.1` — Next itself never sets a trustworthy address, so exposing it directly with `1` lets a client choose its bucket. Add a `Web` section documenting `API_INTERNAL_URL` and `WEB_ORIGIN` as read by `apps/web` from its process environment (Next does not load the root `.env`), their defaults, and that rewrites are fixed at `next build`.
 
 - [ ] **Step 2: `docs/API.md`.** Under *Conventions*, a paragraph *How the web app reaches the API*: the `/api` rewrite, direct server calls with cookie, `Origin` and `X-Forwarded-For`, `AUTH_BASE_URL` as the web origin, `TRUST_PROXY_HOPS` for the rewrite, with Task 1's measured table. Under *Auth*, the cookie-refresh finding from Task 1, Step 5 (confirmed or refuted) and what the web app does about it.
 
@@ -1000,4 +1002,4 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 EOF
 ```
 
-- [ ] **Step 6: Linear.** Mark PD-86 and PD-89 Done. Comment on PD-87: `redirectToSignIn` from `lib/routes.ts` goes into the query and mutation caches' `onError` for `ApiError` 401; seed the `me` query from `getSession().profile`; set `retry: false` because the client already retries GETs. Comment on PD-102: read `next` only through `safeNext`, and show a message for `error=ACCOUNT_SUSPENDED`. Comment on PD-90: identity comes from `useSession()`, and `(public)/layout.tsx` already branches on the session.
+- [ ] **Step 6: Linear.** Mark PD-86 and PD-89 Done. Comment on PD-87: `redirectToSignIn` from `lib/routes.ts` goes into the query and mutation caches' `onError` for `ApiError` 401; seed the `me` query from `getSession().profile`; set `retry: false` because the client already retries GETs. Comment on PD-102: read `next` only through `safeNext`, and show a message for `error=ACCOUNT_SUSPENDED`. Comment on PD-90: identity comes from `useSession()`, and `(public)/layout.tsx` already branches on the session. Comment on PD-128 and PD-129: production must run Next on `127.0.0.1` behind an edge proxy that sets `X-Forwarded-For` from the real connection, with the API at `TRUST_PROXY_HOPS=1` and `AUTH_BASE_URL` set to the public web origin (link `docs/API.md`).

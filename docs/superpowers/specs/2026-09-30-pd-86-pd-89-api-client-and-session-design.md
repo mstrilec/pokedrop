@@ -83,16 +83,29 @@ API-side, configuration and documentation only:
 - **`AUTH_BASE_URL` becomes the web origin** (`http://localhost:3000` in development). Better Auth builds verification
   and reset links from it; a link to `:4000` would set its cookie on the wrong host, and in production that port is not
   public.
-- **`TRUST_PROXY_HOPS`** is set to what probe 0 measures for traffic through the rewrite.
-- **The visitor's address on server renders.** Anonymous `/api/v1` traffic is rate-limited by address, 100 a minute. A
-  server render that does not forward the visitor's address makes every anonymous visitor share the Next server's
-  bucket. `serverApi` forwards it in `X-Forwarded-For`; which value it may trust, and whether a client can forge it, is
-  settled by probe 0 before any code depends on it.
+- **The client address is set by an edge proxy, never by Next** (amended after probe 0, item 4). Every request the API
+  sees from the web app comes from the Next server's socket, so the address has to travel in `X-Forwarded-For` — and
+  Next never appends the connecting address: the rewrite passes a client's header through untouched, and a server
+  render sees one only when the client sent none. So:
+  - in production Next listens on `127.0.0.1` only, behind Caddy or Cloudflare Tunnel, which sets the header from the
+    real connection (Caddy replaces an untrusted client's value; Cloudflare appends to it);
+  - the API runs with `TRUST_PROXY_HOPS=1` and reads the rightmost entry — the edge's;
+  - the rewrite and `serverApi` forward `X-Forwarded-For` unchanged;
+  - in development there is no edge and the value stays `0`: one machine, one bucket.
+
+  Leaving the address untrusted (`0` in production) was rejected: the strict limit on sign-in — 10 per 15 minutes,
+  keyed by address — would be shared by every user of the site. Sending `/api/auth` cross-origin was rejected as
+  undoing decision 1. **Exposing Next directly with `TRUST_PROXY_HOPS=1` would let a client choose its own bucket**;
+  this requirement belongs to PD-128/PD-129.
 
 ### Probe 0
 
 Run against the live API and `next start`, recorded in `docs/Frontend.md`, before implementation. Each item is a claim
 this design relies on; a different answer amends this spec first.
+
+**Measured 2026-09-30:** items 1, 3 and 5's precondition held (a host-only cookie on the web origin; `CsrfGuard` passes
+with `Origin`, 403 without); item 2 held with no `Set-Cookie`, since auto sign-in after verification is not configured;
+item 4 failed and amended [Configuration](#configuration); hypothesis 6 was **confirmed**, so the keep-alive is built.
 
 1. `POST /api/auth/sign-in/email` through the rewrite sets the session cookie on the web origin.
 2. `GET /api/auth/verify-email` through the rewrite: the 302's `Location` and its `Set-Cookie` arrive intact.
@@ -255,8 +268,9 @@ in `docs/Frontend.md` with its result. Signing in uses the project's seeded test
    - a member on `/admin` lands on `/dashboard`, and the admin endpoint called directly with that session answers 403;
    - `/cards/:id` answers 200 with no cookie;
    - `next=//evil.com`, `next=/\evil.com` and `next=https://evil.com` all resolve to `/dashboard`.
-4. **Rate limit:** anonymous server renders on behalf of two different client addresses draw from two buckets
-   (`X-RateLimit-Remaining`).
+4. **Rate limit:** with `TRUST_PROXY_HOPS=1` and curl standing in for the edge, anonymous requests carrying two
+   different `X-Forwarded-For` addresses draw from two buckets (`X-RateLimit-Remaining`), through the rewrite and
+   through a server render alike.
 5. `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm build`.
 
 ## Files
