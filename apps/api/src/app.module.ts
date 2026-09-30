@@ -21,6 +21,7 @@ import { PacksModule } from './packs/index.js';
 import { AppLoggingModule } from './logging/index.js';
 import { EconomyModule } from './economy/index.js';
 import { MailModule } from './mail/index.js';
+import { MetricsModule } from './metrics/index.js';
 import { NotificationCenterModule } from './notifications/index.js';
 import { PricesModule } from './prices/index.js';
 import { PrismaModule } from './prisma/index.js';
@@ -39,6 +40,7 @@ import { WalletModule } from './wallet/index.js';
     PrismaModule,
     AuditModule,
     RedisModule,
+    MetricsModule,
     ThrottleModule,
     MailModule,
     EconomyModule,

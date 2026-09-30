@@ -10,6 +10,7 @@ import {
 import { domainError } from '../common/errors/domain-error.js';
 import { isUniqueViolation } from '../common/errors/prisma-error.js';
 import { InventoryService } from '../inventory/index.js';
+import { MetricsCounterService } from '../metrics/index.js';
 import { PrismaService, type TransactionClient } from '../prisma/index.js';
 import { CARD_SUMMARY_SELECT, toCardSummary } from '../common/card-summary.js';
 import { EmptySlotError, generatePack, type PulledCard } from './pack-generator.js';
@@ -32,6 +33,7 @@ export class PackOpeningService {
     private readonly templates: PackTemplatesService,
     private readonly inventory: InventoryService,
     private readonly lock: PackOpenLock,
+    private readonly counters: MetricsCounterService,
   ) {}
 
   async open(userId: string, templateId: string, openId: string): Promise<PackOpenResult> {
@@ -73,11 +75,13 @@ export class PackOpeningService {
         this.logger.warn(
           `Template ${template.id} fell back: ${JSON.stringify(pack.fallbacks)} - it has drifted from the catalog`,
         );
+        this.counters.increment('pack_fallbacks');
       }
       cards = pack.cards;
     } catch (error) {
       if (error instanceof EmptySlotError) {
         this.logger.error(`Template ${template.id} slot ${error.slot} has no cards; open refused`);
+        this.counters.increment('pack_unavailable');
         throw domainError(
           HttpStatus.CONFLICT,
           ERROR_CODES.PACK_UNAVAILABLE,

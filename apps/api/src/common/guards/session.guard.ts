@@ -8,6 +8,7 @@ import { AUTH_INSTANCE } from '../../auth/index.js';
 import type { AuthInstance } from '../../auth/index.js';
 import { Public } from '../decorators/public.decorator.js';
 import { domainError } from '../errors/domain-error.js';
+import { ActivityService } from '../../metrics/index.js';
 import { PrismaService } from '../../prisma/index.js';
 import { setAuthContext } from '../request-auth.js';
 
@@ -17,6 +18,7 @@ export class SessionGuard implements CanActivate {
     private readonly reflector: Reflector,
     @Inject(AUTH_INSTANCE) private readonly auth: AuthInstance,
     private readonly prisma: PrismaService,
+    private readonly activity: ActivityService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -38,6 +40,7 @@ export class SessionGuard implements CanActivate {
 
     if (session && !suspended) {
       setAuthContext(request, session);
+      this.activity.touch(session.user.id);
     }
 
     const isPublic = this.reflector.getAllAndOverride(Public, [

@@ -12,6 +12,7 @@ import { requestIdMiddleware } from './common/request-id.js';
 import { applyZodSchemas } from './common/zod-dto.js';
 import { AUTH_BASE_PATH, AUTH_INSTANCE, type AuthInstance } from './auth/index.js';
 import { APP_CONFIG, type AppConfig } from './config/index.js';
+import { MetricsCounterService, createRequestMetricsMiddleware } from './metrics/index.js';
 import { RedisThrottlerStorage, createAuthThrottleMiddleware } from './throttle/index.js';
 
 async function bootstrap(): Promise<void> {
@@ -34,6 +35,8 @@ async function bootstrap(): Promise<void> {
   app.use(helmet());
 
   app.use(requestIdMiddleware);
+
+  app.use(createRequestMetricsMiddleware(app.get(MetricsCounterService)));
 
   app.enableCors({
     origin: config.app.corsOrigins,
