@@ -16,18 +16,18 @@
 - Commit straight to `dev`. Subject is `[PD-82]: short lowercase description`, header ≤ 72 characters, and the message ends with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 - Comments only where load-bearing; rationale belongs in `docs/`.
 - Never run `prisma migrate reset`. The only migration is `prisma migrate dev --name admin_metrics`.
-- `days` ∈ {7, 14, 30, 90}, default 14; anything else is 400. Admin only.
+- `days` ∈ {7, 14, 30}, default 14; anything else, 90 included, is 400 (amended after probe 0 — see the spec, Decision 0). Admin only.
 - **Days are UTC.** `series` has exactly `days` rows, oldest first, zero-filled, and the last one (today) is `partial: true`. `summary` is `{ current: yesterday, previous: the day before }`.
 - **Trade volume** is `tradesAccepted`, by `resolvedAt`. `tradesProposed` is by `createdAt`. Declined, cancelled (which includes expired), countered and voided are by `resolvedAt`.
 - **Counters** are `metrics:{requests|server_errors|pack_fallbacks|pack_unavailable}:{YYYY-MM-DD}` in the cache Redis, `INCR` plus `EXPIRE 8 640 000` (100 days). Never awaited on the request path, and a failure is logged at most once a minute.
 - `requests` counts `/api/v1/*` except `/api/v1/health/*`. `server_errors` counts final statuses ≥ 500.
 - The response is cached under `cache:admin:metrics:{days}` for 60 s. Every section is `null` when unreadable, and the answer is always 200.
-- **Budget:** p50 and p95 ≤ 300 ms uncached at `days=90` over ~50 000 users, ~1 000 000 pack openings, ~200 000 trades and ~500 000 activity rows. No `Seq Scan` on those tables in any aggregate's plan.
+- **Budget:** p50 and p95 ≤ 300 ms uncached at `days=30` over ~50 000 users, ~1 000 000 pack openings, ~200 000 trades and ~500 000 activity rows. No `Seq Scan` on those tables in any aggregate's plan.
 
 ## Review Focus
 
 - **The UTC day boundary.** An event at 23:59:59 UTC and another at 00:00:01 must land in two rows, and the in-memory activity set must reset when the UTC date changes, not at process start. The rows are pinned in Task 4, Step 4 (a trade resolved at `23:59:59` yesterday counts as yesterday's; an activity row on yesterday counts as yesterday's). The set's reset is a date comparison on every `touch` (Task 3, Step 1): it cannot be probed without waiting for midnight, so the final review checks it by reading.
-- **A 90-day window reaching past the counters' lifetime.** This cannot happen at 100 days of retention, but a counter key that is simply absent must read as `0`, not `null` — `null` is reserved for "Redis unreadable". Pinned in Task 4, Step 4 (a fresh day with no traffic reads `requests: 0`).
+- **A window reaching past the counters' lifetime.** This cannot happen at 100 days of retention, but a counter key that is simply absent must read as `0`, not `null` — `null` is reserved for "Redis unreadable". Pinned in Task 4, Step 4 (a fresh day with no traffic reads `requests: 0`).
 - **The request-counting middleware on a request no route matches.** A 404 from the not-found handler and a 401 from `SessionGuard` must both be counted. Pinned in Task 3, Step 5.
 - **A suspended user's surviving session must not count as activity.** `SessionGuard` deletes that session and refuses it. Pinned in Task 3, Step 5.
 - **`errorRate` on a day with requests but no errors is `0`, not `null`;** on a day with no requests it is `null`. Pinned in Task 4, Step 4.
@@ -276,7 +276,7 @@ const DaySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const Count = z.number().int().min(0);
 
 export const AdminMetricsQuerySchema = z.object({
-  days: z.enum(['7', '14', '30', '90']).default('14').transform(Number),
+  days: z.enum(['7', '14', '30']).default('14').transform(Number),
 });
 export type AdminMetricsQuery = z.infer<typeof AdminMetricsQuerySchema>;
 export type MetricsWindow = AdminMetricsQuery['days'];
@@ -460,7 +460,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { METRIC_COUNTERS, RedisService, metricsKeys, type MetricCounter } from '../redis/index.js';
 import { utcDayOf } from './utc-day.js';
 
-/** Past the longest window (90 days), so every day a window asks for exists. */
+/** Past the longest window (30 days), so every day a window asks for exists. */
 const COUNTER_TTL_SECONDS = 100 * 86_400;
 const WARN_EVERY_MS = 60_000;
 
@@ -905,7 +905,155 @@ mkuser a; admin a; signin a; mkuser m; mkuser n; T=$(today); Y=$(date -u -d yest
 # 1 - access, validation, shape
 echo "member $(req m GET /admin/metrics | grep -o '|[0-9]*$') anon $(req anon GET /admin/metrics | grep -o '|[0-9]*$') days=5 $(req a GET '/admin/metrics?days=5' | grep -o '|[0-9]*$')"
 nocache; req a GET /admin/metrics | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const j=JSON.parse(s.replace(/ \|\d+$/,''));const d=j.series.map(r=>r.day);console.log(j.window, d.length, d[0], d.at(-1), j.series.at(-1).partial, j.series.slice(0,-1).some(r=>r.partial), j.summary.current.day, j.summary.previous.day)})"
-nocache; req a GET '/admin/metrics?days=90' | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const j=JSON.parse(s.replace(/ \|\d+$/,''));console.log(j.series.length)})"
+echo "days=90 $(req a GET '/admin/metrics?days=90' | grep -o '|[0-9]* -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const j=JSON.parse(s.replace(/ \|\d+$/,''));console.log(j.series.length)})"
+# 4 - trades placed on today and yesterday by SQL, counted by the right column
+$PSQL -c "insert into trades (id, \"initiatorId\", \"recipientId\", status, \"createdAt\", \"resolvedAt\") values
+  ('pd82-t1', '$M', '$N', 'ACCEPTED', (now() at time zone 'utc') - interval '30 hours', (now() at time zone 'utc') - interval '1 minute'),
+  ('pd82-t2', '$M', '$N', 'DECLINED', '$Y 12:00', '$Y 13:00'),
+  ('pd82-t3', '$M', '$N', 'CANCELLED', '$Y 12:00', '$Y 23:59:59'),
+  ('pd82-t4', '$M', '$N', 'PENDING', (now() at time zone 'utc'), null)"
+nocache; row "$T"; row "$Y"
+# Review Focus - a row on yesterday is yesterday's; a day with no counter keys reads 0
+$PSQL -c "insert into user_activity (\"userId\", day) values ('$N', '$Y') on conflict do nothing"
+nocache; row "$Y" | grep -o '"activeUsers":[0-9]*\|"requests":[0-9a-z]*\|"errorRate":[0-9.a-z]*'
+# 6 - freshness and queues equal the sync status (AC2)
+nocache; req a GET /admin/metrics | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const j=JSON.parse(s.replace(/ \|\d+$/,''));console.log(JSON.stringify({r:j.freshness.lastRuns,q:j.queues}))})" > "$S/m.json"
+req a GET /admin/sync/status | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const j=JSON.parse(s.replace(/ \|\d+$/,''));console.log(JSON.stringify({r:j.runs,q:j.queues}))})" > "$S/s.json"
+cmp "$S/m.json" "$S/s.json" && echo "AC2 identical"
+# 7 - cache
+nocache; g1=$(req a GET /admin/metrics | grep -o '"generatedAt":"[^"]*"'); g2=$(req a GET /admin/metrics | grep -o '"generatedAt":"[^"]*"'); nocache; g3=$(req a GET /admin/metrics | grep -o '"generatedAt":"[^"]*"'); echo "$g1 | $g2 | $g3"
+# 8 - Redis stopped, then pack_openings unreadable
+docker compose stop redis >/dev/null 2>&1; t=$(date +%s%N); req a GET /admin/metrics | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const j=JSON.parse(s.replace(/ \|\d+$/,''));const r=j.series.at(-1);console.log(r.activeUsers, r.requests, r.errorRate, j.queues, j.freshness && j.freshness.lastRuns !== undefined)})"; echo "$(( ($(date +%s%N) - t) / 1000000 )) ms"; docker compose start redis >/dev/null 2>&1; sleep 3
+nocache; $PSQL -c "alter table pack_openings rename to pack_openings_pd82"; req a GET /admin/metrics | strip | cut -c1-240; $PSQL -c "alter table pack_openings_pd82 rename to pack_openings"
+```
+
+Expected:
+
+**Scenario 1** (access, validation, shape):
+- `member |403 anon |401 days=5 |400`;
+- the 14-day window prints `{ days: 14, from, to: <today> } 14 <from> <today> true false <yesterday> <day before>`;
+- `days=90` is `|400`, and the 30-day window prints `30`.
+
+**Scenario 4** (trades placed on today and yesterday):
+- the row for today has `tradesAccepted` ≥ 1 (`pd82-t1` resolved today, created yesterday) and `tradesProposed` ≥ 1 (`pd82-t4`);
+- the row for yesterday has `tradesDeclined` ≥ 1, `tradesCancelled` ≥ 1 (`23:59:59` counts as yesterday) and `tradesProposed` ≥ 3 (`t1`, `t2`, `t3`).
+
+**Review Focus** (a row on yesterday; a day with no counter keys):
+- yesterday's `activeUsers` ≥ 1;
+- `requests` is a number (`0` if nothing hit the API yesterday), never `null`;
+- `errorRate` is `null` if `requests` is `0`, and otherwise a number ≥ 0.
+
+**Scenario 6** (freshness and queues against the sync status):
+- `AC2 identical`. If it differs only because a queue count changed between the two reads, run it again.
+
+**Scenario 7** (cache):
+- `g1` equals `g2`, and `g3` differs.
+
+**Scenario 8** (Redis stopped, then `pack_openings` unreadable):
+- with Redis stopped: a number, `null`, `null`, `null` (queues), and `true`, within about 2.5 s;
+- with `pack_openings` renamed: `"series":null` and `"summary":null`, with `freshness` and `queues` present.
+
+Scenario 3 (the pack counters in the response): open once more against `pd82-fb` (recreate it as in Task 3, Step 5 if `cleanup` removed it), then `nocache; row "$T"`. Expected: `packFallbacks` ≥ 1, and `requests` and `serverErrors` numbers.
+
+Run `$PSQL -c "delete from trades where id like 'pd82-t%'"`, then `cleanup`, and stop the API.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add apps/api/src/admin
+git commit -m "[PD-82]: serve admin metrics by day, cached, each section nullable
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+```
+
+---
+
+### Task 5: The budget and the hot path
+
+**Files:**
+- None changed, unless the numbers miss.
+
+**Interfaces:**
+- Consumes: the endpoint (Task 4), the dataset scripts and the Task 1 baseline.
+
+- [ ] **Step 1: Load the dataset** (the migration now owns `user_activity` and the indexes)
+
+```bash
+source "$S/env82.sh"; time $PSQLF < "$S/dataset82.sql" | tail -6
+$PSQLF < "$S/explain82.sql" > "$S/explain82-final.txt"; grep -E 'Scan|Execution Time' "$S/explain82-final.txt"
+```
+
+Expected: the four counts as in Task 1 and no `Seq Scan`.
+
+- [ ] **Step 2: Measure the endpoint (AC1).** Start the API:
+
+```bash
+mkuser a; admin a; signin a
+for i in $(seq 1 20); do nocache; curl -s -o /dev/null -w '%{time_total}\n' -b "$S/jar-a.txt" "$API/admin/metrics?days=30"; done | sort -n | awk '{a[NR]=$1} END {print "p50", a[int(NR*0.5)], "p95", a[int(NR*0.95)], "max", a[NR]}'
+curl -s -o /dev/null -w 'cached %{time_total}\n' -b "$S/jar-a.txt" "$API/admin/metrics?days=30"
+```
+
+Expected: p50 and p95 ≤ 0.300 s; the cached read well under that. If p95 is over, profile with the explain output and the API log before changing anything, and ledger what you find.
+
+- [ ] **Step 3: The hot path (spec scenario 10)**
+
+```bash
+mkuser base; for i in $(seq 1 200); do curl -s -o /dev/null -w '%{time_total}\n' -b "$S/jar-base.txt" $API/users/me; done | sort -n | awk '{a[NR]=$1} END {print "p50", a[int(NR*0.5)], "p95", a[int(NR*0.95)]}'
+```
+
+Expected: p50 within ~1 ms of Task 1's baseline. Record both.
+
+- [ ] **Step 4: Undo the dataset**
+
+```bash
+$PSQLF < "$S/dataset82-drop.sql"; cleanup; $PSQL -c "select count(*) from users where id like 'pd82u%'"
+```
+
+Expected: `0`. Stop the API. Nothing to commit.
+
+---
+
+### Task 6: Documentation and Linear
+
+**Files:**
+- Modify: `docs/API.md` (the Admin / Sync table's metrics row; a new `## Admin / Metrics` section before `## Health`)
+- Modify: `docs/DataModel.md` (a new `UserActivity` section; the indexes on PackOpening and Trade)
+- Create: `apps/api/src/metrics/README.md`
+
+- [ ] **Step 1: `docs/API.md`.**
+  - In the `## Admin / Sync` table, change the metrics row's notes to `Daily activity, packs, trades, errors and freshness — see [Admin / Metrics](#admin--metrics)`.
+  - Add `## Admin / Metrics` before `## Health`, covering:
+    - the query and its 400;
+    - the contract, as in the spec;
+    - each field's definition — UTC days, `partial`, trade volume as `tradesAccepted` by `resolvedAt`, expired inside `tradesCancelled`, what `requests` counts and excludes, `packFallbacks` counted per opening, `null` against `0`;
+    - why the cards are yesterday against the day before;
+    - the 60 s cache and `generatedAt`;
+    - the degradation table;
+    - that `freshness.lastRuns` and `queues` are the sync status's own read;
+    - a **Measured, <date>** list with the actual results of Tasks 1–5 — the explain times, p50/p95, the hot-path numbers, and every scenario's observed outcome.
+
+- [ ] **Step 2: `docs/DataModel.md`.**
+  - Add a `### UserActivity` section after `### AuditLog`'s block (or beside User, following the file's order): the fields, the primary key, the `(day)` index, `ON DELETE CASCADE`, who writes it and how often, and the growth estimate (no retention job).
+  - Under PackOpening and Trade, add the new indexes and what reads them.
+
+- [ ] **Step 3: `apps/api/src/metrics/README.md`.** One page covering:
+  - **why activity skips Redis and `await`** (and what a failed insert costs);
+  - **why a middleware in `main.ts` and not a Nest interceptor**, with the 404 and 401 cases;
+  - **the counters:** key names, TTL, never awaited, the once-a-minute warning;
+  - **the measured hot-path cost** from Task 5.
+
+- [ ] **Step 4: Format check and commit**
+
+```bash
+npx prettier --check docs/API.md docs/DataModel.md apps/api/src/metrics/README.md
+git add docs/API.md docs/DataModel.md apps/api/src/metrics/README.md
+git commit -m "[PD-82]: document the metrics, their sources and what they measured
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+```
+
+- [ ] **Step 5: Linear.** Mark PD-82 Done. Comment on PD-121 (the admin dashboard page) with the contract's location (`@pokedrop/shared` `AdminMetricsSchema`, `docs/API.md` Admin / Metrics) and that the cards read `summary`, the chart reads `series`, and both are UTC.
+)"; nocache; req a GET '/admin/metrics?days=30' | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const j=JSON.parse(s.replace(/ \|\d+$/,''));console.log(j.series.length)})"
 # 4 - trades placed on today and yesterday by SQL, counted by the right column
 $PSQL -c "insert into trades (id, \"initiatorId\", \"recipientId\", status, \"createdAt\", \"resolvedAt\") values
   ('pd82-t1', '$M', '$N', 'ACCEPTED', (now() at time zone 'utc') - interval '30 hours', (now() at time zone 'utc') - interval '1 minute'),
@@ -989,8 +1137,8 @@ Expected: the four counts as in Task 1 and no `Seq Scan`.
 
 ```bash
 mkuser a; admin a; signin a
-for i in $(seq 1 20); do nocache; curl -s -o /dev/null -w '%{time_total}\n' -b "$S/jar-a.txt" "$API/admin/metrics?days=90"; done | sort -n | awk '{a[NR]=$1} END {print "p50", a[int(NR*0.5)], "p95", a[int(NR*0.95)], "max", a[NR]}'
-curl -s -o /dev/null -w 'cached %{time_total}\n' -b "$S/jar-a.txt" "$API/admin/metrics?days=90"
+for i in $(seq 1 20); do nocache; curl -s -o /dev/null -w '%{time_total}\n' -b "$S/jar-a.txt" "$API/admin/metrics?days=30"; done | sort -n | awk '{a[NR]=$1} END {print "p50", a[int(NR*0.5)], "p95", a[int(NR*0.95)], "max", a[NR]}'
+curl -s -o /dev/null -w 'cached %{time_total}\n' -b "$S/jar-a.txt" "$API/admin/metrics?days=30"
 ```
 
 Expected: p50 and p95 ≤ 0.300 s; the cached read well under that. If p95 is over, profile with the explain output and the API log before changing anything, and ledger what you find.

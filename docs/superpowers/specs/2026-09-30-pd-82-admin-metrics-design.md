@@ -21,7 +21,7 @@ Reference: `docs/API.md` (Admin / Sync) · `docs/PRD.md` §5.8 · `docs/DataMode
 
 | Acceptance criterion | How it is met |
 | --- | --- |
-| Responds within the performance budget on a realistically sized dataset | ≤ 300 ms uncached at a 90-day window over the dataset in [Budget](#budget), every aggregate an index or index-only scan |
+| Responds within the performance budget on a realistically sized dataset | ≤ 300 ms uncached at a 30-day window over the dataset in [Budget](#budget), every aggregate an index or index-only scan |
 | Freshness figures match what the sync status reports | `freshness.lastRuns` and `queues` are read through `AdminSyncService.status()` — the same read `/admin/sync/status` serves |
 | Feeds the dashboard charts without client-side reshaping | One flat row per UTC day, zero-filled, with rates computed server-side; the cards' pair of days served as-is |
 
@@ -39,6 +39,8 @@ Reference: `docs/API.md` (Admin / Sync) · `docs/PRD.md` §5.8 · `docs/DataMode
 
 ## Decisions
 
+0. **No 90-day window — amended after probe 0.** The design first offered 7, 14, 30 and 90 days. Probe 0 measured the aggregates at 90 days over the budget dataset: the window covers nearly every row, so the planner seq-scans, and `pack_openings` alone took 353 ms whether read from the table or, forced, from its index — 1 000 000 entries is the cost, not the access path. Warm sum 685 ms. At 30 days every aggregate was an index-only scan: 28 + 106 + 25 + 35 ms, run in parallel, so about 110 ms of wall time. At 14 days, 111 ms in total. Windows are therefore 7, 14 and 30 days, and the budget is measured at 30. A 90-day view belongs with a daily rollup table (approach B), when one is wanted.
+
 1. **Computed on read, cached 60 s** — no rollup table, no materialized view. One source of truth and no background job. If probe 0 shows the aggregates cannot fit the budget, the fallback is a daily rollup table filled by a cron (approach B), and that is decided before any code is written.
 2. **DAU comes from a new `user_activity(userId, day)` table in Postgres.** Exact, durable, indexed. Redis HyperLogLog was rejected as approximate and lost with Redis; deriving activity from writes was rejected because it misses users who only browse.
 3. **Activity is written without Redis and without `await`.** A per-process in-memory set of today's user ids means a user costs one `INSERT … ON CONFLICT DO NOTHING` per day per process, and nothing on every other request.
@@ -49,7 +51,7 @@ Reference: `docs/API.md` (Admin / Sync) · `docs/PRD.md` §5.8 · `docs/DataMode
 
 ## Contract
 
-`GET /admin/metrics?days=14` — `days` ∈ {7, 14, 30, 90}, default 14 (the design's chart); anything else is 400. Admin only, like the rest of `/admin`.
+`GET /admin/metrics?days=14` — `days` ∈ {7, 14, 30}, default 14 (the design's chart); anything else is 400. Admin only, like the rest of `/admin`.
 
 ```ts
 AdminMetrics = {
@@ -173,7 +175,7 @@ The aggregates, the counter `MGET` and `AdminSyncService.status()` run in parall
 
 ## Budget
 
-**≤ 300 ms uncached, p50 and p95, for `days=90`** over:
+**≤ 300 ms uncached, p50 and p95, for `days=30`** over:
 
 | Table | Rows |
 | --- | --- |
@@ -188,11 +190,11 @@ Every aggregate's `EXPLAIN ANALYZE` must show an index or index-only scan, never
 
 No automated tests in v1. Probes against the running stack — HTTP, psql, `redis-cli` — as in PD-81.
 
-**Probe 0 — before any code:** generate the dataset, create the three indexes by hand, and `EXPLAIN ANALYZE` each aggregate at 90 days. The sum must fit roughly 200 ms, leaving room for the rest of the response; otherwise stop and move to approach B. The indexes are then dropped, and the migration creates them for real.
+**Probe 0 — before any code:** generate the dataset, create the three indexes by hand, and `EXPLAIN ANALYZE` each aggregate at the longest window. The sum must fit roughly 200 ms, leaving room for the rest of the response; otherwise stop and move to approach B. The indexes are then dropped, and the migration creates them for real.
 
 | # | Scenario | Expected |
 | --- | --- | --- |
-| 1 | Member; signed out; `days=5`; default; `days=90` | 403; 401; 400; 14 and 90 rows, oldest first, zero-filled, the last `partial: true` |
+| 1 | Member; signed out; `days=5` and `days=90`; default; `days=30` | 403; 401; 400; 14 and 30 rows, oldest first, zero-filled, the last `partial: true` |
 | 2 | A user makes 5 requests; the API restarts; one more; an anonymous request to a `@Public()` route | exactly one `user_activity` row for today; the anonymous request adds none; today's `activeUsers` up by 1 |
 | 3 | Pack opens; a template that falls back; a template refused with `PACK_UNAVAILABLE` | `packsOpened`, `packFallbacks`, `packUnavailable` up by the right counts |
 | 4 | Trades proposed, accepted, declined, cancelled; some rows moved to yesterday by SQL | each in its day and status; `summary.current` is yesterday |
@@ -200,7 +202,7 @@ No automated tests in v1. Probes against the running stack — HTTP, psql, `redi
 | 6 | Against `/admin/sync/status`, cache cleared | `freshness.lastRuns` and `queues` identical — AC2 |
 | 7 | Two requests in a row, then `DEL` of the cache key | the same `generatedAt`, then a new one |
 | 8 | Redis stopped; then `pack_openings` renamed for a moment | 200 with counters and `queues` null; then `series` and `summary` null and the rest readable |
-| 9 | 20 requests at `days=90`, cache cleared before each | p50 and p95 ≤ 300 ms — AC1 |
+| 9 | 20 requests at `days=30`, cache cleared before each | p50 and p95 ≤ 300 ms — AC1 |
 | 10 | `/users/me` 200 times before and after the change | p50 not visibly worse; the difference recorded |
 
 ## Files
