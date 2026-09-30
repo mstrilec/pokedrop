@@ -41,6 +41,15 @@ Better Auth core tables, taken verbatim from `@better-auth/core` rather than fro
 
 One row in `Account` per authentication method: the credential provider (`providerId = "credential"`) keeps its hash in `password`, OAuth providers keep their tokens. Deleting a user cascades to both tables.
 
+### UserActivity — *operational*
+`userId→User cascade, day(date, UTC)` — **primary key** `(userId, day)`, **index** `(day)`.
+
+One row per user per UTC day on which they made an authenticated `/api/v1` request; the source of daily active users (`docs/API.md`, Admin / Metrics). Sessions cannot serve that purpose: they are deleted on sign-out, expiry and suspension, so they hold no history.
+
+**Written by `SessionGuard`** for a valid session of a user who is not suspended, through `ActivityService.touch`: an in-memory set of today's ids per process means one `INSERT … ON CONFLICT DO NOTHING` per user per day per process, not awaited by the request; replicas each insert once and the primary key absorbs the rest. A failed insert is retried by that user's next request. A sign-in alone is not activity — `/api/auth/*` does not pass through `SessionGuard`.
+
+**Read** as `count(*) … WHERE day >= $from GROUP BY day`, an index-only scan on `(day)`. **No retention job:** at 5 000 daily users it grows by about 1.8 million rows a year.
+
 ### Set — *mirrored from API*
 `id, name, series, releaseDate, printedTotal, total, symbolUrl, logoUrl, updatedAt`
 → many `Card`.
@@ -106,6 +115,7 @@ One row per execution of a background sync. Redis and BullMQ job state were both
 **Unique** `openId` → idempotency guard. → many `PackOpeningCard` (`cardId`, rarity pulled, `position`).
 `position` is the 0-based pull order, so a replay reveals the cards in the order they were first revealed.
 `seed` is the hex of the 32-byte generator seed — null only for openings before PD-57; it reproduces a pack while the card pool is unchanged.
+**Indexes:** `(userId, createdAt)` for a user's history, and `(createdAt)` for the admin metrics' packs opened per day — an index-only range scan, 107 ms over 329 000 openings in a 30-day window.
 
 ### Deck
 `id, userId, name, format, isPublic, ownedOnly, createdAt`
@@ -127,7 +137,7 @@ The **max-copies rule is not a check constraint.** Basic energy is exempt from i
 
 Both user relations are **Restrict**, unlike everything else a user owns. A trade belongs to two people, so cascading from one party would silently erase the other party's record of their own completed trade. Verified: a user who has traded cannot be deleted, one who never has can. Account deletion, when it is built, must anonymise rather than delete.
 
-**Indexes:** `(recipientId, status)` and `(initiatorId, status)`. Measured over 20 000 trades: both inbox views plan as a bitmap scan of their own composite index.
+**Indexes:** `(recipientId, status)` and `(initiatorId, status)`. Measured over 20 000 trades: both inbox views plan as a bitmap scan of their own composite index. `(createdAt)` and `(resolvedAt, status)` serve the admin metrics — trades proposed per day, and outcomes per day and status — both index-only over a 30-day window (22 and 35 ms over 200 000 trades).
 
 > **A PENDING trade holds escrow** — `lockedQuantity` on inventory rows. Nothing in the schema can enforce that removing or voiding such a trade releases those locks. Cards locked by a trade that no longer exists stay locked forever, and only the settlement and expiry jobs can prevent that.
 

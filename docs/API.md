@@ -1037,7 +1037,7 @@ Both parties of each voided trade get `trade.voided` after commit. Trades come f
 | POST | `/admin/sync/prices` | admin | Enqueue a full price sweep — 202 `{ jobId, kind }` |
 | POST | `/admin/sync/breakers/:provider/reset` | admin | Clear a provider's breaker |
 | GET | `/admin/sync/status` | admin | Last run per `SyncKind`, queue depth, breakers, the provider the next run would use |
-| GET | `/admin/metrics` | admin | DAU, packs opened, trade volume, freshness |
+| GET | `/admin/metrics` | admin | Daily activity, packs, trades, errors and freshness — see [Admin / Metrics](#admin--metrics) |
 
 ### Triggers
 
@@ -1109,6 +1109,84 @@ constantly.
 - a breaker at 5 failures and open for 900 s: reset 200, both keys gone, a row with `{ failures: 5, openUntil }`; again: 200 and no row; an open key with no TTL: shown open, `nextProvider` the fallback, reset 200; `ghost`: 404
 - a member on every new route 403, signed out 401
 - the one real run, triggered from the endpoint: `PARTIAL`, 19 670 processed, 4 failed, its row's `jobId` the trigger's, `stale: false` throughout. The host slept during it, so it lost its BullMQ lock: the processor closed its run, BullMQ refused to mark the job finished (`Missing lock … moveToFinished`) and ran it again under the same job id, which opened a second run from page 1. The key stayed held the whole time, so no trigger or cron could add a third. That run was stopped by hand; with its job removed, its `RUNNING` row read `stale: true`. See `apps/api/src/sync/README.md`, "A run nobody will close"
+
+## Admin / Metrics
+
+`GET /admin/metrics?days=14` — admin only. `days` is `7`, `14` (the default, the dashboard's chart) or `30`; anything else, `90` included, is 400. The answer is always 200: each section is read on its own and is `null` when it cannot be.
+
+```ts
+{
+  generatedAt: Date,
+  window: { days, from: 'YYYY-MM-DD', to: 'YYYY-MM-DD' },   // UTC; to = today, inclusive
+  series: MetricsDay[] | null,          // exactly `days` rows, oldest first, zero-filled
+  summary: { current: MetricsDay, previous: MetricsDay } | null,   // yesterday, the day before
+  freshness: { oldestPriceUpdatedAt, cardsWithoutPrice, lastRuns: SyncRunSummary[] | null } | null,
+  queues: QueueDepth[] | null,
+}
+MetricsDay = {
+  day, partial,                         // partial: true for today only
+  activeUsers, packsOpened,
+  tradesProposed, tradesAccepted, tradesDeclined, tradesCancelled, tradesCountered, tradesVoided,
+  requests, serverErrors, errorRate,    // null when Redis is unreadable
+  packFallbacks, packUnavailable,       // null when Redis is unreadable
+}
+```
+
+**What each field counts.** Every day is a UTC day.
+
+| Field | Counts | Source |
+|---|---|---|
+| `activeUsers` | users with at least one authenticated `/api/v1` request that day | `user_activity`, written by `SessionGuard` |
+| `packsOpened` | pack openings, by `createdAt` | `pack_openings` |
+| `tradesProposed` | trades created that day, counters included, by `createdAt` | `trades` |
+| `tradesAccepted` | **trade volume** — trades that settled that day, by `resolvedAt` | `trades` |
+| `tradesDeclined` · `tradesCancelled` · `tradesCountered` · `tradesVoided` | trades closed without a deal that day, by `resolvedAt`. An expired trade is `CANCELLED` (with a `trade.expire` audit row), so it counts here | `trades` |
+| `requests` | every `/api/v1` response except `/api/v1/health/*`, whatever its status — 401 and 404 included | Redis `metrics:requests:{day}` |
+| `serverErrors` | those responses at 500 and above | Redis `metrics:server_errors:{day}` |
+| `errorRate` | `serverErrors / requests`; `null` on a day with no requests | computed |
+| `packFallbacks` | openings in which a slot fell back to another rarity because the template has drifted from the catalog — one per opening, however many slots | Redis, from `PackOpeningService` |
+| `packUnavailable` | opens refused with 409 `PACK_UNAVAILABLE` | Redis, from `PackOpeningService` |
+
+**`0` and `null` are different.** A day with no traffic reads `requests: 0`; only an unreadable Redis gives `null`. Counters are kept 100 days, beyond the longest window.
+
+**The cards read `summary`, the chart reads `series`.** Activity is recorded per day, so a rolling 24 h DAU cannot exist, and putting a day's DAU beside a rolling 24 h of packs would compare two periods. The cards therefore show the last complete day against the day before; today stays in `series`, flagged `partial`. `summary` is taken from the same rows as `series` and cannot disagree with it.
+
+**Freshness is the sync status's own read.** `freshness.lastRuns` and `queues` come from the same `AdminSyncService.status()` that serves `GET /admin/sync/status`, so the two pages cannot disagree. `oldestPriceUpdatedAt` and `cardsWithoutPrice` are read from the `cards (priceUpdatedAt)` index.
+
+**Cached 60 s** under `cache:admin:metrics:{days}`; `generatedAt` says when the numbers were computed. Nothing invalidates it.
+
+**Degradation**, each section on its own:
+
+| Unreadable | `series` | counter fields | `summary` | `freshness` | `queues` |
+|---|---|---|---|---|---|
+| the aggregate tables | `null` | — | `null` | present if `cards` answers | from the sync status |
+| Redis | present | `null` | present | present; `lastRuns` from the sync status | `null` |
+
+**No 90-day window.** The design first offered one. Measured over the budget dataset, a 90-day window covers nearly every row: `pack_openings` alone took 353 ms to count a million openings, from the table or from its index alike, and the four aggregates summed to 685 ms. A 90-day view needs a daily rollup table, when one is wanted.
+
+**Measured, 2026-09-30**, against the running stack:
+
+- **the budget (AC1)**, over 50 000 users, 1 000 000 pack openings, 200 000 trades and 477 000 activity rows:
+  - uncached at `days=30`: p50 107 ms, p95 118 ms, max 120 ms over 20 requests, all 200;
+  - at `days=14`: p50 53 ms, p95 66 ms;
+  - cached: 6 ms;
+  - every aggregate an index-only scan — 29, 107, 22 and 35 ms at 30 days, run in parallel
+- **the hot path**: `/users/me` p50 5.7 ms after against 5.6 ms before (p95 6.5 against 7.0) — activity and counting both happen off the response path
+- **access and shape**:
+  - member 403; signed out 401; `days=5` 400; `days=90` 400;
+  - the default gave 14 rows ending today, only the last `partial`, with `summary` yesterday against the day before; `days=30` gave 30 rows
+- **activity**:
+  - five requests by one user wrote one `user_activity` row, and a restart and one more request still one;
+  - an anonymous request to a public route none;
+  - a suspended user's surviving session was refused with 403 and wrote none
+- **request counters**: a 401 and a 404 each counted and a health probe not; a forced 500 counted in `serverErrors`
+- **pack counters**: three opens of a drifted template counted 3 fallbacks; a template with no card for its only rarity was 409 `PACK_UNAVAILABLE` and counted 1
+- **trade bucketing**: a trade created yesterday and accepted today counted as proposed yesterday and accepted today; one cancelled at `23:59:59` yesterday counted as yesterday's
+- **freshness (AC2)**: `freshness.lastRuns` and `queues` byte-identical to `GET /admin/sync/status` with the cache cleared
+- **cache**: two requests returned the same `generatedAt`; after deleting the key, a new one
+- **degradation**:
+  - Redis stopped: 200 in 2 089 ms, counter fields and `queues` null, `activeUsers` and freshness present;
+  - `pack_openings` renamed away: `series` and `summary` null, `freshness` and `queues` present
 
 ## Health
 
