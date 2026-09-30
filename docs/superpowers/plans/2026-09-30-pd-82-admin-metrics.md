@@ -905,7 +905,7 @@ mkuser a; admin a; signin a; mkuser m; mkuser n; T=$(today); Y=$(date -u -d yest
 # 1 - access, validation, shape
 echo "member $(req m GET /admin/metrics | grep -o '|[0-9]*$') anon $(req anon GET /admin/metrics | grep -o '|[0-9]*$') days=5 $(req a GET '/admin/metrics?days=5' | grep -o '|[0-9]*$')"
 nocache; req a GET /admin/metrics | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const j=JSON.parse(s.replace(/ \|\d+$/,''));const d=j.series.map(r=>r.day);console.log(j.window, d.length, d[0], d.at(-1), j.series.at(-1).partial, j.series.slice(0,-1).some(r=>r.partial), j.summary.current.day, j.summary.previous.day)})"
-echo "days=90 $(req a GET '/admin/metrics?days=90' | grep -o '|[0-9]* -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const j=JSON.parse(s.replace(/ \|\d+$/,''));console.log(j.series.length)})"
+echo "days=90 $(req a GET '/admin/metrics?days=90' | grep -o '|[0-9]*$')"; nocache; req a GET '/admin/metrics?days=30' | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const j=JSON.parse(s.replace(/ \|\d+$/,''));console.log(j.series.length)})"
 # 4 - trades placed on today and yesterday by SQL, counted by the right column
 $PSQL -c "insert into trades (id, \"initiatorId\", \"recipientId\", status, \"createdAt\", \"resolvedAt\") values
   ('pd82-t1', '$M', '$N', 'ACCEPTED', (now() at time zone 'utc') - interval '30 hours', (now() at time zone 'utc') - interval '1 minute'),
