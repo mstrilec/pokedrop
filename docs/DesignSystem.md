@@ -94,7 +94,7 @@ Loaded from Google Fonts: `Geist` (400,500,600,700,800) · `Geist Mono` (400,500
 
 ## 3. Spacing
 
-A **4px base unit**. Gaps of 8 / 12 / 16 within components; 20 / 24 between sections; 34+ for page padding.
+A **4px base unit**. Gaps of 8 / 12 / 16 within components; 20 / 24 between sections; 32 for page padding. Every value is a multiple of 4 — the mockups' 34px page padding was rounded to 32 in PD-85.
 
 | Token | px |
 |---|---|
@@ -104,7 +104,7 @@ A **4px base unit**. Gaps of 8 / 12 / 16 within components; 20 / 24 between sect
 | `space-4` | 16 |
 | `space-5` | 20 |
 | `space-6` | 24 |
-| `space-8` | 34 |
+| `space-8` | 32 |
 
 ---
 
