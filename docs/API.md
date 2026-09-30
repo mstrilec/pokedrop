@@ -1141,9 +1141,9 @@ MetricsDay = {
 | `tradesProposed` | trades created that day, counters included, by `createdAt` | `trades` |
 | `tradesAccepted` | **trade volume** — trades that settled that day, by `resolvedAt` | `trades` |
 | `tradesDeclined` · `tradesCancelled` · `tradesCountered` · `tradesVoided` | trades closed without a deal that day, by `resolvedAt`. An expired trade is `CANCELLED` (with a `trade.expire` audit row), so it counts here | `trades` |
-| `requests` | every `/api/v1` response except `/api/v1/health/*`, whatever its status — 401 and 404 included | Redis `metrics:requests:{day}` |
+| `requests` | every `/api/v1` response except `/api/v1/health/*` and CORS preflights (`OPTIONS`), whatever its status — 401 and 404 included | Redis `metrics:requests:{day}` |
 | `serverErrors` | those responses at 500 and above | Redis `metrics:server_errors:{day}` |
-| `errorRate` | `serverErrors / requests`; `null` on a day with no requests | computed |
+| `errorRate` | `serverErrors / requests`, capped at 1; `null` on a day with no requests. Both counters of one response are written in one `MULTI` on one day, and the cap guards a day where one of them was lost | computed |
 | `packFallbacks` | openings in which a slot fell back to another rarity because the template has drifted from the catalog — one per opening, however many slots | Redis, from `PackOpeningService` |
 | `packUnavailable` | opens refused with 409 `PACK_UNAVAILABLE` | Redis, from `PackOpeningService` |
 

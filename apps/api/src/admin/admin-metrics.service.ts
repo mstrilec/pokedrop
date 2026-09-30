@@ -169,8 +169,12 @@ function toDay(
     tradesVoided: resolved('VOIDED'),
     requests,
     serverErrors,
+    // Capped: a counter lost or evicted on one side must not make a day's rate
+    // exceed 1 and fail the whole response for as long as it is in the window.
     errorRate:
-      requests === null || serverErrors === null || requests === 0 ? null : serverErrors / requests,
+      requests === null || serverErrors === null || requests === 0
+        ? null
+        : Math.min(1, serverErrors / requests),
     packFallbacks: counted?.pack_fallbacks ?? null,
     packUnavailable: counted?.pack_unavailable ?? null,
   };

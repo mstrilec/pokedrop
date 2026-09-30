@@ -25,8 +25,8 @@ Redis was rejected for the "already seen" check: it would put a network round tr
 
 | Counter | Incremented by |
 | --- | --- |
-| `requests` | the request-counting middleware, once per `/api/v1` response except `/api/v1/health/*` |
-| `server_errors` | the same middleware, when the final status is ≥ 500 |
+| `requests` | the request-counting middleware, once per `/api/v1` response except `/api/v1/health/*` and CORS preflights |
+| `server_errors` | the same middleware, when the final status is ≥ 500 — in the same `MULTI` and on the same day as that response's `requests` |
 | `pack_fallbacks` | `PackOpeningService`, once per opening in which any slot fell back to another rarity |
 | `pack_unavailable` | `PackOpeningService`, once per 409 `PACK_UNAVAILABLE` |
 
