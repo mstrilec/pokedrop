@@ -15,6 +15,7 @@ export const cacheKeys = {
   set: (setId: string) => key('set', setId),
   facets: () => key('facets'),
   inventorySummary: (userId: string) => key('inv', 'summary', userId),
+  adminMetrics: (days: number) => key('admin', 'metrics', days),
 } as const;
 
 export const cachePatterns = {
@@ -83,4 +84,24 @@ export const BUDGET_NAMESPACE = 'budget';
 export const budgetKeys = {
   /** `day` is an ISO date, `YYYY-MM-DD`, in UTC. */
   spent: (provider: string, day: string) => `${BUDGET_NAMESPACE}:${provider}:${day}`,
+} as const;
+
+/**
+ * Outside the `cache:` namespace for the reason `breakerKeys` is: a routine
+ * cache flush must not reset a day's request count.
+ */
+export const METRICS_NAMESPACE = 'metrics';
+
+export const METRIC_COUNTERS = [
+  'requests',
+  'server_errors',
+  'pack_fallbacks',
+  'pack_unavailable',
+] as const;
+
+export type MetricCounter = (typeof METRIC_COUNTERS)[number];
+
+export const metricsKeys = {
+  /** `day` is an ISO date, `YYYY-MM-DD`, in UTC. */
+  counter: (name: MetricCounter, day: string) => `${METRICS_NAMESPACE}:${name}:${day}`,
 } as const;

@@ -119,8 +119,23 @@ model User {
   tradesReceived       Trade[]               @relation("TradeRecipient")
   notifications        Notification[]
   auditEntries         AuditLog[]
+  activity             UserActivity[]
 
   @@map("users")
+}
+
+/// One row per user per UTC day on which they made an authenticated request.
+/// Written by SessionGuard, at most once per user per day per process; the
+/// source of daily active users.
+model UserActivity {
+  userId String
+  day    DateTime @db.Date
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, day])
+  @@index([day])
+  @@map("user_activity")
 }
 
 /// Better Auth core table. Fields follow @better-auth/core exactly; do not
@@ -369,6 +384,7 @@ model PackOpening {
   cards PackOpeningCard[]
 
   @@index([userId, createdAt])
+  @@index([createdAt])
   @@map("pack_openings")
 }
 
@@ -496,6 +512,8 @@ model Trade {
 
   @@index([recipientId, status])
   @@index([initiatorId, status])
+  @@index([createdAt])
+  @@index([resolvedAt, status])
   @@map("trades")
 }
 
