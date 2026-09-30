@@ -4,127 +4,347 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * docs/DesignSystem.md, value for value. This file is the only place a raw
+ * color, shadow or easing may be written; everything else uses the utilities
+ * the @theme block below derives from it.
+ */
+:root {
+  color-scheme: dark;
+
+  --bg: #0a0b0e;
+  --surface: #14161c;
+  --surface2: #1b1e26;
+  --elev: #22262f;
+  --tx: #eef0f4;
+  --mut: #969cab;
+  --faint: #636876;
+  --bd: rgba(255, 255, 255, 0.08);
+  --bd2: rgba(255, 255, 255, 0.13);
+
+  --pri: #4c8dff;
+  --pri-hover: #5d99ff;
+  --pri-dim: rgba(76, 141, 255, 0.14);
+  --on-pri: #fff;
+  --gold: #f2b23c;
+  --gold-dim: rgba(242, 178, 60, 0.14);
+  --on-gold: #1a1204;
+  --grn: #34d399;
+  --on-grn: #04120b;
+  --red: #ef4444;
+  --red-dim: rgba(239, 68, 68, 0.14);
+  --on-red: #fff;
+
+  --c-com: #9aa1ad;
+  --c-com-tint: rgba(154, 161, 173, 0.14);
+  --c-com-border: rgba(154, 161, 173, 0.3);
+  --c-unc: #4fc98a;
+  --c-unc-tint: rgba(79, 201, 138, 0.14);
+  --c-unc-border: rgba(79, 201, 138, 0.3);
+  --c-rare: #4c8dff;
+  --c-rare-tint: rgba(76, 141, 255, 0.14);
+  --c-rare-border: rgba(76, 141, 255, 0.3);
+  --c-ultra: #b06bf0;
+  --c-ultra-tint: rgba(176, 107, 240, 0.14);
+  --c-ultra-border: rgba(176, 107, 240, 0.3);
+  --c-ultra-edge: #b06bf066;
+  --c-ultra-glow: 0 0 22px #b06bf022;
+  --c-secret: #f2b23c;
+  --c-secret-tint: rgba(242, 178, 60, 0.14);
+  --c-secret-border: rgba(242, 178, 60, 0.3);
+  --c-secret-edge: #f2b23c66;
+  --c-secret-glow: 0 0 22px #f2b23c22;
+
+  --e-fire: #ef6a43;
+  --e-water: #4aa6ef;
+  --e-grass: #5ec269;
+  --e-lightning: #f4c73a;
+  --e-psychic: #b06bcf;
+  --e-fighting: #c26a3a;
+  --e-darkness: #4a4f5d;
+  --e-metal: #8f9aad;
+  --e-dragon: #cf9b2e;
+  --e-fairy: #e987bd;
+  --e-colorless: #b9bec9;
+  --card-face-end: #0d0f14;
+
+  --elevation-sm: 0 4px 14px rgba(0, 0, 0, 0.35);
+  --elevation-md: 0 16px 34px rgba(0, 0, 0, 0.45);
+  --elevation-lg: 0 40px 90px rgba(0, 0, 0, 0.6);
+  --glow-pri: 0 8px 24px rgba(76, 141, 255, 0.4);
+
+  --scrim: rgba(6, 7, 10, 0.72);
+  --scrim-blur: 6px;
+  --bar: rgba(10, 11, 14, 0.8);
+  --bar-blur: 12px;
+  --skeleton-base: #191c24;
+  --skeleton-highlight: #262a34;
+  --backdrop: radial-gradient(1000px 500px at 85% -10%, rgba(76, 141, 255, 0.05), transparent 60%);
+
+  /* shadcn/ui's semantic names, pointed at the tokens above. */
+  --background: var(--bg);
+  --foreground: var(--tx);
+  --card: var(--surface);
+  --card-foreground: var(--tx);
+  --popover: var(--elev);
+  --popover-foreground: var(--tx);
+  --primary: var(--pri);
+  --primary-foreground: var(--on-pri);
+  --secondary: var(--surface2);
+  --secondary-foreground: var(--tx);
+  --muted: var(--surface2);
+  --muted-foreground: var(--mut);
+  --accent: var(--elev);
+  --accent-foreground: var(--tx);
+  --destructive: var(--red);
+  --border: var(--bd);
+  --input: var(--bd2);
+  --ring: var(--pri);
+  --chart-1: var(--pri);
+  --chart-2: var(--gold);
+  --chart-3: var(--grn);
+  --chart-4: var(--c-ultra);
+  --chart-5: var(--red);
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--tx);
+  --sidebar-primary: var(--pri);
+  --sidebar-primary-foreground: var(--on-pri);
+  --sidebar-accent: var(--pri-dim);
+  --sidebar-accent-foreground: var(--tx);
+  --sidebar-border: var(--bd);
+  --sidebar-ring: var(--pri);
+}
+
 @theme inline {
+  /* The default palette is switched off, so a color outside the system has no utility. */
+  --color-*: initial;
+  --color-white: #fff;
+  --color-black: #000;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface2);
+  --color-elev: var(--elev);
+  --color-tx: var(--tx);
+  --color-mut: var(--mut);
+  --color-faint: var(--faint);
+  --color-bd: var(--bd);
+  --color-bd-2: var(--bd2);
+
+  --color-pri: var(--pri);
+  --color-pri-hover: var(--pri-hover);
+  --color-pri-dim: var(--pri-dim);
+  --color-on-pri: var(--on-pri);
+  --color-gold: var(--gold);
+  --color-gold-dim: var(--gold-dim);
+  --color-on-gold: var(--on-gold);
+  --color-grn: var(--grn);
+  --color-on-grn: var(--on-grn);
+  --color-red: var(--red);
+  --color-red-dim: var(--red-dim);
+  --color-on-red: var(--on-red);
+
+  --color-rarity-common: var(--c-com);
+  --color-rarity-common-tint: var(--c-com-tint);
+  --color-rarity-common-border: var(--c-com-border);
+  --color-rarity-uncommon: var(--c-unc);
+  --color-rarity-uncommon-tint: var(--c-unc-tint);
+  --color-rarity-uncommon-border: var(--c-unc-border);
+  --color-rarity-rare: var(--c-rare);
+  --color-rarity-rare-tint: var(--c-rare-tint);
+  --color-rarity-rare-border: var(--c-rare-border);
+  --color-rarity-ultra: var(--c-ultra);
+  --color-rarity-ultra-tint: var(--c-ultra-tint);
+  --color-rarity-ultra-border: var(--c-ultra-border);
+  --color-rarity-ultra-edge: var(--c-ultra-edge);
+  --color-rarity-secret: var(--c-secret);
+  --color-rarity-secret-tint: var(--c-secret-tint);
+  --color-rarity-secret-border: var(--c-secret-border);
+  --color-rarity-secret-edge: var(--c-secret-edge);
+
+  --color-energy-fire: var(--e-fire);
+  --color-energy-water: var(--e-water);
+  --color-energy-grass: var(--e-grass);
+  --color-energy-lightning: var(--e-lightning);
+  --color-energy-psychic: var(--e-psychic);
+  --color-energy-fighting: var(--e-fighting);
+  --color-energy-darkness: var(--e-darkness);
+  --color-energy-metal: var(--e-metal);
+  --color-energy-dragon: var(--e-dragon);
+  --color-energy-fairy: var(--e-fairy);
+  --color-energy-colorless: var(--e-colorless);
+  --color-card-face-end: var(--card-face-end);
+
+  --color-scrim: var(--scrim);
+  --color-bar: var(--bar);
+  --color-skeleton-base: var(--skeleton-base);
+  --color-skeleton-highlight: var(--skeleton-highlight);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
   --font-heading: var(--font-geist-sans);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --color-foreground: var(--foreground);
-  --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+
+  --text-display: 52px;
+  --text-display--font-weight: 800;
+  --text-display--letter-spacing: -0.03em;
+  --text-h1: 28px;
+  --text-h1--font-weight: 700;
+  --text-h1--letter-spacing: -0.02em;
+  --text-h2: 20px;
+  --text-h2--font-weight: 600;
+  --text-h3: 16px;
+  --text-h3--font-weight: 600;
+  --text-body: 14px;
+  --text-body--font-weight: 400;
+  --text-small: 13px;
+  --text-small--font-weight: 500;
+  --text-caption: 12px;
+  --text-caption--font-weight: 600;
+  --text-caption--letter-spacing: 0.06em;
+  --text-mono: 14px;
+  --text-mono--font-weight: 600;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 10px;
+  --radius-xl: 16px;
+  --radius-2xl: 18px;
+  --radius-pill: 999px;
+  --radius-tag: 6px;
+  --radius-control: 10px;
+  --radius-tile: 13px;
+  --radius-card: 16px;
+  --radius-modal: 18px;
+
+  --shadow-sm: var(--elevation-sm);
+  --shadow-md: var(--elevation-md);
+  --shadow-lg: var(--elevation-lg);
+  --shadow-glow: var(--glow-pri);
+  --shadow-glow-ultra: var(--c-ultra-glow);
+  --shadow-glow-secret: var(--c-secret-glow);
+
+  --blur-scrim: var(--scrim-blur);
+  --blur-bar: var(--bar-blur);
+
+  --default-transition-duration: 160ms;
+  --default-transition-timing-function: ease;
+  --ease-reveal: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  --animate-flip-in: flip-in 0.5s var(--ease-reveal) both;
+  --animate-pulse-glow: pulse-glow 2s ease-in-out infinite;
+  --animate-shimmer: shimmer 1.5s ease-in-out infinite;
+  --animate-spin: spin 0.8s linear infinite;
+
+  @keyframes flip-in {
+    0% {
+      transform: perspective(900px) rotateY(90deg);
+      opacity: 0;
+    }
+    100% {
+      transform: perspective(900px) rotateY(0);
+      opacity: 1;
+    }
+  }
+  @keyframes pulse-glow {
+    0%,
+    100% {
+      opacity: 0.5;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+  @keyframes shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
 }
 
-:root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+@utility bg-backdrop {
+  background: var(--backdrop), var(--bg);
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+@utility bg-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-base),
+    var(--skeleton-highlight),
+    var(--skeleton-base)
+  );
+  background-size: 200% 100%;
+}
+
+/* Card face: set --energy to one of the energy tokens. */
+@utility bg-card-face {
+  background: linear-gradient(155deg, var(--energy, var(--e-colorless)), var(--card-face-end));
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
   html {
     @apply font-sans;
+  }
+  body {
+    @apply bg-backdrop text-tx text-body;
+  }
+}
+
+/*
+ * One switch for every animation and transition, including those inside
+ * third-party components: a reduced-motion user sees end states, instantly.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
   }
 }
