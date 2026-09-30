@@ -1,6 +1,23 @@
 # API Reference
 
-> REST, JSON, versioned under `/api/v1`. Swagger served at `/docs`.
+> REST, JSON, versioned under `/api/v1`. Swagger served at `/docs`, the document at `/docs-json`.
+
+**How the OpenAPI document is built.**
+
+- **Each route carries one annotation**, `@Doc(summary, returns(name, schema))` from `apps/api/src/common/openapi.ts`. The schema is the shared Zod schema the service already parses its answer with, rendered as *output*, so a date is a `date-time` string.
+- **Everything else is derived** from the route's own metadata by `applyOpenApiConventions`, so it cannot drift from what the guards enforce:
+  - the `session` cookie requirement and a 401 on every route without `@Public()`;
+  - `[Admin]`, `x-roles` and a 403 on every route under `@Roles`;
+  - query parameters from the `@Query()` DTO's Zod schema;
+  - one shared `Error` response — the envelope below — as every operation's `default`.
+- **Request bodies** reference their Zod schemas by name.
+- **The API refuses to start** if a route has no `@Doc`, or if the document holds an operation no handler explains, so a new route cannot ship undocumented.
+- **Verified 2026-09-30** against the running API:
+  - 55 operations, every one with a summary and a success description; 52 with a schema, and the rest are a 204, the health reports and the plain-text root;
+  - every `$ref` resolves;
+  - the route set matches the tables in this file exactly;
+  - each operation called anonymously and as a member answered as documented — public never 401, protected 401 without a session, admin 403 for a member.
+- **Not in the document:** Better Auth's `/api/auth/*` routes, which live outside the Nest router. They are described in [Auth](#auth).
 > Entities in [DataModel.md](DataModel.md); auth details in [Architecture.md](Architecture.md) and [UserFlows.md](UserFlows.md).
 
 ## Conventions
@@ -1192,6 +1209,7 @@ MetricsDay = {
 
 | Method | Path | Notes |
 |---|---|---|
+| GET | `/` | The API root — a plain-text greeting that proves the process answers; public |
 | GET | `/health/live` | Liveness (`@nestjs/terminus`) — process only, no dependency checks |
 | GET | `/health/ready` | Readiness — Postgres and Redis, 200 or 503 |
 
