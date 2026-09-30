@@ -203,6 +203,9 @@ Callers branch on `code`, never on `message` (`docs/API.md`). Turning an `ApiErr
   `/decks/:id` are public.
 - On a protected path without a session cookie (`better-auth.session_token`, or `__Secure-better-auth.session_token`
   when secure cookies are on): redirect to `/sign-in?next=<path and query>`.
+- **On `/admin` and below, the role too** (amended after Task 3): the proxy calls `GET /users/me` with the visitor's
+  cookie and redirects anyone but an `ADMIN` — and any failure to answer — to `/dashboard`, before anything renders.
+  This is the one exception to "optimistic": see [Parallel rendering](#layouts).
 - Every other request passes, with an `x-pathname` request header added so layouts know where they are.
 - It never redirects a signed-in visitor away from `/sign-in`: a stale cookie would make that a redirect loop.
 - The file opens with the note the ticket asks for: this is navigation comfort; the API is the boundary.
@@ -247,16 +250,24 @@ survives answers 401 to the next browser request; `redirectToSignIn()` (PD-89) s
 | `(app)/admin/layout.tsx` | `session.role === 'ADMIN'` | `redirect('/dashboard')` |
 | `(public)/layout.tsx` | `getSession()` may be null | never fails; chooses public nav or the app shell (rendered by PD-90) |
 
-**Parallel rendering.** Next renders a layout and its page concurrently, so a page's own server call can start before
-the layout's redirect wins. That call carries the member's session, and every admin endpoint answers it 403; the
-redirect replaces the response, so none of the page's output is sent. The layout check is navigation comfort, the API
-is the control — the same split as the proxy.
+**Parallel rendering** (amended after Task 3, which measured the original claim false). Next renders a layout and its
+page concurrently, and a layout's redirect does **not** discard the page: the 307's body carries the page's rendered
+output. Two consequences:
+
+- **Loading boundaries sit below the group layouts** (`(app)/loading.tsx`, `(public)/loading.tsx`), never at the root.
+  A root `loading.tsx` is a Suspense boundary above every group layout, so the response starts streaming with 200
+  before a layout can redirect, and the redirect degrades to a client-side one.
+- **Admin pages are gated in the proxy**, which runs before any render, so a member's 307 from `/admin` is empty. The
+  admin layout keeps its check as a second line.
+
+A revoked or suspended session whose cookie survives still reaches `(app)/layout.tsx`, and its 307 carries that
+visitor's own app page — accepted: the page's API calls answer 401, so it holds no data.
 
 ## Verification
 
 No test suite (`docs/PRD.md` §20). Every claim is run once by hand against the live API and `next start`, and recorded
-in `docs/Frontend.md` with its result. Signing in uses the project's seeded test users through a local
-`/api/auth/sign-in/email` call, until PD-102 provides the form.
+in `docs/Frontend.md` with its result. Signing in uses throwaway `pd86-*` users created through sign-up — the
+seed creates no credentials — through a local `/api/auth/sign-in/email` call, until PD-102 provides the form.
 
 1. **Probe 0**, before implementation.
 2. **PD-86:**

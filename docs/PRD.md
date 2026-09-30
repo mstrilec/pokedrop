@@ -259,7 +259,6 @@ app/
 │   ├── dashboard/  packs/  inventory/  cards/  sets/  decks/
 │   ├── trades/  settings/  wallet/  notifications/
 │   └── admin/                   # role = ADMIN, admin sub-nav
-├── api/                         # optional route handlers / BFF proxy
 components/
 ├── ui/                          # shadcn/ui primitives
 ├── cards/  decks/  packs/  trades/  charts/

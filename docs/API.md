@@ -51,6 +51,22 @@
 
   **`TRUST_PROXY_HOPS` must match the real number of proxies.** It decides which entry of `X-Forwarded-For` counts as the client. Too low and every caller shares one bucket, so the first few requests exhaust the limit for everybody; too high and a client can pick its own bucket by sending the header itself. Both were measured.
 - **Request correlation:** every response carries `X-Request-Id`. An inbound `X-Request-Id` is adopted when it matches `[A-Za-z0-9._-]{1,128}`, and replaced with a generated one otherwise — the value reaches both the log and the response body, so it is not allowed to carry newlines or unbounded length.
+- **How the web app reaches the API** (PD-86). A browser only ever talks to the web app's origin: `/api/*` there is a
+  Next rewrite to this API, so the session cookie is host-only on the web origin and CORS plays no part for browser
+  traffic. Server renders call the API directly at `API_INTERNAL_URL`, forwarding the visitor's `cookie`, their
+  `X-Forwarded-For`, and `Origin: WEB_ORIGIN` for `CsrfGuard`. Two settings follow:
+
+  - **`AUTH_BASE_URL` is the web origin**, so verification and reset links go through the rewrite. Measured
+    2026-09-30: the link is `http://localhost:3000/api/auth/verify-email?…` and its 302 lands on the web app's
+    `/verify-email`.
+  - **`TRUST_PROXY_HOPS` is 1 in production, and only behind an edge proxy.** Every request reaches the API from the
+    Next server's socket, and Next never records a trustworthy address: measured with `next dev` and `next start`
+    alike, the rewrite forwards a client's `X-Forwarded-For` untouched and adds nothing, and a server render sees one
+    only when the client sent none. The address has to come from Caddy or Cloudflare Tunnel in front of Next, which
+    set it from the real connection, with Next bound to `127.0.0.1`. With `TRUST_PROXY_HOPS=1` and curl standing in
+    for the edge, two addresses drew from two buckets through the rewrite and through a server render alike. Leaving
+    it at 0 in production would put every user behind the same sign-in limit — 10 attempts per 15 minutes for the
+    whole site.
 
 ### Standard error envelope
 
@@ -140,6 +156,15 @@ Sign-*in* does not leak either: a wrong password and an unknown address return b
 These are **not** under `/api/v1`. They are Better Auth's contract, and versioning someone else's URLs buys nothing. The handler owns everything under `/api/auth/*` and answers 404 for anything it does not recognise.
 
 The endpoint that *requests* a reset email does not exist yet — it appears once a mail transport is configured.
+
+**A session rolls forward in the database, but only `/api/auth/*` rolls the cookie.** Sessions last seven days and are
+renewed once a day of use (`updateAge`). `SessionGuard` resolves the session for `/api/v1/*` without returning Better
+Auth's headers, so the renewal there extends the row and drops the refreshed `Set-Cookie`: the cookie would still expire
+seven days after sign-in, signing out an active user weekly. Measured 2026-09-30 with a session's `expiresAt` moved to
+five days ahead: `GET /api/v1/users/me` answered 200 with no `Set-Cookie` and moved the row to seven days;
+`GET /api/auth/get-session` did the same and carried `Set-Cookie … Max-Age=604800`. The web app calls
+`/api/auth/get-session` at most once a day per tab (`SessionKeepAlive`, `docs/Frontend.md`). Any other client must do
+the same.
 
 ## Users / Profile
 

@@ -10,8 +10,8 @@ What the web app is built on, why it looks the way it does, and where the sharp 
 apps/web/
   app/
     layout.tsx        html, Geist fonts, global css, title template
-    loading.tsx  error.tsx  not-found.tsx  global-error.tsx
-    (public)/         no session: /, /cards/[id], /profile/[id], /decks/[id]
+    error.tsx  not-found.tsx  global-error.tsx
+    (public)/         no session: /, /cards/[id], /profile/[id], /decks/[id]; chrome follows the session
     (auth)/           /register, /verify-email, /sign-in, /forgot-password, /reset-password
     (app)/            session required: 14 user pages
       admin/          role = ADMIN: 6 pages
@@ -19,8 +19,14 @@ apps/web/
     ui/               shadcn/ui primitives (button so far)
     page-placeholder.tsx
   lib/
+    env.ts            API_INTERNAL_URL, WEB_ORIGIN
+    api/              typed client: core, server, browser, endpoints/
+    session/          getSession, SessionProvider/useSession, keep-alive
+    routes.ts         protected paths, safeNext, signInUrl, redirectToSignIn
     utils.ts          cn()
     design/           rarity and energy styles, each color paired with a label or icon
+  proxy.ts            session-cookie redirects; the admin role check
+  next.config.ts      /api rewrite to the Nest API
   components.json     shadcn configuration
   postcss.config.mjs  Tailwind v4
 ```
@@ -99,6 +105,82 @@ Geist and Geist Mono through `next/font/google`: downloaded at build time, self-
 - `/`, `/sign-in`, `/dashboard`, `/admin/audit`, `/cards`, `/cards/abc`, `/decks/x`, `/profile/y`, `/trades/z` answered 200 with their own titles, and an unknown path 404 with the not-found page;
 - the shadcn `Button` on the not-found page rendered with its slot, height and radius.
 
+## Reaching the API (PD-86)
+
+The design, and why, is in `docs/superpowers/specs/2026-09-30-pd-86-pd-89-api-client-and-session-design.md`.
+
+**One origin.** `next.config.ts` rewrites `/api/*` to the Nest API, so the browser never leaves the web app's origin and the session cookie is host-only on it. `/api` belongs to the API entirely; the web app has no route handlers there. Server renders skip the rewrite and call `API_INTERNAL_URL` directly. What this asks of the API's configuration — `AUTH_BASE_URL`, `TRUST_PROXY_HOPS` and the edge proxy — is in [API.md](API.md), *Conventions*.
+
+**The client.** `lib/api/` has one core and two transports:
+
+| File | Role |
+| --- | --- |
+| `core.ts` | builds the URL, sends, retries, parses; `ApiError`; the request builders `get`, `post`, `patch`, `del` |
+| `server.ts` | `serverApi`: `API_INTERNAL_URL`, the visitor's `cookie` and `X-Forwarded-For`, `Origin: WEB_ORIGIN`, `cache: 'no-store'` — server-only |
+| `browser.ts` | `api`: relative `/api/v1`, the cookie travels by itself |
+| `endpoints/*.ts` | one function per operation, returning a request |
+
+```ts
+const profile = await serverApi.call(me());                         // a Server Component
+const result = await api.call(openPack(templateId, { openId }));    // the browser
+```
+
+**Adding an endpoint** is one line in `endpoints/`, typed by the shared schemas: path parameters are the function's arguments, a body is `z.input` of the shared request schema, the answer is `z.output` of the response schema. Declare an endpoint in the ticket that first uses it.
+
+**Every answer is parsed.** A body that fails its schema is an `ApiError` of kind `contract` — a bug, never a state to render around.
+
+| `ApiError.kind` | When | `code` | `requestId` |
+| --- | --- | --- | --- |
+| `api` | our error envelope, or any other non-2xx | `ERROR_CODES` value, when the API sent one | body, else `X-Request-Id` |
+| `auth` | Better Auth's `{ message, code }` from `/api/auth/*` | Better Auth's code | `X-Request-Id` |
+| `network` | `fetch` threw; `statusCode` 0 | — | — |
+| `contract` | a 2xx body failed its schema | — | `X-Request-Id` |
+
+**Retry lives here and nowhere else:** `GET` only, once, after 300 ms, on a network error or a 502/503/504. Never a 4xx or a 429, never another method. The retry carries its own `AbortController` signal, because Next memoizes identical `GET` fetches within a server render and would otherwise hand the retry the failed first answer.
+
+**Measured 2026-09-30:**
+
+- renaming `currency` to `coins` in the shared `UserSchema` failed `apps/web` at the one reader of `profile.currency` (`TS2339`); `apps/api` still typechecked, because it meets the schema only at runtime, in the parse before sending;
+- a signed-in server render returned the member's own profile, and a no-op `PATCH /users/me` from the server passed `CsrfGuard` — the API log shows both at 200; signed out, the render failed with a 401 `ApiError` into the error boundary;
+- against an API that always answers 503: `GET` reached it twice, 304 ms apart, and `POST` once. The first attempt at this measurement saw one `GET` — the memoization above — and is why the retry has its own signal;
+- with `TRUST_PROXY_HOPS=1` and curl standing in for the edge proxy, `1.1.1.1` and `2.2.2.2` each drew from their own bucket (99, 98 each) through a server render, and `3.3.3.3` and `4.4.4.4` through the rewrite.
+
+## Session and route protection (PD-89)
+
+**Three layers, each doing one thing.**
+
+1. **`proxy.ts`** runs before any render. On a protected path without a session cookie it redirects to `/sign-in?next=<path and query>`. On `/admin` and below it also asks the API for the role (`GET /users/me`) and sends anyone but an `ADMIN`, and any failure to answer, to `/dashboard`. Everywhere else it only checks that a cookie exists, and it adds `x-pathname` for the layouts.
+2. **Layouts** validate with the API. `getSession()` in `lib/session/server.ts` calls `/users/me` once per request (React `cache`), returning the profile or `null` with a reason: `signed-out` (no cookie, or 401) or `suspended` (403 `ACCOUNT_SUSPENDED`). `(app)/layout.tsx` redirects without a profile; `(app)/admin/layout.tsx` repeats the role check for client-side navigation; `(public)/layout.tsx` never redirects and chooses its chrome by the session.
+3. **The API** is the boundary. The first two layers are navigation comfort.
+
+**Protected paths** are listed in `lib/routes.ts`: prefixes `/dashboard`, `/packs`, `/inventory`, `/sets`, `/trades`, `/settings`, `/wallet`, `/notifications`, `/admin`, and the exact paths `/cards` and `/decks`, because `/cards/:id` and `/decks/:id` are public. A new protected section has to be added there.
+
+**Return URLs** are read only through `safeNext()`, which resolves the value the way a browser would and keeps it only if it stays on this origin and is not `/sign-in`; anything else becomes `/dashboard`.
+
+**The client gets identity, not state.** `SessionProvider` passes `{ id, role, displayName, avatarUrl }` to `useSession()`. The balance and anything else an action changes belongs to TanStack Query (PD-87), seeded from the same `getSession()` profile.
+
+**Keeping the cookie alive.** `/api/v1` renews a session in the database but drops the refreshed cookie ([API.md](API.md), *Auth*), so `SessionKeepAlive` in `(app)` calls `/api/auth/get-session` at most once a day per tab, whose answer carries the cookie.
+
+**Measured 2026-09-30** against `next start` and the live API, with throwaway users:
+
+| Visitor | Path | Answer |
+| --- | --- | --- |
+| anonymous | `/`, `/sign-in`, `/cards/x`, `/decks/x`, `/profile/x` | 200 |
+| anonymous | `/cards`, `/decks`, `/trades/abc?tab=sent`, `/admin/users` | 307 `/sign-in?next=` the path and query |
+| member | `/dashboard`, `/cards`, `/cards/x` | 200 |
+| member | `/admin`, `/admin/users`, `/admin?x=1`, and an RSC request for `/admin` | 307 `/dashboard`, 10-byte body |
+| member | `/administrator` | 404 |
+| member | `GET /api/v1/admin/users` | 403 |
+| admin | `/admin`, `/admin/users` | 200 |
+| revoked session, cookie kept | `/dashboard` | 307 `/sign-in?next=%2Fdashboard`; `/sign-in` 200; one redirect, no loop |
+| suspended | `/dashboard` | 307 `/sign-in?next=%2Fdashboard&error=ACCOUNT_SUSPENDED` |
+
+`safeNext`: `/trades/abc?tab=sent` and `/cards/x#top` survive; `//evil.com`, `/\evil.com`, `/<tab>/evil.com`, `https://evil.com`, `/sign-in`, `/sign-in?next=/x`, an empty value, `null` and `dashboard` all become `/dashboard`; `/%09/evil.com` stays a path on this origin.
+
+In the browser, a first load of `/dashboard` with nothing stored made one `GET /api/auth/get-session`; a full reload onto `/cards` made none.
+
+**Two things this measurement changed.** The first run answered 200 for every layout redirect: PD-84's root `loading.tsx` was a Suspense boundary above the group layouts, so the response began streaming before a layout could redirect. Loading boundaries now live in `(app)/` and `(public)/`. The second run showed a member's 307 from `/admin` carrying the admin page's rendered output — Next renders a page alongside its layout and ships it with the layout's redirect — which is why the admin role moved into the proxy. A layout redirect for a revoked or suspended session still carries that visitor's own page, whose API calls answer 401.
+
 ## Traps
 
 - **`shadcn init` wrote `--font-sans: var(--font-sans)`.** The preset expects the font variable to be called `--font-sans`; ours are `--font-geist-sans` and `--font-geist-mono`. A self-referencing custom property is invalid and falls back silently to the browser's default font. Fixed by pointing the theme at the Geist variables — re-running `init` would bring it back.
@@ -106,3 +188,9 @@ Geist and Geist Mono through `next/font/google`: downloaded at build time, self-
 - **`global-error.tsx` replaces the root layout**, so it renders its own `<html>` and `<body>` and gets none of the root layout's fonts or classes.
 - **Tailwind generates only the utilities it finds in source.** A class built at runtime (`` `text-energy-${type}` ``) produces no CSS; that is why `lib/design/` spells every class out in full.
 - **A theme variable that references itself is invalid, and nothing says so.** It happened twice here — `--font-sans` from `shadcn init`, and nearly `--shadow-sm`. Raw tokens and theme names never share a name: the raw shadows are `--elevation-*` and `--glow-pri`.
+- **Never a `loading.tsx` above a layout that redirects.** It turns the layout's 307 into a 200 whose stream redirects client-side. Put loading boundaries inside the route group, below its layout.
+- **A layout's redirect does not stop its page.** The page renders in parallel and its output travels in the redirect's body. Anything a page must not show to a visitor is gated in the proxy or refused by the API.
+- **The `/api` rewrite is fixed at `next build`.** Changing `API_INTERNAL_URL` in production means rebuilding. `lib/env.ts` is read by `next.config.ts`, so it must not import `server-only` or anything that needs a request.
+- **The browser client cannot run during a server render**: its base URL is relative. Server Components use `serverApi`.
+- **Import `lib/api` through `@/lib/api/…`.** The workspace-boundary lint rule matches `../**/api/**` as written, so a relative `../api/core` from inside `lib/` reads as a reach into `apps/api`.
+- **`next dev` writes `apps/web/AGENTS.md` and `CLAUDE.md`** (Next 16.3's `agentRules`, on by default; `agentRules: false` in `next.config.ts` turns it off).
