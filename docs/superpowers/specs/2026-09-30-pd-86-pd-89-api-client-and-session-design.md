@@ -238,9 +238,11 @@ under the `me` key, which PD-87 seeds from the same server response, so no store
 survives answers 401 to the next browser request; `redirectToSignIn()` (PD-89) sends the visitor to
 `/sign-in?next=<current location>`, and PD-87 wires it into TanStack Query's query and mutation caches.
 
-**Keeping the cookie alive** — only if probe 0 confirms hypothesis 6. A client component in `(app)` calls
-`GET /api/auth/get-session` at most once a day per tab. That route answers through the rewrite with Better Auth's real
-`Set-Cookie`, so the cookie rolls forward with the database session.
+**Keeping the cookie alive** (amended after the final review). The renewal has to be claimed before any `/api/v1`
+call spends it, and a render's first call is `getSession()`. So `proxy.ts`, which runs before rendering, calls
+`GET /api/auth/get-session` whenever a session cookie arrives without a `pokedrop.session-refreshed` marker, copies Better
+Auth's `Set-Cookie` onto its response and sets the marker for 12 hours. The first design did this from a client
+component after hydration, by which time the server render had already renewed the row and dropped the cookie.
 
 ## Layouts
 
@@ -248,7 +250,7 @@ survives answers 401 to the next browser request; `redirectToSignIn()` (PD-89) s
 | --- | --- | --- |
 | `(app)/layout.tsx` | `getSession()` not null | `redirect('/sign-in?next=' + x-pathname)`, with `error=ACCOUNT_SUSPENDED` when that was the reason |
 | `(app)/admin/layout.tsx` | `session.role === 'ADMIN'` | `redirect('/dashboard')` |
-| `(public)/layout.tsx` | `getSession()` may be null | never fails; chooses public nav or the app shell (rendered by PD-90) |
+| `(public)/layout.tsx` | `getSession()` may be null; a network error or 5xx reads as signed out | never fails; chooses public nav or the app shell (rendered by PD-90) |
 
 **Parallel rendering** (amended after Task 3, which measured the original claim false). Next renders a layout and its
 page concurrently, and a layout's redirect does **not** discard the page: the 307's body carries the page's rendered

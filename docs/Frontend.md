@@ -21,11 +21,11 @@ apps/web/
   lib/
     env.ts            API_INTERNAL_URL, WEB_ORIGIN
     api/              typed client: core, server, browser, endpoints/
-    session/          getSession, SessionProvider/useSession, keep-alive
+    session/          getSession, SessionProvider/useSession
     routes.ts         protected paths, safeNext, signInUrl, redirectToSignIn
     utils.ts          cn()
     design/           rarity and energy styles, each color paired with a label or icon
-  proxy.ts            session-cookie redirects; the admin role check
+  proxy.ts            session-cookie redirects, session renewal, the admin role check
   next.config.ts      /api rewrite to the Nest API
   components.json     shadcn configuration
   postcss.config.mjs  Tailwind v4
@@ -159,7 +159,7 @@ const result = await api.call(openPack(templateId, { openId }));    // the brows
 
 **The client gets identity, not state.** `SessionProvider` passes `{ id, role, displayName, avatarUrl }` to `useSession()`. The balance and anything else an action changes belongs to TanStack Query (PD-87), seeded from the same `getSession()` profile.
 
-**Keeping the cookie alive.** `/api/v1` renews a session in the database but drops the refreshed cookie ([API.md](API.md), *Auth*), so `SessionKeepAlive` in `(app)` calls `/api/auth/get-session` at most once a day per tab, whose answer carries the cookie.
+**Keeping the cookie alive.** `/api/v1` renews a session in the database but drops the refreshed cookie ([API.md](API.md), *Auth*), and the first API call of any render — `getSession()`, or the proxy's admin check — would spend that renewal. So the proxy itself calls `/api/auth/get-session` before anything renders, whenever a session cookie arrives without the `pokedrop.session-refreshed` marker, copies Better Auth's `Set-Cookie` onto the response, and sets the marker for 12 hours. A first version did this from a client component after hydration; the final review found that the server render had already spent the renewal by then, and a measurement confirmed the cookie never moved.
 
 **Measured 2026-09-30** against `next start` and the live API, with throwaway users:
 
@@ -177,7 +177,7 @@ const result = await api.call(openPack(templateId, { openId }));    // the brows
 
 `safeNext`: `/trades/abc?tab=sent` and `/cards/x#top` survive; `//evil.com`, `/\evil.com`, `/<tab>/evil.com`, `https://evil.com`, `/sign-in`, `/sign-in?next=/x`, an empty value, `null` and `dashboard` all become `/dashboard`; `/%09/evil.com` stays a path on this origin.
 
-In the browser, a first load of `/dashboard` with nothing stored made one `GET /api/auth/get-session`; a full reload onto `/cards` made none.
+Session renewal, with the session's `expiresAt` moved to five days ahead (inside the one-day renewal window): the first full load of `/dashboard` answered 200 carrying `better-auth.session_token=…; Max-Age=604800` and the marker, and the row moved to seven days; the next load carried no `Set-Cookie`. Before the fix, the same sequence renewed the row and sent no cookie, on the page load and on the client's `get-session` after it. With the API stopped, a visitor holding a cookie got `/` as a signed-out visitor (200, the *Sign in* link) instead of a 500.
 
 **Two things this measurement changed.** The first run answered 200 for every layout redirect: PD-84's root `loading.tsx` was a Suspense boundary above the group layouts, so the response began streaming before a layout could redirect. Loading boundaries now live in `(app)/` and `(public)/`. The second run showed a member's 307 from `/admin` carrying the admin page's rendered output — Next renders a page alongside its layout and ships it with the layout's redirect — which is why the admin role moved into the proxy. A layout redirect for a revoked or suspended session still carries that visitor's own page, whose API calls answer 401.
 
@@ -194,3 +194,6 @@ In the browser, a first load of `/dashboard` with nothing stored made one `GET /
 - **The browser client cannot run during a server render**: its base URL is relative. Server Components use `serverApi`.
 - **Import `lib/api` through `@/lib/api/…`.** The workspace-boundary lint rule matches `../**/api/**` as written, so a relative `../api/core` from inside `lib/` reads as a reach into `apps/api`.
 - **`next dev` writes `apps/web/AGENTS.md` and `CLAUDE.md`** (Next 16.3's `agentRules`, on by default; `agentRules: false` in `next.config.ts` turns it off).
+- **`NextResponse.cookies.set()` rewrites the whole `set-cookie` header from its own list**, dropping anything appended with `headers.append('set-cookie', …)` before it. The proxy sets its marker first and appends Better Auth's cookies after.
+- **`await response.body?.cancel()` on a `fetch` response hangs in the proxy.** Read the body (`arrayBuffer()`) to release it instead; the request otherwise never completes.
+- **`(public)/layout.tsx` renders with the API down.** A network error or 5xx from `getSession()` reads as signed out there; a contract error still throws. `(app)` pages have no such fallback: without the API they reach the error boundary.

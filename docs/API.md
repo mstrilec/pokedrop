@@ -162,9 +162,9 @@ renewed once a day of use (`updateAge`). `SessionGuard` resolves the session for
 Auth's headers, so the renewal there extends the row and drops the refreshed `Set-Cookie`: the cookie would still expire
 seven days after sign-in, signing out an active user weekly. Measured 2026-09-30 with a session's `expiresAt` moved to
 five days ahead: `GET /api/v1/users/me` answered 200 with no `Set-Cookie` and moved the row to seven days;
-`GET /api/auth/get-session` did the same and carried `Set-Cookie … Max-Age=604800`. The web app calls
-`/api/auth/get-session` at most once a day per tab (`SessionKeepAlive`, `docs/Frontend.md`). Any other client must do
-the same.
+`GET /api/auth/get-session` did the same and carried `Set-Cookie … Max-Age=604800`. The web app's proxy calls
+`/api/auth/get-session` before rendering, at most every 12 hours per browser, and passes the cookie on (`docs/Frontend.md`).
+Any other client must do the same, and must do it before any `/api/v1` call spends the renewal.
 
 ## Users / Profile
 
