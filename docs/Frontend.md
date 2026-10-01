@@ -10,14 +10,15 @@ What the web app is built on, why it looks the way it does, and where the sharp 
 apps/web/
   app/
     layout.tsx        html, Geist fonts, global css, title template
-    providers.tsx     QueryClientProvider, devtools in development
-    error.tsx  not-found.tsx  global-error.tsx
+    providers.tsx     theme, QueryClientProvider, Toaster, devtools in development
+    error.tsx  not-found.tsx  global-error.tsx   (and an error.tsx in every route group)
     (public)/         no session: /, /cards/[id], /profile/[id], /decks/[id]; chrome follows the session
     (auth)/           /register, /verify-email, /sign-in, /forgot-password, /reset-password
     (app)/            session required: 14 user pages
       admin/          role = ADMIN: 6 pages
   components/
-    ui/               shadcn/ui primitives (button so far)
+    ui/               shadcn/ui primitives: button, sonner
+    route-error.tsx   the error boundaries' shared fallback
     page-placeholder.tsx
   lib/
     env.ts            API_INTERNAL_URL, WEB_ORIGIN
@@ -25,6 +26,7 @@ apps/web/
     session/          getSession, SessionProvider/useSession
     query/            TanStack Query: client, keys, invalidation map, hooks
     routes.ts         protected paths, safeNext, signInUrl, redirectToSignIn
+    toast.ts          toastApiError
     utils.ts          cn()
     design/           rarity and energy styles, each color paired with a label or icon
   proxy.ts            session-cookie redirects, session renewal, the admin role check
@@ -221,6 +223,25 @@ Add a row with every new mutation; a mutation missing from the map invalidates n
 - with the session deleted in the database, a refetch answered 401 and the page moved to `/sign-in?next=%2Fpacks%2Fprobe`; the same refetch on an unprotected path stayed put;
 - devtools: rendered under `next dev`, absent from the production bundle (no `tsqd-` in `.next/static`).
 
+## Theme, toasts and error boundaries (PD-91)
+
+**One theme, dark.** `next-themes` runs with `forcedTheme="dark"` and puts `class="dark"` on `<html>`, which switches on the `dark:` variants inside shadcn components. Nothing depends on it for the colors themselves: `:root` is already the dark palette and declares `color-scheme: dark`, so the very first paint is dark with or without JavaScript. When a second theme exists, it is a palette under a class plus dropping `forcedTheme`.
+
+**Toasts** are Sonner through shadcn's `components/ui/sonner.tsx`, restyled with the tokens: `--elev` surface, `--bd-2` border, the card radius, and the icon in `grn`, `red`, `pri` or `gold` by tone; four seconds by default (ComponentSpecs, *Toast*).
+
+**A failed mutation always says so.** `MutationCache.onError` calls `toastApiError()` (`lib/toast.ts`) for every failed mutation, unless the mutation sets `meta: { toast: false }`. The toast carries the API's own message for a 4xx — they are written for people — and a fixed one for a network error, a 5xx, a contract error or a 429; its description is the request ID. A 401 on a protected page shows nothing, because the sign-in redirect is already under way. Failed queries do not toast: the page that owns a query shows its error in place.
+
+**Every route group has an error boundary**: `error.tsx` in `(app)`, `(public)` and `(auth)`, plus the root one for a failing group layout, all rendering `components/route-error.tsx`. Next's `error.tsx` is a React error boundary scoped to its segment, so it is used instead of adding `react-error-boundary`. The boundary renders inside its group's layout, so the chrome around a failed page stays. `Try again` calls `retry()` — stable in 16.3 — which refetches and re-renders the segment; `reset()` would only clear the error.
+
+**The reference on the fallback.** An error thrown in a server render reaches the browser with its message replaced and only a `digest`, so the fallback shows the digest; the Next server log prints the `ApiError`, its `requestId` and that digest together. An `ApiError` thrown in the browser arrives whole, and the fallback shows its request ID.
+
+**Measured 2026-10-01** against `next start`:
+
+- first paint in headless Chrome with JavaScript **off**: no `dark` class, `color-scheme: dark`, body `rgb(10, 11, 14)` on `rgb(238, 240, 244)` text; with JavaScript on, the same plus `class="dark"`;
+- a member with no coins opening a pack: one error toast, *Not enough coins to open this pack*, described *Request ID bc212513-…*, red icon, `--elev` background, 16 px radius; the API log holds that request ID on the 402;
+- a page whose server render called a missing deck: the `(app)` boundary, inside the app layout's `<main>`, with *Reference 3495550609*; the server log printed `ApiError: Deck not found`, `statusCode: 404`, `requestId: '0a85bbf2-…'` and `digest: '3495550609'`, and the API log holds that request ID;
+- a client component throwing during render: the same boundary, inside `<main>`, with no reference.
+
 ## Traps
 
 - **`shadcn init` wrote `--font-sans: var(--font-sans)`.** The preset expects the font variable to be called `--font-sans`; ours are `--font-geist-sans` and `--font-geist-mono`. A self-referencing custom property is invalid and falls back silently to the browser's default font. Fixed by pointing the theme at the Geist variables — re-running `init` would bring it back.
@@ -237,3 +258,5 @@ Add a row with every new mutation; a mutation missing from the map invalidates n
 - **`NextResponse.cookies.set()` rewrites the whole `set-cookie` header from its own list**, dropping anything appended with `headers.append('set-cookie', …)` before it. The proxy sets its marker first and appends Better Auth's cookies after.
 - **`await response.body?.cancel()` on a `fetch` response hangs in the proxy.** Read the body (`arrayBuffer()`) to release it instead; the request otherwise never completes.
 - **`(public)/layout.tsx` renders with the API down.** A network error or 5xx from `getSession()` reads as signed out there; a contract error still throws. `(app)` pages have no such fallback: without the API they reach the error boundary.
+- **Next 16.3's error boundaries take `retry`, not `reset`.** `reset()` clears the error and re-renders from what the client already holds, which cannot recover a server render that failed; `retry()` refetches it.
+- **A server render's error loses its message and properties in production.** Only `digest` reaches `error.tsx`; anything a person should read must be in the server log under that digest.
