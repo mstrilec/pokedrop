@@ -315,6 +315,11 @@
   background-size: 200% 100%;
 }
 
+/* The keyboard focus ring every interactive element uses. */
+@utility focus-ring {
+  @apply outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-bg;
+}
+
 /* Card face: set --energy to one of the energy tokens. */
 @utility bg-card-face {
   background: linear-gradient(155deg, var(--energy, var(--e-colorless)), var(--card-face-end));

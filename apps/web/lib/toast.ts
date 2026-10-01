@@ -1,6 +1,6 @@
 import { toast } from 'sonner';
 import { ApiError } from '@/lib/api/core';
-import { isProtected } from '@/lib/routes';
+import { isPublicPath } from '@/lib/routes';
 
 function messageOf(error: unknown): string {
   if (!(error instanceof ApiError)) return 'Something went wrong. Try again.';
@@ -15,7 +15,7 @@ function messageOf(error: unknown): string {
 
 export function toastApiError(error: unknown): void {
   // On a protected page a 401 is already on its way to the sign-in page.
-  if (error instanceof ApiError && error.statusCode === 401 && isProtected(location.pathname)) {
+  if (error instanceof ApiError && error.statusCode === 401 && !isPublicPath(location.pathname)) {
     return;
   }
   const requestId = error instanceof ApiError ? error.requestId : undefined;

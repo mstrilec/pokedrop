@@ -1,7 +1,7 @@
 import { isServer, MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
 import type { QueryKey } from '@tanstack/react-query';
 import { ApiError } from '@/lib/api/core';
-import { isProtected, redirectToSignIn } from '@/lib/routes';
+import { isPublicPath, redirectToSignIn } from '@/lib/routes';
 import { toastApiError } from '@/lib/toast';
 import { invalidatedBy } from './invalidation';
 import { keys } from './keys';
@@ -29,7 +29,7 @@ function onError(error: unknown): void {
     !isServer &&
     error instanceof ApiError &&
     error.statusCode === 401 &&
-    isProtected(window.location.pathname)
+    !isPublicPath(window.location.pathname)
   ) {
     redirectToSignIn();
   }

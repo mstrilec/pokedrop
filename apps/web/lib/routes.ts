@@ -1,27 +1,21 @@
 export const HOME = '/dashboard';
 export const SIGN_IN = '/sign-in';
 
-const PROTECTED_PREFIXES = [
-  '/dashboard',
-  '/packs',
-  '/inventory',
-  '/sets',
-  '/trades',
-  '/settings',
-  '/wallet',
-  '/notifications',
-  '/admin',
+// Paths a visitor may open without a session. The client asks only this; the
+// protected list, which names the admin area, stays in route-access.ts for the
+// proxy, so it never ships to the browser.
+const PUBLIC_EXACT = [
+  '/',
+  '/register',
+  '/verify-email',
+  '/sign-in',
+  '/forgot-password',
+  '/reset-password',
 ];
+const PUBLIC_DETAIL = /^\/(cards|decks|profile)\/[^/]+\/?$/;
 
-// /cards/:id and /decks/:id are public; only the lists need a session.
-const PROTECTED_EXACT = ['/cards', '/decks'];
-
-export function isProtected(pathname: string): boolean {
-  const path = pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
-  return (
-    PROTECTED_EXACT.includes(path) ||
-    PROTECTED_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
-  );
+export function isPublicPath(pathname: string): boolean {
+  return PUBLIC_EXACT.includes(pathname) || PUBLIC_DETAIL.test(pathname);
 }
 
 const BASE = 'http://next.invalid';
@@ -47,9 +41,4 @@ export function signInUrl(next: string, error?: string): string {
 
 export function redirectToSignIn(): void {
   window.location.assign(signInUrl(`${window.location.pathname}${window.location.search}`));
-}
-
-export function isAdminPath(pathWithQuery: string): boolean {
-  const path = pathWithQuery.split(/[?#]/)[0] ?? '';
-  return path === '/admin' || path.startsWith('/admin/');
 }

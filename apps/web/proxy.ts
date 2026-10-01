@@ -2,7 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/api/core';
 import { me } from '@/lib/api/endpoints/users';
 import { env } from '@/lib/env';
-import { HOME, isAdminPath, isProtected, signInUrl } from '@/lib/routes';
+import { isAdminPath, isProtected } from '@/lib/route-access';
+import { HOME, signInUrl } from '@/lib/routes';
 import { hasSessionCookie } from '@/lib/session/cookie';
 
 const REFRESH_MARKER = 'pokedrop.session-refreshed';
