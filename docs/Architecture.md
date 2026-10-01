@@ -205,8 +205,8 @@ components/
 ├── ui/                          # shadcn/ui primitives
 ├── cards/  decks/  packs/  trades/  charts/
 lib/
-├── api-client.ts                # typed fetch wrapper (shared Zod schemas)
-├── query/                       # TanStack Query hooks + keys
+├── api/                         # typed fetch client (shared Zod schemas) + endpoints
+├── query/                       # TanStack Query client, keys, invalidation, hooks
 ├── stores/                      # Zustand (deck-builder draft, pack-reveal, UI)
 └── validators/                  # Zod schemas shared with forms
 ```

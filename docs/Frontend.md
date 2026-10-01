@@ -10,6 +10,7 @@ What the web app is built on, why it looks the way it does, and where the sharp 
 apps/web/
   app/
     layout.tsx        html, Geist fonts, global css, title template
+    providers.tsx     QueryClientProvider, devtools in development
     error.tsx  not-found.tsx  global-error.tsx
     (public)/         no session: /, /cards/[id], /profile/[id], /decks/[id]; chrome follows the session
     (auth)/           /register, /verify-email, /sign-in, /forgot-password, /reset-password
@@ -22,6 +23,7 @@ apps/web/
     env.ts            API_INTERNAL_URL, WEB_ORIGIN
     api/              typed client: core, server, browser, endpoints/
     session/          getSession, SessionProvider/useSession
+    query/            TanStack Query: client, keys, invalidation map, hooks
     routes.ts         protected paths, safeNext, signInUrl, redirectToSignIn
     utils.ts          cn()
     design/           rarity and energy styles, each color paired with a label or icon
@@ -180,6 +182,44 @@ const result = await api.call(openPack(templateId, { openId }));    // the brows
 Session renewal, with the session's `expiresAt` moved to five days ahead (inside the one-day renewal window): the first full load of `/dashboard` answered 200 carrying `better-auth.session_token=…; Max-Age=604800` and the marker, and the row moved to seven days; the next load carried no `Set-Cookie`. Before the fix, the same sequence renewed the row and sent no cookie, on the page load and on the client's `get-session` after it. With the API stopped, a visitor holding a cookie got `/` as a signed-out visitor (200, the *Sign in* link) instead of a 500.
 
 **Two things this measurement changed.** The first run answered 200 for every layout redirect: PD-84's root `loading.tsx` was a Suspense boundary above the group layouts, so the response began streaming before a layout could redirect. Loading boundaries now live in `(app)/` and `(public)/`. The second run showed a member's 307 from `/admin` carrying the admin page's rendered output — Next renders a page alongside its layout and ships it with the layout's redirect — which is why the admin role moved into the proxy. A layout redirect for a revoked or suspended session still carries that visitor's own page, whose API calls answer 401.
+
+## Server state (PD-87)
+
+TanStack Query owns every piece of server data in the browser; nothing else caches API answers. `app/providers.tsx` wraps the root layout in `QueryClientProvider` with `getQueryClient()`: a new client per server render, one for the life of the browser tab.
+
+**Keys come only from `lib/query/keys.ts`.** Each API resource has a root, `all` (`['inventory']`, `['wallet']`, …), and every key for that resource extends it (`keys.inventory.list(params)` is `['inventory', 'list', params]`). Stale times and invalidations target the roots, so a key added under a root inherits both. Add keys there as pages need them; never write a key array inline.
+
+**Stale times by data class**, set once per root with `setQueryDefaults`:
+
+| Data | Roots | Stale time |
+| --- | --- | --- |
+| Catalog — the mirror changes nightly | `catalog` | 30 min |
+| Prices | `prices` | 10 min |
+| The user's own state | `me`, `inventory`, `wallet`, `trades`, `notifications` | 15 s |
+| Everything else | — | 30 s |
+
+None is zero: a query hydrated from a server render with a stale time of zero refetches the moment it mounts.
+
+**Retry is off** for queries and mutations: `lib/api/core.ts` already retries a failed GET once, and stacking TanStack's three retries on top would make six attempts.
+
+**Invalidation is a map, applied automatically.** `lib/query/invalidation.ts` lists, per mutation, the roots it makes stale; `MutationCache.onSuccess` invalidates them for every successful mutation by its `mutationKey`. A mutation hook only declares its key.
+
+| Mutation | Invalidates |
+| --- | --- |
+| `openPack` | `me`, `wallet`, `inventory`, `packs` |
+
+Add a row with every new mutation; a mutation missing from the map invalidates nothing.
+
+**401 sends the visitor to sign in** — from `QueryCache` and `MutationCache` `onError`, through `redirectToSignIn()`, but only on a protected path: a public page may hold a query that needs a session, and losing the session there is no reason to leave the page.
+
+**`me` is hydrated, not fetched.** `(app)/layout.tsx` puts the session's profile into a per-request query client (`getServerQueryClient()`) and passes it down through `HydrationBoundary`; `useMe()` then reads it without a request.
+
+**Measured 2026-10-01** against `next start`, signed in as a member with 1 000 coins, on a scratch page reading `useMe()`, an inventory list and the wallet:
+
+- first load: the balance rendered as 1 000, and the browser requested only `/inventory` and `/wallet` — no `/users/me`;
+- opening a pack through `useOpenPack()`: `POST /packs/seed-template-base/open`, then `/users/me`, `/inventory` and `/wallet` refetched on their own; the page showed 700 coins, 5 inventory rows and an 8-card opening;
+- with the session deleted in the database, a refetch answered 401 and the page moved to `/sign-in?next=%2Fpacks%2Fprobe`; the same refetch on an unprotected path stayed put;
+- devtools: rendered under `next dev`, absent from the production bundle (no `tsqd-` in `.next/static`).
 
 ## Traps
 
