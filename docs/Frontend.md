@@ -25,6 +25,8 @@ apps/web/
     api/              typed client: core, server, browser, endpoints/
     session/          getSession, SessionProvider/useSession
     query/            TanStack Query: client, keys, invalidation map, hooks
+    stores/           Zustand: deck draft, pack reveal (and its machine), UI
+    use-unsaved-changes.ts  the leave-with-unsaved-changes prompt
     routes.ts         protected paths, safeNext, signInUrl, redirectToSignIn
     toast.ts          toastApiError
     utils.ts          cn()
@@ -241,6 +243,31 @@ Add a row with every new mutation; a mutation missing from the map invalidates n
 - a member with no coins opening a pack: one error toast, *Not enough coins to open this pack*, described *Request ID bc212513-…*, red icon, `--elev` background, 16 px radius; the API log holds that request ID on the 402;
 - a page whose server render called a missing deck: the `(app)` boundary, inside the app layout's `<main>`, with *Reference 3495550609*; the server log printed `ApiError: Deck not found`, `statusCode: 404`, `requestId: '0a85bbf2-…'` and `digest: '3495550609'`, and the API log holds that request ID;
 - a client component throwing during render: the same boundary, inside `<main>`, with no reference.
+
+## Client state (PD-88)
+
+Zustand holds what only the browser knows: what the user is doing, not what the server said. Server data stays in TanStack Query.
+
+**A store per provider, never a module singleton.** A module is shared by every request on the server, so a singleton store would carry one visitor's state into another's render. `lib/stores/context.tsx` turns a store factory into a provider and a selector hook; each provider creates its store once.
+
+| Store | Provided by | Holds |
+| --- | --- | --- |
+| `useUi` | `app/providers.tsx`, app-wide | the open modal's id, sidebar collapsed, filter panel open |
+| `usePackReveal` | the reveal page (PD-105) | stage, card index, card count, whether it was skipped |
+| `useDeckDraft` | the deck builder (PD-112), with `initial` from the deck query | the working card list, the last saved list, the list before the last drag |
+
+**The reveal stage machine** is a pure function, `transition(state, event)` in `lib/stores/reveal-machine.ts`: `sealed → opening → reveal → summary → sealed`, with `failed` taking an opening back to `sealed` and `skip` jumping a reveal to `summary`. An event the current stage does not accept returns the state unchanged, so nothing can reach a stage out of order or an index outside the pack. The store keeps the pack's card *count*; the cards themselves stay in the pack-opening mutation's result.
+
+**The deck draft is the one card list outside TanStack Query**, on purpose: it is the user's unsaved edit, not a copy of server state. It starts from the deck query, and after a save the builder resets it from the refreshed query. `isDirty` compares it with the last saved list, so undoing back to the saved deck is clean again. `applyDrag` records the list before the drag, and `undoDrag` restores it — one step.
+
+**Leaving with unsaved changes.** `useUnsavedChanges(dirty)` asks before a click on a link to another page and registers `beforeunload` for closing or reloading the tab. The App Router cannot cancel a navigation, so back and forward are not caught, and anything the builder navigates to itself has to check `isDirty` first.
+
+**Measured 2026-10-01:**
+
+- the reveal machine, walked from `sealed` with every event — including `opened` with 0, −1 and 1.5 cards — reached 12 states over 120 transitions with no state outside its invariants and no stage move outside the five allowed; `next` while sealed, `opened(0)`, and `open` mid-reveal each left the state as it was;
+- the deck draft in the browser: adding a card made it dirty; a drag reversed the list and enabled undo; undo restored the list and disabled undo; removing the added card made it clean again; saving made the current list the saved one;
+- with the draft dirty, a link click asked once and stayed on the page when declined, and navigated when accepted; with the draft clean it did not ask;
+- `beforeunload` is registered but its dialog was not observed: Chrome shows it only after a real user gesture on the page.
 
 ## Traps
 
