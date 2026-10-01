@@ -17,7 +17,8 @@ apps/web/
     (app)/            session required: 14 user pages
       admin/          role = ADMIN: 6 pages
   components/
-    ui/               shadcn/ui primitives: button, sonner
+    ui/               shadcn/ui primitives: button, sonner, dropdown-menu
+    shell/            the app shell: sidebar, topbar controls, nav links
     route-error.tsx   the error boundaries' shared fallback
     page-placeholder.tsx
   lib/
@@ -27,7 +28,9 @@ apps/web/
     query/            TanStack Query: client, keys, invalidation map, hooks
     stores/           Zustand: deck draft, pack reveal (and its machine), UI
     use-unsaved-changes.ts  the leave-with-unsaved-changes prompt
-    routes.ts         protected paths, safeNext, signInUrl, redirectToSignIn
+    routes.ts         public paths, safeNext, signInUrl, redirectToSignIn
+    route-access.ts   protected paths and the admin prefix — the proxy's only
+    nav.ts            sidebar and admin navigation entries — server-only
     toast.ts          toastApiError
     utils.ts          cn()
     design/           rarity and energy styles, each color paired with a label or icon
@@ -159,7 +162,7 @@ const result = await api.call(openPack(templateId, { openId }));    // the brows
 2. **Layouts** validate with the API. `getSession()` in `lib/session/server.ts` calls `/users/me` once per request (React `cache`), returning the profile or `null` with a reason: `signed-out` (no cookie, or 401) or `suspended` (403 `ACCOUNT_SUSPENDED`). `(app)/layout.tsx` redirects without a profile; `(app)/admin/layout.tsx` repeats the role check for client-side navigation; `(public)/layout.tsx` never redirects and chooses its chrome by the session.
 3. **The API** is the boundary. The first two layers are navigation comfort.
 
-**Protected paths** are listed in `lib/routes.ts`: prefixes `/dashboard`, `/packs`, `/inventory`, `/sets`, `/trades`, `/settings`, `/wallet`, `/notifications`, `/admin`, and the exact paths `/cards` and `/decks`, because `/cards/:id` and `/decks/:id` are public. A new protected section has to be added there.
+**Protected paths** are listed in `lib/route-access.ts`, which only the proxy imports: prefixes `/dashboard`, `/packs`, `/inventory`, `/sets`, `/trades`, `/settings`, `/wallet`, `/notifications`, `/admin`, and the exact paths `/cards` and `/decks`, because `/cards/:id` and `/decks/:id` are public. A new protected section has to be added there. The browser asks the opposite question through `isPublicPath()` in `lib/routes.ts` — the landing page, the auth pages and the three shareable detail pages — so the list naming the admin area never ships to it.
 
 **Return URLs** are read only through `safeNext()`, which resolves the value the way a browser would and keeps it only if it stays on this origin and is not `/sign-in`; anything else becomes `/dashboard`.
 
@@ -252,7 +255,7 @@ Zustand holds what only the browser knows: what the user is doing, not what the 
 
 | Store | Provided by | Holds |
 | --- | --- | --- |
-| `useUi` | `app/providers.tsx`, app-wide | the open modal's id, sidebar collapsed, filter panel open |
+| `useUi` | `app/providers.tsx`, app-wide | the open modal's id, the navigation drawer on narrow screens, filter panel open |
 | `usePackReveal` | the reveal page (PD-105) | stage, card index, card count, whether it was skipped |
 | `useDeckDraft` | the deck builder (PD-112), with `initial` from the deck query | the working card list, the last saved list, the list before the last drag |
 
@@ -268,6 +271,35 @@ Zustand holds what only the browser knows: what the user is doing, not what the 
 - the deck draft in the browser: adding a card made it dirty; a drag reversed the list and enabled undo; undo restored the list and disabled undo; removing the added card made it clean again; saving made the current list the saved one;
 - with the draft dirty, a link click asked once and stayed on the page when declined, and navigated when accepted; with the draft clean it did not ask;
 - `beforeunload` is registered but its dialog was not observed: Chrome shows it only after a real user gesture on the page.
+
+## App shell (PD-90)
+
+`components/shell/app-shell.tsx` is the chrome around every signed-in page: `(app)/layout.tsx` renders it, and so does `(public)/layout.tsx` when the visitor is signed in. It seeds the `me` query from the session's profile, so the balance renders without a request.
+
+- **Sidebar** (236 px): Dashboard, Packs, Inventory, Browse, Sets, Decks, Trades; an *Account* group with Notifications, Wallet, Settings; and for admins an *Admin* group. Icons and order follow the mockup.
+- **Topbar** (60 px): search, the balance linking to the wallet, the notification bell (unread count polled every minute), *Open packs*, and the avatar menu — My profile, Account settings, Currency & history, Sign out, Sign out of all devices.
+- **Admin sub-nav** under `/admin`: Overview · Pack templates · Sync · Users · Trade moderation · Audit log, rendered by the admin layout.
+- **Active route**: `NavLink` sets `aria-current="page"` on its own path and everything below it; *Overview* matches `/admin` exactly.
+
+**Admin routes never reach a member.** The entries live in `lib/nav.ts`, which imports `server-only`; the sidebar is a Server Component that leaves the admin group out of the markup for anyone but an admin, and hands each link to the client `NavLink` with its icon already rendered. The proxy's protected list, which names `/admin`, moved to `lib/route-access.ts` so the client bundle does not carry it either.
+
+**Narrow screens** (below 64 rem) slide the sidebar in as a drawer from a menu button in the topbar. A closed drawer is `inert`, so keyboard focus never lands on links nobody can see; opening it focuses the first link, and Escape or the scrim closes it and returns focus to the button. The topbar search is hidden there; the catalog is one tap away under *Browse*.
+
+**Search** is a plain `GET /cards?q=…` form inside a `<search>` landmark — it works without JavaScript, and the catalog page (PD-108) reads `q`.
+
+**Sign out** posts to `/api/auth/sign-out` or `/api/auth/revoke-sessions`, clears the query cache and reloads to `/`: a full load, so nothing of the signed-out user survives in the router cache or the client stores.
+
+Built from plain elements on the tokens until M12's components exist (Button, Avatar, CurrencyPill); only the avatar menu uses a shadcn primitive, for its keyboard handling. The avatar shows the name's initial; images arrive with M12's Avatar.
+
+**Measured 2026-10-01** against `next start`:
+
+- a member's `/dashboard`, `/cards/x`, `/trades` and `/inventory`: no `/admin`, *Pack templates* or *Admin* in the HTML; the production client bundle holds none of `/admin`, *Pack templates*, *Trade moderation* or *Audit log*;
+- an admin's `/dashboard` links all six admin pages; every link in the admin's shell answered 200;
+- on `/admin/sync`, `aria-current` sat on *Sync* in both the sidebar and the admin sub-nav;
+- Tab through the wide layout: *Skip to content*, the logo, all 16 sidebar links, the topbar controls, the admin sub-nav — every stop with a visible focus ring; *Skip to content* moved focus to `<main>`;
+- headless Chrome at 390 px with real key events: Enter on the menu button opened the drawer and focused the logo link, Tab stayed in the drawer, Escape closed it, made it inert again and returned focus to the menu button;
+- *Sign out* through the avatar menu with real clicks: the member's session count went from 2 to 1, the page landed on `/` with the public nav, and `/dashboard` then redirected to sign-in; *Sign out of all devices* took 3 sessions to 0, and a second device's cookie was refused;
+- after an admin grant, the bell read *Notifications, 1 unread* with its dot, and the balance *500 coins*.
 
 ## Traps
 
@@ -287,3 +319,4 @@ Zustand holds what only the browser knows: what the user is doing, not what the 
 - **`(public)/layout.tsx` renders with the API down.** A network error or 5xx from `getSession()` reads as signed out there; a contract error still throws. `(app)` pages have no such fallback: without the API they reach the error boundary.
 - **Next 16.3's error boundaries take `retry`, not `reset`.** `reset()` clears the error and re-renders from what the client already holds, which cannot recover a server render that failed; `retry()` refetches it.
 - **A server render's error loses its message and properties in production.** Only `digest` reaches `error.tsx`; anything a person should read must be in the server log under that digest.
+- **Nothing the client imports may name the admin area.** `lib/nav.ts` is `server-only`; `lib/route-access.ts` is for the proxy. A client module that imports either puts admin routes in every member's JavaScript.
