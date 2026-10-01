@@ -6,6 +6,7 @@ import { ThemeProvider } from 'next-themes';
 import type { ReactNode } from 'react';
 import { Toaster } from '@/components/ui/sonner';
 import { getQueryClient } from '@/lib/query/client';
+import { UiProvider } from '@/lib/stores/ui';
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
@@ -16,7 +17,7 @@ export function Providers({ children }: { children: ReactNode }) {
       disableTransitionOnChange
     >
       <QueryClientProvider client={getQueryClient()}>
-        {children}
+        <UiProvider>{children}</UiProvider>
         <Toaster />
         <ReactQueryDevtools />
       </QueryClientProvider>
