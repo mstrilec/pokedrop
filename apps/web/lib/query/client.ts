@@ -2,6 +2,7 @@ import { isServer, MutationCache, QueryCache, QueryClient } from '@tanstack/reac
 import type { QueryKey } from '@tanstack/react-query';
 import { ApiError } from '@/lib/api/core';
 import { isProtected, redirectToSignIn } from '@/lib/routes';
+import { toastApiError } from '@/lib/toast';
 import { invalidatedBy } from './invalidation';
 import { keys } from './keys';
 
@@ -43,7 +44,11 @@ export function makeQueryClient(): QueryClient {
     },
     queryCache: new QueryCache({ onError }),
     mutationCache: new MutationCache({
-      onError,
+      // A failed mutation always tells the user, unless it opts out with meta.toast = false.
+      onError: (error, _variables, _result, mutation) => {
+        onError(error);
+        if (mutation.meta?.toast !== false) toastApiError(error);
+      },
       onSuccess: (_data, _variables, _result, mutation, context) =>
         Promise.all(
           invalidatedBy(mutation.options.mutationKey).map((queryKey) =>

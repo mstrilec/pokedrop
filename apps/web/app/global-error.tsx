@@ -2,17 +2,19 @@
 
 // Replaces the root layout when it fails, so it brings its own html and body.
 export default function GlobalError({
-  reset,
+  error,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   return (
     <html lang="en">
       <body>
         <main>
           <h1>Something went wrong</h1>
-          <button type="button" onClick={reset}>
+          {error.digest ? <p>Reference {error.digest}</p> : null}
+          <button type="button" onClick={retry}>
             Try again
           </button>
         </main>
