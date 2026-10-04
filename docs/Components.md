@@ -166,3 +166,30 @@ After the review fixes, the same way:
 - tab names read `All 5`, `Sent 2`;
 - at 375 px the page was 375 px wide; the three-level trail read *Collection › … › Charizard ex* with *Astral Eclipse* still in the accessibility tree, and the long trail kept *Collection* whole and truncated only the current crumb. The first attempt widened the page to 507 px: a `nav` in a flex row could not shrink below its text.
 
+
+## Cards: CardTile and RevealCard (PD-95)
+
+| Piece | File | Notes |
+| --- | --- | --- |
+| CardView | `components/cards/card-data.ts` | what card components take: `id`, `name`, `image`, `rarity`, `types`, `hp`, `priceUsd`; `cardView(card)` and `inventoryCardView(entry)` build it from the catalog and inventory shapes |
+| CardFace, CardArt | `components/cards/card-art.tsx` | the design's abstract face (energy gradient, type glyph, name, HP, set and number) under the card's art through `next/image`; the face is the placeholder while the art loads and what stays when it fails |
+| CardTile | `components/cards/card-tile.tsx` | 5 : 7 art, rarity text in its tier's color, USD price; `owned` (omitted, `0` = locked, `N` = ×N), `href` (default `/cards/:id`) or `onSelect` + `selected` (a toggle button); memoized |
+| RevealCard | `components/cards/reveal-card.tsx` | a back and a face; `revealed` flips it over in 650 ms; `highlight` adds the tier-colored glow, pulsing for Ultra and Secret; `appear` + `index` flip it in 80 ms after the previous card |
+| rarityTier | `lib/design/rarity.ts` | the provider's rarity strings folded into the five tiers |
+
+**Rarity tiers.** The mirror holds 44 rarity strings (2026-10-04). `rarityTier()` folds them, first match wins: *Secret* for secret, hyper, rainbow, special illustration and shiny ultra; *Ultra* for ultra, double, illustration, ex, GX, V/VMAX/VSTAR, LV.X, BREAK, Prime, Prism Star, Star, LEGEND, Radiant, Amazing, ACE, Shining, Shiny, Trainer Gallery, Mega attack, Black White and Futuristic; *Uncommon*; *Common*; everything else (Rare, Rare Holo, Promo, Classic Collection, Pikachu Rare) *Rare*; no rarity reads *Common*. A tile shows the provider's own string (`Illustration Rare`) in the tier's color, so the text carries what the color does.
+
+**Names, not colors.** A tile is a single link or button whose name is `Absol, Rare Holo, 3 owned, $18.89` or `Abra, Common, not owned, $1.51`; a locked tile is also greyscale with a lock. A reveal card's caption is `AZ's Tranquility, Special Illustration Rare`, or `Face-down card`; both faces are `aria-hidden`.
+
+**Card art through the image optimizer.** A card's small image is a PNG of about 150 KB (`base1/43.png`: 240×330, 154 224 bytes); the optimizer sends it as WebP at 13 726 bytes. A grid that loads a few hundred tiles is a few megabytes instead of tens. `next.config.ts` allows the three hosts in `lib/images.ts` and keeps converted images for 30 days (`minimumCacheTTL`; the default is 4 hours, and art never changes at a URL). **Hosting:** the converted copies live in `.next/cache/images` on the web server's disk, so that directory must persist across restarts and have room; recorded for M14.
+
+**The mirror has three image hosts.** `images.pokemontcg.io` (19 818 cards), `images.scrydex.com` (852, the newer sets pokemontcg.io now points elsewhere for), and `assets.tcgdex.net` (the fallback provider). The first version allowed two: `next/image` throws on an unconfigured host, and one Scrydex card took the whole gallery into the error boundary. `CardArt` now serves any host outside `CARD_IMAGE_HOSTS` unoptimized instead, so a fourth host costs bandwidth, not the page.
+
+**Reduced motion** reaches the flip and the flip-in through the global rule: both run for 0.01 ms, so the card lands face up and the rarity is still in its chip, border and caption.
+
+**Measured 2026-10-04:**
+
+- in the gallery, the five tier samples read *Common*, *Uncommon*, *Rare Holo* (blue), *Illustration Rare* (violet, glowing border) and *Special Illustration Rare* (gold, glowing border); a tile whose art 404s shows the abstract face with its name, HP and set number at the same size; owned 0 is greyscale with a lock;
+- *Flip* turned the large card from `Face-down card` to `AZ's Tranquility, Special Illustration Rare`, `rotateY(180deg)`, with the pulsing glow behind it;
+- in headless Chrome against `next build && next start`, 1280×900: the 500-tile grid was in the DOM 251 ms after the click; scrolling it end to end at 40 px a frame took 555 frames in 4.6 s, frame time median 7 ms, p95 14 ms, one frame over 33 ms (132 ms, at the start), no long tasks; 293 of 497 images had loaded by the end, 3.7 MB in all (12.7 KB each); three cards have no image and kept their face;
+- with `--force-prefers-reduced-motion`, the flip transition and the flip-in both computed to 0.00001 s.
