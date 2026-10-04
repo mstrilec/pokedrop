@@ -9,7 +9,8 @@ export function apiErrorMessage(error: unknown): string {
     return 'Something went wrong on our side. Try again in a moment.';
   }
   if (error.statusCode === 429) return 'Too many requests. Wait a moment and try again.';
-  if (error.statusCode === 401) return 'Sign in to continue.';
+  // Better Auth's own 401s (a wrong password) carry a sentence for people; ours mean no session.
+  if (error.statusCode === 401 && error.kind === 'api') return 'Sign in to continue.';
   return error.message;
 }
 

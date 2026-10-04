@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { InputsSection } from './_sections/inputs';
 import { PrimitivesSection } from './_sections/primitives';
 
 export const metadata: Metadata = { title: 'Components', robots: { index: false } };
@@ -13,6 +14,7 @@ export default function ComponentsGallery() {
         </p>
       </header>
       <PrimitivesSection />
+      <InputsSection />
     </>
   );
 }
