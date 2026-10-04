@@ -193,3 +193,27 @@ After the review fixes, the same way:
 - *Flip* turned the large card from `Face-down card` to `AZ's Tranquility, Special Illustration Rare`, `rotateY(180deg)`, with the pulsing glow behind it;
 - in headless Chrome against `next build && next start`, 1280×900: the 500-tile grid was in the DOM 251 ms after the click; scrolling it end to end at 40 px a frame took 555 frames in 4.6 s, frame time median 7 ms, p95 14 ms, one frame over 33 ms (132 ms, at the start), no long tasks; 293 of 497 images had loaded by the end, 3.7 MB in all (12.7 KB each); three cards have no image and kept their face;
 - with `--force-prefers-reduced-motion`, the flip transition and the flip-in both computed to 0.00001 s.
+
+## Data display (PD-96)
+
+| Component | File | Notes |
+| --- | --- | --- |
+| StatCard | `components/ui/stat-card.tsx` | `label`, `value` (already formatted), `icon` + `tone`, `trend` + `trendTone` (`up` `down` `flat`), `compact`, `loading` (skeletons, `aria-busy`); a `section` labelled by its label |
+| DataTable | `components/ui/data-table.tsx` | TanStack Table in a CSS grid with `table`/`row`/`columnheader`/`cell` roles; column `meta.width` (grid track) and `meta.numeric` (mono, right); sortable headers are buttons, the header cell carries `aria-sort`; `onRowClick` makes rows focusable and Enter/Space activate them; `loading` draws skeleton rows, `empty` fills a zero-row table |
+| PackTemplateCard | `components/packs/pack-template-card.tsx` | energy-colored art, name, card count, guarantee, the cost button; `balance` below the cost disables it and says how many coins are missing |
+| NotificationRow | `components/notifications/notification-row.tsx` | one link per notification: a sentence per kind (the seven trade kinds, coins granted or taken, anything else), the counterparty in bold, relative time with the full date in `title`; `notificationHref()` leads to the trade or the wallet |
+
+- **Sorting.** Without `onSortingChange` the table sorts its own rows. Pass `sorting` and `onSortingChange` and it only reports: a server-paginated list (every admin table) sorts on the server, and a client sort would order only the page on screen. TanStack sorts a number column descending first.
+- **`useReactTable` and the React Compiler.** Lint warns (`react-hooks/incompatible-library`) because the table instance's functions cannot be memoized; the warning is disabled on that line, and the compiler skips the component.
+- **Trend direction is text**, not only an arrow and a color: a visually hidden *Up:*, *Down:* or *No change:* precedes the trend.
+- **Unread is text**, not only the dot and the tint: an unread row starts with a visually hidden *Unread:*.
+- **Coins spoken in full.** The pack button reads `250K · Open` but is named `Open Premium Collection for 250,000 coins`, and a shortfall reads `You need 249,880 more coins`; an abbreviation is for the eye.
+- **`formatCoins` moved to `lib/format.ts`**, beside `timeAgo` and `dateTime`. It lived in the CurrencyPill's module, which is `'use client'`, and a Server Component importing a function from there gets a client reference, not the function.
+- **Relative times depend on the clock.** `NotificationRow` takes `now` for demos; rendered on the server and again in the browser a minute apart, `12 minutes ago` could disagree, so lists of notifications render in the browser (they are TanStack queries).
+
+**Measured 2026-10-04** in the gallery under `next dev`:
+
+- the table with 4 rows reported `aria-rowcount="5"` (with the header); with 1 row, one row; with 0, the single cell *No members match these filters.*; loading, `aria-busy="true"` and 5 hidden skeleton rows;
+- Enter on the *Coins* header: `aria-sort="descending"`, `10,000, 1,250, 830, 40`; Enter again: `ascending`, `40, 830, 1,250, 10,000`; *Status* (not sortable) has no `aria-sort`; Enter on the focused second row reported *Opened Ash*;
+- with 120 coins: *Base Set Booster* (100) enabled; *Astral Eclipse* (150) disabled, described by *You need 30 more coins.*; *Premium Collection* named *Open Premium Collection for 250,000 coins*;
+- the ten notification rows read, for example, *Unread: MistyW proposed a trade 12 minutes ago*, *An admin voided your trade with MistyW 3 days ago*, *−200 coins were taken from your balance by an admin last month*, *You have a new notification last year*. A first version ran the sentence and the time together (*trade12 minutes ago*); a space between them, invisible in the column layout, separates them.
