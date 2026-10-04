@@ -123,6 +123,24 @@ export type DeckStats = z.infer<typeof DeckStatsSchema>;
 
 export const DECK_MAX_COPIES = 4;
 
+/** A card's name without a printing suffix: `Charizard (Delta Species)` is a `Charizard`. */
+export function baseCardName(name: string): string {
+  return name.replace(/ \([^)]*\)$/, '');
+}
+
+/**
+ * What the copy limit counts by: every printing of a name shares one key. Basic energy is
+ * unlimited and has none. The API's validator and the deck builder must agree on this.
+ */
+export function copyLimitKey(card: {
+  name: string;
+  supertype: string;
+  subtypes: readonly string[];
+}): string | null {
+  if (card.supertype === 'Energy' && card.subtypes.includes('Basic')) return null;
+  return baseCardName(card.name).toLowerCase();
+}
+
 export const DECK_RULES = ['DECK_SIZE', 'COPY_LIMIT', 'FORMAT_LEGALITY', 'OWNERSHIP'] as const;
 export const DeckRuleSchema = z.enum(DECK_RULES);
 export type DeckRule = z.infer<typeof DeckRuleSchema>;
