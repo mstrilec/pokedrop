@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
+import { env } from '@/lib/env';
 import './globals.css';
 import { Providers } from './providers';
 
@@ -14,6 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(env.WEB_ORIGIN),
   title: { default: 'PokéDrop', template: '%s · PokéDrop' },
   description: 'Open Pokémon TCG booster packs, build a collection, trade cards',
 };

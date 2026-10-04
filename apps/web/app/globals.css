@@ -273,6 +273,7 @@
   --animate-pulse-glow: pulse-glow 2s ease-in-out infinite;
   --animate-shimmer: shimmer 1.5s ease-in-out infinite;
   --animate-spin: spin 0.8s linear infinite;
+  --animate-float: float 6s ease-in-out infinite;
 
   @keyframes flip-in {
     0% {
@@ -304,6 +305,15 @@
   @keyframes spin {
     to {
       transform: rotate(360deg);
+    }
+  }
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-14px);
     }
   }
 }

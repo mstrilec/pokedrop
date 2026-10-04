@@ -24,3 +24,19 @@ export const getSession = cache(async (): Promise<SessionResult> => {
     throw error;
   }
 });
+
+// Public pages must render with the API down, so an unreachable or failing API
+// reads as signed out here. A contract error still throws: that is a bug.
+export async function getOptionalProfile(): Promise<MyProfile | null> {
+  try {
+    return (await getSession()).profile;
+  } catch (error) {
+    if (error instanceof ApiError && (error.kind === 'network' || error.statusCode >= 500)) {
+      console.warn(
+        `Rendering as signed out: ${error.message} (request ${error.requestId ?? 'n/a'})`,
+      );
+      return null;
+    }
+    throw error;
+  }
+}
