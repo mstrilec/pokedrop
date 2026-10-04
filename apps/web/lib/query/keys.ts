@@ -21,7 +21,10 @@ export const keys = {
     all: ['wallet'],
     list: (params: WalletParams = {}) => ['wallet', 'list', params],
   },
-  packs: { all: ['packs'] },
+  packs: {
+    all: ['packs'],
+    history: ['packs', 'history'],
+  },
   decks: { all: ['decks'] },
   trades: { all: ['trades'] },
   notifications: {
