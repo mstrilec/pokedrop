@@ -112,3 +112,18 @@ Five pages in `(auth)`, each an `AuthCard` (`components/auth/auth-card.tsx`: ico
 - ArrowRight twice on the tabs: `?type=packs`, 13 rows, all pack spends, with exactly the balances they show unfiltered, and the balance still *100 coins*; `?type=trades`: *No coins have changed hands in a trade yet.*;
 - Enter on the oldest pack spend: `/packs/history#opening-…`, which loaded the second page by itself (13 openings) and focused that opening, in view;
 - at 375 px: the page 375 px wide, the table 309 px showing 564 px of columns by scrolling, its last cell *100* reachable; no console errors.
+
+## Notification centre (PD-120)
+
+`/notifications`: every notification as a `NotificationRow`, newest first, with tabs *All · Unread* in `?show=` and *Mark all as read* in the header. An unread row has a *Mark as read* button beside it; activating the row marks it read and follows its link — the trade, or the wallet for coins (`notificationHref`).
+
+- **The bell and the page share one count.** `useUnreadCount()` (`lib/query/notifications.ts`, polled every minute) is the bell's query, moved out of the topbar, and the *Unread* tab's number. `markNotificationRead` and `markAllNotificationsRead` invalidate the `notifications` root, which holds the count and both lists, so the badge, the tab and the rows all change without a reload.
+- **Mark all is one request**, `PATCH /notifications/read-all`; its toast says how many it marked.
+- `useNotifications(unread)` is an infinite query keyed `['notifications', 'list', { unread }]`, 24 a page.
+
+**Measured 2026-10-04** with a fresh headless Chrome profile against `next dev`, as a member with 30 notifications (20 unread, one real pending trade behind the trade kinds):
+
+- the bell *Notifications, 20 unread*, tabs *All / Unread 20*; 24 rows, *Showing 24 of 30 notifications*; *Show more*: 30;
+- the rows link to two places, `/trades/<the trade>` and `/wallet`; both answered 200;
+- Enter on one row's *Mark as read*: one `PATCH`, the bell *19 unread* and the tab *Unread 19* without a reload; Enter on another unread row: `/trades/<id>`, a second `PATCH`, the bell *18 unread*;
+- *Mark all as read*: exactly one request, `PATCH /notifications/read-all`, the bell back to *Notifications*, the toast *Marked 18 notifications as read*, the button disabled and no *Mark as read* left; ArrowRight to *Unread*: `?show=unread` and *You are all caught up* with a link to `/trades`; no console errors.
