@@ -70,3 +70,70 @@ In the shell, signed in as an admin against the live API: Tab from the top of `/
 - the four meters: `0 of 102 cards, 0%`, `42 of 64 cards, 66%`, `62 of 62 cards, 100%`, `30 of 83 cards, 36%`, each fill at that width;
 - the three spinners announce `Loading`, `Loading` and `Opening pack…`; all seven skeleton parts are hidden from assistive tech;
 - signed in, the topbar balance is 40 px high and reads `Balance 500 coins. Open wallet`.
+
+## Inputs, forms, search and filters (PD-94)
+
+The design, and the decisions taken with the user, are in `docs/superpowers/specs/2026-10-04-pd-94-inputs-and-forms-design.md`.
+
+| Component | File | Notes |
+| --- | --- | --- |
+| Input | `components/ui/input.tsx` | `label`, `help`, `error`, `type`, `mono`, `hideLabel`; ids and `aria-describedby` built in; password reveal |
+| Toggle | `components/ui/toggle.tsx` | Radix Switch with a clickable `label` and optional `description`; controlled |
+| Form, FormField, FormToggle, FormError | `components/ui/form.tsx` | React Hook Form through context; `applyApiError` puts an `ApiError` on a field or on the form |
+| SearchInput | `components/ui/search-input.tsx` | controlled, 300 ms debounce, Escape and a button clear it, `loading`, `resultCount` read out |
+| FilterBar | `components/ui/filter-bar.tsx` | controlled; a menu per `FilterDef`, active filters as chips, *Clear all*, grid/list toggle |
+| useUrlState | `lib/url-state.ts` | filter state in the URL, parsed by a shared Zod schema |
+| useCatalogFacets | `lib/query/catalog.ts` | `GET /facets`, keyed `['catalog', 'facets']` |
+
+### A form
+
+```tsx
+const form = useForm<SignIn>({ resolver: zodResolver(SignInSchema), mode: 'onTouched' });
+
+<Form form={form} onSubmit={submit}>
+  <FormField<SignIn> name="email" label="Email" type="email" autoComplete="email" />
+  <FormField<SignIn> name="password" label="Password" type="password" />
+  <FormError />
+  <Button type="submit" loading={form.formState.isSubmitting}>Sign in</Button>
+</Form>
+```
+
+- `mode: 'onTouched'`: an error shows when a field is left, then follows the typing. After a failed submit React Hook Form focuses the first invalid field.
+- Give `FormField` the form's type (`FormField<SignIn>`) and `name` is checked against its fields; without it `name` is any string.
+- **API errors.** In `onSubmit`, catch and call `applyApiError(form, error, { EMAIL_NOT_VERIFIED: 'email' })`: a mapped code lands on that field, anything else on the form, above the button, as `role="alert"`. The text is `apiErrorMessage()` from `lib/toast.ts`, the same sentence a toast would show. Give the mutation `meta: { toast: false }` so PD-91's toast does not say it twice.
+- **Sign-up never says an address is taken.** Signing up with a registered email answers 200 with a decoy user while email verification is required; there is no "email already registered" state to design.
+- The password reveal button keeps one name, *Show password*, and says its state with `aria-pressed`; changing the name too would announce the toggle twice.
+
+**`apiErrorMessage` changed.** It used to turn every 401 into *Sign in to continue.* A wrong password is Better Auth's 401 (`INVALID_EMAIL_OR_PASSWORD`, kind `auth`), so the sign-in form would have told a person with a typo that their session expired. Only our own API's 401s (kind `api`, no session) are replaced now; Better Auth's keep their sentence.
+
+### Filters in the URL
+
+```tsx
+const CatalogFilterSchema = CardSearchQuerySchema.pick({ q: true, set: true, rarity: true, type: true, supertype: true, sort: true });
+
+const [query, setQuery] = useUrlState(CatalogFilterSchema); // module-level schema, so the value keeps its identity
+setQuery({ rarity: 'Rare' });                               // push: Back undoes it
+setQuery({ q: 'char' }, { history: 'replace' });           // search: no history entry per pause
+```
+
+- **Reading** parses each key with its own field schema; a bad value falls back to that field's default and the rest survive. A bad link widens the results; it never empties the page or throws.
+- **Writing** merges the patch into the current params, drops `undefined`, `''` and values equal to the field's default (`sort=name_asc`), keeps keys the schema does not know (`?tab=`), and deletes `page` and `cursor` (`resets`), so a new filter starts on the first page. Navigation passes `{ scroll: false }`.
+- **History.** Choosing a filter, a sort or a tab pushes; search replaces.
+- **Static pages.** `useSearchParams` on a statically prerendered page turns the tree up to the nearest `<Suspense>` into client-only rendering. Every `(app)` page is dynamic, so this only matters on a public static page: wrap the component that calls `useUrlState` in `<Suspense>` there.
+
+`FilterBar` takes `FilterDef[]` (`key`, `label`, `icon`, `kind: 'select' | 'sort'`, `options`, `error`), the parsed `value` and `onChange`; pass `setQuery` straight in. `options: undefined` means loading and disables the menu; `error: true` disables it with *couldn't load options*. A `select` menu starts with *Any*. Facet counts are global over the mirror, not conditional on the other filters, and the same answer serves the catalog and the inventory.
+
+**Measured 2026-10-04** in the gallery, under `next dev` against the live API, with real key events:
+
+- typing `charizard` wrote the URL once with `replaceState` (0 `pushState`, history length unchanged) and sent one `/cards?q=charizard` request;
+- typing `char`, pausing 340 ms and typing `izard`: `q=char` reached the URL and the API while the field already held more, and the field read `char` then `charizard`, never anything shorter;
+- *Rarity: Rare*, then *Type: Water* (history 11 → 12), then Back: `?rarity=Rare`, the Type menu back to *Type*, one chip;
+- Enter on *Remove Rare*: `rarity` left the URL, `/cards` was requested again, and focus landed on the Rarity menu button; *Clear all* on `?rarity=Rare&type=Water&sort=name_desc` left `?sort=name_desc`;
+- `?sort=nonsense&rarity=Rare` showed *Rarity: Rare* and *Sort: Name A–Z* (2 583 cards); `?rarity=%00` showed no rarity filter and requested no rarity;
+- choosing a sort on `?page=3&tab=sent` gave `?tab=sent&sort=name_desc`;
+- Tab from the search: Set, Rarity, Type, Sort, Grid view, List view, each chip's remove button, *Clear all*; in the open Set menu, pressing `j u n g` moved focus to *Jungle 64* (177 options); Escape returned focus to *Set*;
+- the demo form: submitting empty focused the email, set `aria-invalid="true"`, and its `aria-describedby` held *Enter an email address*; `unverified@pokedrop.test` put the API's sentence under the email; another address showed *Invalid email or password* above *Sign in*; no toast either time;
+- with the API stopped, Set, Rarity and Type read *couldn't load options* and were disabled, Sort still read *Name A–Z*, and typing `mew` still wrote `?q=mew`.
+
+**How the browser pane got in the way.** When the desktop app's window is not drawing, transitions and Radix's close animations never end: a closed menu stays mounted, its focus trap keeps focus, and the next key goes to it. Three first attempts above failed that way, not in the code; taking a screenshot before each key press keeps the pane drawing. The pane's `type` action inserts text without `keydown`, so it cannot exercise a menu's typeahead; key presses can.
+
