@@ -125,12 +125,16 @@ export const PackHistoryQuerySchema = z.object({
 });
 export type PackHistoryQuery = z.infer<typeof PackHistoryQuerySchema>;
 
-/** `openId` is any string here: openings that predate PD-58 were not keyed by a UUID. */
+/**
+ * `openId` is any string here: openings that predate PD-58 were not keyed by a UUID.
+ * `cost` is what the ledger recorded for the opening; null when it has no ledger row.
+ */
 export const PackHistoryEntrySchema = z.object({
   openingId: PackOpeningIdSchema,
   openId: z.string().min(1),
   templateId: PackTemplateIdSchema,
   templateName: z.string(),
+  cost: z.number().int().min(0).nullable(),
   createdAt: z.coerce.date(),
   cards: z.array(PackOpeningCardSchema.extend({ card: InventoryCardSchema })),
 });

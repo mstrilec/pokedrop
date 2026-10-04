@@ -61,12 +61,20 @@ export class PackHistoryService {
     const page = rows.slice(0, query.pageSize);
     const last = page.at(-1);
 
+    // What was actually paid is the opening's ledger row, not the template's price today.
+    const spends = await this.prisma.currencyTransaction.findMany({
+      where: { userId, type: 'PACK_SPEND', refId: { in: page.map((row) => row.openId) } },
+      select: { refId: true, amount: true },
+    });
+    const costOf = new Map(spends.map((spend) => [spend.refId, -spend.amount]));
+
     return PackHistoryPageSchema.parse({
       items: page.map((row) => ({
         openingId: row.id,
         openId: row.openId,
         templateId: row.templateId,
         templateName: row.template.name,
+        cost: costOf.get(row.openId) ?? null,
         createdAt: row.createdAt,
         cards: row.cards.map((card) => ({
           position: card.position,
