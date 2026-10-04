@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { CardsSection } from './_sections/cards';
 import { InputsSection } from './_sections/inputs';
 import { NavigationSection } from './_sections/navigation';
 import { PrimitivesSection } from './_sections/primitives';
@@ -17,6 +18,7 @@ export default function ComponentsGallery() {
       <PrimitivesSection />
       <InputsSection />
       <NavigationSection />
+      <CardsSection />
     </>
   );
 }

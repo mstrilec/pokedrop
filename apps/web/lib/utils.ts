@@ -8,7 +8,7 @@ export const cn: CnFunction = createCn({
       'font-size': [{ text: ['display', 'h1', 'h2', 'h3', 'body', 'small', 'caption', 'mono'] }],
       rounded: [{ rounded: ['pill', 'tag', 'control', 'tile', 'card', 'modal'] }],
       shadow: [{ shadow: ['glow', 'glow-ultra', 'glow-secret'] }],
-      'bg-image': [{ bg: ['card-face', 'skeleton', 'backdrop'] }],
+      'bg-image': [{ bg: ['card-face', 'card-back', 'skeleton', 'backdrop'] }],
     },
   },
 });

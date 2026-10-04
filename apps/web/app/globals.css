@@ -67,6 +67,7 @@
   --e-fairy: #e987bd;
   --e-colorless: #b9bec9;
   --card-face-end: #0d0f14;
+  --card-back: linear-gradient(160deg, #233056, #12172a);
 
   --elevation-sm: 0 4px 14px rgba(0, 0, 0, 0.35);
   --elevation-md: 0 16px 34px rgba(0, 0, 0, 0.45);
@@ -318,6 +319,10 @@
 /* The keyboard focus ring every interactive element uses. */
 @utility focus-ring {
   @apply outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-bg;
+}
+
+@utility bg-card-back {
+  background: var(--card-back);
 }
 
 /* Card face: set --energy to one of the energy tokens. */
