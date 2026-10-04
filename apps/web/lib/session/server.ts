@@ -1,10 +1,12 @@
 import 'server-only';
 import { ERROR_CODES, type MyProfile } from '@pokedrop/shared';
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { cache } from 'react';
 import { ApiError } from '@/lib/api/core';
 import { me } from '@/lib/api/endpoints/users';
 import { serverApi } from '@/lib/api/server';
+import { safeNext } from '@/lib/routes';
 import { hasSessionCookie } from './cookie';
 
 export type SessionResult =
@@ -24,6 +26,11 @@ export const getSession = cache(async (): Promise<SessionResult> => {
     throw error;
   }
 });
+
+/** The sign-in and sign-up pages send a visitor who already has a session on. */
+export async function redirectIfSignedIn(next?: string | string[]): Promise<void> {
+  if (await getOptionalProfile()) redirect(safeNext(typeof next === 'string' ? next : undefined));
+}
 
 // Public pages must render with the API down, so an unreachable or failing API
 // reads as signed out here. A contract error still throws: that is a bug.
