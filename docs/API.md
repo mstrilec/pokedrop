@@ -434,13 +434,15 @@ Critical values are the Wilson–Hilferty approximation. These checks stand in f
   "items": [
     {
       "openingId": "clx…", "openId": "1b4e28ba-…", "templateId": "seed-template-base",
-      "templateName": "Base Set Booster", "createdAt": "2026-09-27T19:02:11.412Z",
+      "templateName": "Base Set Booster", "cost": 300, "createdAt": "2026-09-27T19:02:11.412Z",
       "cards": [{ "position": 0, "cardId": "base1-68", "rarity": "Common", "card": { "…": "the inventory's slim card" } }]
     }
   ],
   "pageSize": 24, "total": 6, "nextCursor": null
 }
 ```
+
+**`cost` is what the ledger recorded**, the opening's `PACK_SPEND` row read by `(userId, type, refId = openId)` — the price actually paid, not the template's price today; `null` for an opening with no ledger row. Added in PD-106 for the history page; one extra indexed read per page.
 
 **Newest first, by a keyset cursor over `(createdAt, id)`,** for the same reason as the inventory: openings arrive at the top while someone scrolls, and offsets would repeat one. The cursor is opaque; one that does not decode, names a year-zero date or an id outside `[A-Za-z0-9_-]` is a 400. `openId` is any string here, because openings made before PD-58 were not keyed by a UUID. The seed is never returned.
 

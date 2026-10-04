@@ -72,3 +72,27 @@ Five pages in `(auth)`, each an `AuthCard` (`components/auth/auth-card.tsx`: ico
 - the resend button 2 seconds from the end of its cooldown: *Resend email in 2 s*, then *Resend email*; Enter: *We sent another link.* and *Resend email in 60 s*;
 - the server's limits against the shared ones, through `/api/auth/sign-up/email`: 11 characters 400 `PASSWORD_TOO_SHORT`, 12 and 128 accepted, 129 400 `PASSWORD_TOO_LONG`; a 64-character name accepted, 65 and a blank one 400 `INVALID_PROFILE`;
 - no console errors in any run.
+
+## Shared page pieces
+
+| Piece | File | Notes |
+| --- | --- | --- |
+| PageHeader | `components/page-header.tsx` | the page's `h1`, one line under it, actions on the right |
+| LoadMore | `components/list-states.tsx` | the foot of a cursor-paged list: *Showing N of M …* as `role="status"`, and *Show more* while there is a next page |
+| ListError | `components/list-states.tsx` | a failed query in place of its list: the API's sentence, the request ID, *Try again* |
+
+**Cursor-paged lists are infinite queries.** Each page is fetched once, with the previous page's `nextCursor`; *Show more* asks for the next one and leaves the ones already on screen alone.
+
+## Pack history (PD-106)
+
+`/packs/history`: every opening as a card — template, date, what it cost, and its pulls as `CardTile`s in pull order, each leading to `/cards/:id`. An opening with an Ultra or Secret pull carries a *big pull* badge, and those tiles glow as everywhere else. Ten openings a page (`usePackHistory`, keyed `['packs', 'history']`, so `openPack` invalidates it), because each one is a row of eight or more tiles.
+
+**The price paid comes from the ledger.** The history answer had no cost, and the template's price today is not what someone paid last month, so `GET /packs/history` gained `cost`, read from the opening's `PACK_SPEND` row (API.md, *Opening history*). An opening without one says *Cost not recorded*.
+
+**Measured 2026-10-04** with a fresh headless Chrome profile against `next dev` and the API, as a member with 13 openings:
+
+- 10 openings shown, *Showing 10 of 13 openings*, one request `/packs/history?pageSize=10`; the newest: *Base Set Booster · Oct 4, 2026, 9:08 PM*, 8 tiles, *300* coins;
+- *Show more* by keyboard: 13 openings, *Showing 13 of 13 openings*, exactly one new request (`?cursor=…&pageSize=10`), and *Show more* gone;
+- the first tile is *Meowth, Common* linking `/cards/base2-56`, which answered 200;
+- a verified member who never opened a pack: *No packs opened yet* with *Open your first pack* → `/packs`;
+- through the API: the 13 openings' `cost` 300 each, and the wallet's newest `PACK_SPEND` row `−300` with `balanceAfter` equal to the balance; no console errors.
