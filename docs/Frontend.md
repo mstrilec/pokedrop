@@ -289,7 +289,7 @@ Zustand holds what only the browser knows: what the user is doing, not what the 
 
 **Sign out** posts to `/api/auth/sign-out` or `/api/auth/revoke-sessions`, clears the query cache and reloads to `/`: a full load, so nothing of the signed-out user survives in the router cache or the client stores.
 
-Built from plain elements on the tokens until M12's components exist (Button, Avatar, CurrencyPill); only the avatar menu uses a shadcn primitive, for its keyboard handling. The avatar shows the name's initial; images arrive with M12's Avatar.
+Built from plain elements on the tokens until M12's components existed; only the avatar menu uses a shadcn primitive, for its keyboard handling. Since PD-92 the menu button and the bell are IconButtons, *Open packs* is a Button and the account trigger is an Avatar, which shows the uploaded image when there is one ([Components.md](Components.md)).
 
 **Measured 2026-10-01** against `next start`:
 
