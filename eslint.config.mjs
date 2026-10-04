@@ -128,6 +128,14 @@ export default tseslint.config(
       'no-restricted-imports': [
         'error',
         {
+          paths: [
+            {
+              name: 'cn',
+              allowTypeImports: true,
+              message:
+                "Import cn from '@/lib/utils': it knows the design system's text sizes, radii and shadows.",
+            },
+          ],
           patterns: [
             {
               // These match the import specifier as written, not the

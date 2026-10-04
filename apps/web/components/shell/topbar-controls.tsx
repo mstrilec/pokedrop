@@ -12,6 +12,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Avatar } from '@/components/ui/avatar';
+import { IconButton } from '@/components/ui/icon-button';
 import { api } from '@/lib/api/browser';
 import { unreadCount } from '@/lib/api/endpoints/notifications';
 import { keys } from '@/lib/query/keys';
@@ -26,16 +28,14 @@ export function MenuButton() {
   const navOpen = useUi((s) => s.navOpen);
   const setNavOpen = useUi((s) => s.setNavOpen);
   return (
-    <button
-      type="button"
-      aria-label="Open navigation"
+    <IconButton
+      icon={Menu}
+      label="Open navigation"
       aria-controls="app-sidebar"
       aria-expanded={navOpen}
       onClick={() => setNavOpen(!navOpen)}
-      className="focus-ring flex size-10 items-center justify-center rounded-control border border-bd bg-surface text-tx lg:hidden"
-    >
-      <Menu aria-hidden className="size-4" />
-    </button>
+      className="lg:hidden"
+    />
   );
 }
 
@@ -60,21 +60,10 @@ export function NotificationBell() {
     queryFn: () => api.call(unreadCount()),
     refetchInterval: UNREAD_POLL_MS,
   });
-  const unread = data?.count ?? 0;
   return (
-    <Link
-      href="/notifications"
-      aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
-      className="focus-ring relative flex size-10 items-center justify-center rounded-control border border-bd bg-surface text-tx"
-    >
-      <Bell aria-hidden className="size-4" />
-      {unread > 0 ? (
-        <span
-          aria-hidden
-          className="absolute top-2 right-2 size-2 rounded-pill border-2 border-bg bg-red"
-        />
-      ) : null}
-    </Link>
+    <IconButton asChild icon={Bell} label="Notifications" badge={data?.count ?? 0}>
+      <Link href="/notifications" />
+    </IconButton>
   );
 }
 
@@ -104,9 +93,9 @@ export function AvatarMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={`Account menu for ${identity.displayName}`}
-        className="focus-ring flex size-10 items-center justify-center rounded-control bg-linear-135 from-pri to-rarity-ultra font-bold text-on-pri"
+        className="focus-ring cursor-pointer rounded-control"
       >
-        {identity.displayName.trim().charAt(0).toUpperCase() || '?'}
+        <Avatar name={identity.displayName} src={identity.avatarUrl} size={40} decorative />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>

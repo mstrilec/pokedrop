@@ -3,6 +3,7 @@ import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { PackageOpen, Search } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { Button } from '@/components/ui/button';
 import { keys } from '@/lib/query/keys';
 import { getServerQueryClient } from '@/lib/query/server';
 import { SessionProvider } from '@/lib/session/context';
@@ -49,14 +50,11 @@ export function AppShell({ profile, children }: { profile: MyProfile; children: 
               <div className="flex-1" />
               <CurrencyPill />
               <NotificationBell />
-              <Link
-                href="/packs"
-                aria-label="Open packs"
-                className="focus-ring flex items-center gap-2 rounded-control bg-pri px-4 py-2 text-small font-semibold text-on-pri shadow-glow hover:bg-pri-hover"
-              >
-                <PackageOpen aria-hidden className="size-4" />
-                <span className="hidden sm:inline">Open packs</span>
-              </Link>
+              <Button asChild icon={PackageOpen} className="max-sm:px-3">
+                <Link href="/packs" aria-label="Open packs">
+                  <span className="hidden sm:inline">Open packs</span>
+                </Link>
+              </Button>
               <AvatarMenu />
             </header>
             <main id="content" tabIndex={-1} className="flex-1 p-8 outline-none">
