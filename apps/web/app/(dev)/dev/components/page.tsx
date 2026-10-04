@@ -3,6 +3,7 @@ import { CardsSection } from './_sections/cards';
 import { DataDisplaySection } from './_sections/data-display';
 import { InputsSection } from './_sections/inputs';
 import { NavigationSection } from './_sections/navigation';
+import { OverlaysSection } from './_sections/overlays';
 import { PrimitivesSection } from './_sections/primitives';
 
 export const metadata: Metadata = { title: 'Components', robots: { index: false } };
@@ -21,6 +22,7 @@ export default function ComponentsGallery() {
       <NavigationSection />
       <CardsSection />
       <DataDisplaySection />
+      <OverlaysSection />
     </>
   );
 }

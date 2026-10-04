@@ -22,3 +22,13 @@ export function toastApiError(error: unknown): void {
   const requestId = error instanceof ApiError ? error.requestId : undefined;
   toast.error(apiErrorMessage(error), requestId ? { description: `Request ID ${requestId}` } : {});
 }
+
+type ToastAction = { label: string; onClick: () => void };
+
+export function toastSuccess(message: string, action?: ToastAction): void {
+  toast.success(message, action ? { action } : {});
+}
+
+export function toastInfo(message: string, action?: ToastAction): void {
+  toast.info(message, action ? { action } : {});
+}
