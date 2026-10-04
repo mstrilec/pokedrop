@@ -46,7 +46,7 @@ It lives in its own route group, `app/(dev)/`, whose layout answers 404 in produ
 
 In the shell, signed in as an admin against the live API: Tab from the top of `/admin/sync` stopped at *Skip to content*, the logo, the 16 sidebar links, search, the balance, the bell, *Open packs*, the account menu and the admin sub-nav, in PD-90's order; the bell, *Open packs* and the account trigger each showed the ring; Enter on the account trigger opened its menu on *My profile*. After an admin grant the bell read *Notifications, 1 unread* with its dot and the balance *500 coins*. The menu's Escape-returns-focus was not re-measured: the browser pane was not drawing, so Radix's close animation never ended. The trigger's behaviour comes from Radix and only its contents changed; PD-100's keyboard pass covers it.
 
-**Text contrast below the spec's 4.5 : 1** (measured on `--surface`): white on the primary fill **3.2**, red text on `--red-dim` (destructive button, Declined, Voided, Admin) **4.19**, violet on its tint (Countered, Ultra Rare) **4.48**. Every other variant passes, from 4.69 (Rare) to 14.6 (secondary). These are the design system's own token pairs, so they are left for PD-100's contrast pass, which decides between adjusting the tokens and accepting them.
+**Text contrast below the spec's 4.5 : 1** (measured on `--surface`): white on the primary fill **3.2**, red text on `--red-dim` (destructive button, Declined, Voided, Admin) **4.19**, violet on its tint (Countered, Ultra Rare) **4.48**. Every other variant passes, from 4.69 (Rare) to 14.6 (secondary). These were the design system's own token pairs; PD-100 changed the tokens (see *Accessibility audit*).
 
 ## Loading and economy primitives (PD-93)
 
@@ -230,7 +230,7 @@ After the review fixes, the same way:
 - **Focus goes back where it came from.** Radix returns focus only to its own `Trigger`. A dialog opened from code (a row action, a confirm after a check) would drop focus to `<body>`, so `Dialog` remembers what had focus when it opened and returns there.
 - **`confirming` holds the dialog open**: Escape and the scrim do nothing, *Cancel* is disabled, and the confirm button is busy.
 - **`aria-modal="true"` is set explicitly.** Radix hides the rest of the page with `aria-hidden`, except elements that contain a live region, so they keep announcing; in the gallery that left `<main>` and Sonner's region exposed. `aria-modal` is what tells a screen reader to stay inside the dialog.
-- **Toasts are polite, errors included.** Sonner announces every toast through one `aria-live="polite"` region and gives no toast `role="alert"`, which the spec asks for errors. Every critical outcome is also shown in place (a form's `role="alert"`, a page's error state), which the spec requires anyway; PD-100 decides whether that is enough.
+- **Toasts are polite, errors included.** Sonner announces every toast through one `aria-live="polite"` region and gives no toast `role="alert"`, which the spec asks for errors. Every critical outcome is also shown in place (a form's `role="alert"`, a page's error state), which the spec requires anyway; PD-100 kept it that way.
 - **Every list gets an EmptyState** — but the lists are M13's pages; the four in the gallery (collection, trades, decks, search) are the patterns they use. A list's empty state is part of its page ticket.
 - **The timeline says its states in words**: each step starts with a hidden *Done:*, *Current step:* or *Not yet:*, and the current one has `aria-current="step"`. Steps name people from the viewer's side: *Accepted and settled by you*.
 
@@ -268,3 +268,37 @@ After the review fixes, the same way:
 - typing `5000` into *Coins you give* with a 1,250 balance showed `1250`, `aria-valuenow` 1250, `aria-invalid`, and *You have 1,250 coins; that is the most you can offer.*; ArrowUp stayed at 1250; on leaving the field it read `1,250`;
 - typing `-300` into the admin grant gave `aria-valuenow` −300, *-300 coins*;
 - the read-only panel's sides are *MistyW gives — 1 card · market value $180.00 · 120 coins* (with *Locked in escrow*) and *You give — 2 cards · market value $48.00*.
+
+## Accessibility audit (PD-100)
+
+The whole library was swept in the gallery, in headless Chrome against `next dev`, with axe-core 4.10 loaded from cdnjs into the page and real key events over the DevTools protocol. Nothing was added to the repository to do it: v1 has no test suite, so the audit is a measurement, recorded here, not a check that runs again by itself.
+
+**axe** (WCAG 2.0/2.1 A and AA plus best practice), before → after:
+
+| Page | Critical | Serious | Moderate |
+| --- | --- | --- | --- |
+| `/dev/components` | 0 → 0 | 95 contrast → 2 | 3 → 3 |
+| `/dashboard`, signed in | 0 → 0 | 1 contrast → 0 | 0 → 0 |
+
+The two serious nodes left are a DeckSlot's `dragging` state, drawn at half opacity on purpose: it is the place the card left, and during a drag PD-112 draws the card itself under the pointer. The three moderate ones (`landmark-unique`) are the gallery showing three breadcrumb trails and two offer panels on one page; an application page has one of each.
+
+**The palette changed**, chosen with the user from measured options, and `docs/DesignSystem.md` carries the new values:
+
+| Token | Before | After | Why |
+| --- | --- | --- | --- |
+| `--faint` | `#636876` | `#858a96` | 59 captions and hints at 3.24 : 1 on `--surface`; now 5.38 (5.85 on `--bg`, 4.96 on `--surface2`), still dimmer than `--mut` |
+| `--pri-strong` (new) | — | `#3f74d2`, hover `#3a6cc4` | the primary button's fill: white on `--pri` is 3.2 : 1, on `--pri-strong` 4.53 (hover 5.09). `--pri` stays the accent for links, focus rings and tints |
+| `--red` | `#ef4444` | `#f05151` | red text on `--red-dim` was 4.19 : 1; now 4.51 |
+| `--red-strong` (new) | — | `#d73d3d` | red fills that carry text (the count badge, a negative balance delta): white at 4.54 : 1 instead of 3.76 |
+| `--c-ultra` | `#b06bf0` | `#b06cf0` | Ultra Rare text on its tint was 4.47 : 1; now 4.50; the tint, border, edge and glow follow |
+
+**Keyboard.** Tab from the top of the gallery made 123 stops, the same number of focusable elements the page holds, 121 of them the library's (28 primitives, 20 inputs and forms, 7 navigation, 12 cards, 22 data display, 9 overlays, 23 domain) and two Next and TanStack developer buttons. Every one of the library's stops showed the focus ring; none was invisible or off-screen. The menus, dialog, tabs, stepper and form were walked key by key in their tickets.
+
+**Color is never the only signal**: rarity is printed in words on every tile, chip and reveal; energy has its glyph; legality, trade status, unread notifications and timeline steps say their state in text.
+
+**Reduced motion.** With `--force-prefers-reduced-motion`: no element in the gallery had an animation or transition longer than 1 ms, at rest or with the dialog open; no animation was running; the reveal flip computed to 0.00001 s; granting 500 coins showed only `1,750`, no frames between; and following a validation error put the deck slot in view within 40 ms. Without it: 161 transitions, the balance counted up through `1,308`, `1,369`, `1,424`…, and the scroll took its time.
+
+**One thing the audit found and fixed in code**: `focusDeckSlot()` scrolled with `behavior: 'smooth'`, and an explicit smooth scroll in script is not reached by the CSS reduced-motion rule. It now asks `prefers-reduced-motion` and scrolls instantly when asked to.
+
+**Decided, not changed**: toasts stay polite (Sonner has no per-toast `role="alert"`); every critical outcome also shows in place. The ticket asked for axe checks in component tests; with no tests in v1 they ran in the browser instead.
+

@@ -19,7 +19,7 @@
 | `--elev` | `#22262f` | Elevated (menus, hovered secondary) |
 | `--tx` | `#eef0f4` | Primary text |
 | `--mut` | `#969cab` | Muted / secondary text |
-| `--faint` | `#636876` | Faint / tertiary text, captions |
+| `--faint` | `#858a96` | Faint / tertiary text, captions (was `#636876`, 3.24 : 1 on `--surface`; now 5.38 : 1, PD-100) |
 | `--bd` | `rgba(255,255,255,.08)` | Hairline border |
 | `--bd2` | `rgba(255,255,255,.13)` | Stronger border / input outline |
 
@@ -31,10 +31,12 @@ Body backdrop uses `radial-gradient(1000px 500px at 85% -10%, rgba(76,141,255,.0
 |---|---|---|---|
 | `--pri` | `#4c8dff` | Primary action | `#fff` |
 | `--pri-dim` | `rgba(76,141,255,.14)` | Primary tint (active nav, badges) | — |
+| `--pri-strong` | `#3f74d2` | Primary button fill: white text at 4.53 : 1 (`#4c8dff` gives 3.2); hover `--pri-strong-hover` `#3a6cc4` | `#fff` |
 | `--gold` | `#f2b23c` | Economy / currency | `#1a1204` |
 | `--gold-dim` | `rgba(242,178,60,.14)` | Economy tint | — |
 | `--grn` | `#34d399` | Success / confirm | `#04120b` |
-| `--red` | `#ef4444` | Danger / destructive | `#fff` |
+| `--red` | `#f05151` | Danger / destructive text and accents (was `#ef4444`; 4.51 : 1 on `--red-dim`, PD-100) | — |
+| `--red-strong` | `#d73d3d` | Red fills that carry text (count badges) | `#fff` (4.54 : 1) |
 | `--red-dim` | `rgba(239,68,68,.14)` | Danger tint | — |
 
 ### Rarity ramp
@@ -46,7 +48,7 @@ Each rarity has a solid color, a glow (for high-rarity emphasis), a ~14% tint (c
 | Common | `--c-com` | `#9aa1ad` | `rgba(154,161,173,.14)` | `rgba(154,161,173,.3)` |
 | Uncommon | `--c-unc` | `#4fc98a` | `rgba(79,201,138,.14)` | `rgba(79,201,138,.3)` |
 | Rare | `--c-rare` | `#4c8dff` | `rgba(76,141,255,.14)` | `rgba(76,141,255,.3)` |
-| Ultra Rare | `--c-ultra` | `#b06bf0` | `rgba(176,107,240,.14)` | `rgba(176,107,240,.3)` |
+| Ultra Rare | `--c-ultra` | `#b06cf0` | `rgba(176,108,240,.14)` | `rgba(176,108,240,.3)` |
 | Secret Rare | `--c-secret` | `#f2b23c` | `rgba(242,178,60,.14)` | `rgba(242,178,60,.3)` |
 
 **High-rarity emphasis:** Ultra Rare and Secret Rare cards get a rarity-colored border at `66` alpha plus `box-shadow: 0 0 22px <color>22` glow.
@@ -170,7 +172,7 @@ Radius 10px, 600 weight. Sizes: `sm` 13px / 8–13px pad · `md` 14px / 11–18p
 
 | Variant | Fill | Text | Note |
 |---|---|---|---|
-| Primary | `--pri` | `#fff` | Soft blue glow; brightens to `#5d99ff` on hover |
+| Primary | `--pri-strong` | `#fff` | Soft blue glow; darkens to `--pri-strong-hover` on hover. `--pri` stays the accent for links, rings and tints (PD-100) |
 | Secondary | `--surface2` + `--bd2` border | `--tx` | Border → `--mut`, bg → `--elev` on hover |
 | Ghost | transparent | `--mut` | bg → `--surface2`, text → `--tx` on hover |
 | Confirm | `--grn` | `#04120b` | 700 weight |
