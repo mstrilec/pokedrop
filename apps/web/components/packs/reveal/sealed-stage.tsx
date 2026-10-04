@@ -31,12 +31,12 @@ export function SealedStage({
   error: unknown;
   onOpen: () => void;
 }) {
-  const button = useRef<HTMLButtonElement>(null);
+  const actions = useRef<HTMLDivElement>(null);
   // The confirm's second click or key repeat lands here; it must not skip the pack.
   const armedAt = useRef(Number.POSITIVE_INFINITY);
   useEffect(() => {
     armedAt.current = performance.now() + ARMING_MS;
-    button.current?.focus();
+    actions.current?.querySelector<HTMLElement>('a, button')?.focus();
   }, []);
   const failure = error ? failureOf(error) : null;
   const open = () => {
@@ -53,28 +53,30 @@ export function SealedStage({
         <span className="absolute -inset-17.5 animate-pulse-glow rounded-pill bg-pri/40 blur-2xl" />
         <PackArt name={name} />
       </div>
-      {failure ? (
-        <div role="alert" className="flex max-w-sm flex-col items-center gap-3 text-center">
-          <p className="text-body text-red">{failure.message}</p>
-          {failure.action === 'wallet' ? (
-            <Button asChild variant="secondary">
-              <Link href="/wallet">Go to wallet</Link>
-            </Button>
-          ) : failure.action === 'packs' ? (
-            <Button asChild variant="secondary">
-              <Link href="/packs">Back to packs</Link>
-            </Button>
-          ) : (
-            <Button ref={button} size="lg" icon={Sparkles} onClick={open}>
-              Try again
-            </Button>
-          )}
-        </div>
-      ) : (
-        <Button ref={button} size="lg" icon={Sparkles} onClick={open}>
-          Tap to open
-        </Button>
-      )}
+      <div ref={actions} className="contents">
+        {failure ? (
+          <div role="alert" className="flex max-w-sm flex-col items-center gap-3 text-center">
+            <p className="text-body text-red">{failure.message}</p>
+            {failure.action === 'wallet' ? (
+              <Button asChild variant="secondary">
+                <Link href="/wallet">Go to wallet</Link>
+              </Button>
+            ) : failure.action === 'packs' ? (
+              <Button asChild variant="secondary">
+                <Link href="/packs">Back to packs</Link>
+              </Button>
+            ) : (
+              <Button size="lg" icon={Sparkles} onClick={open}>
+                Try again
+              </Button>
+            )}
+          </div>
+        ) : (
+          <Button size="lg" icon={Sparkles} onClick={open}>
+            Tap to open
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

@@ -46,6 +46,8 @@ function PackReveal({ templateId, openId }: OpenParams) {
   const [replaying, setReplaying] = useState(false);
   const [slow, setSlow] = useState(false);
   const started = useRef(false);
+  // Read once: whether this load is a return to an opened pack. Rendered only after mount.
+  const [openedOnArrival] = useState(() => typeof window !== 'undefined' && wasOpened(openId));
 
   async function start(replay: boolean) {
     setError(null);
@@ -54,11 +56,15 @@ function PackReveal({ templateId, openId }: OpenParams) {
     const minimum = replay || prefersReducedMotion() ? 0 : OPENING_MIN_MS;
     const slowTimer = replay ? undefined : setTimeout(() => setSlow(true), STILL_OPENING_MS);
     try {
+      // Marked as soon as the answer is in, not after the animation's floor: a reload
+      // or Back and Forward in between must replay, not offer a second tap.
       const [opened] = await Promise.all([
-        openPack.mutateAsync({ templateId, openId }),
+        openPack.mutateAsync({ templateId, openId }).then((answer) => {
+          markOpened(openId);
+          return answer;
+        }),
         delay(minimum),
       ]);
-      markOpened(openId);
       setResult(opened);
       send({ type: 'opened', total: opened.cards.length });
       if (replay) send({ type: 'skip' });
@@ -81,7 +87,7 @@ function PackReveal({ templateId, openId }: OpenParams) {
   useEffect(() => replayIfOpened(), []);
 
   const name = template?.name ?? 'Your pack';
-  const pendingReplay = mounted && stage === 'sealed' && error === null && wasOpened(openId);
+  const pendingReplay = mounted && openedOnArrival && stage === 'sealed' && error === null;
 
   if (!mounted || pendingReplay || replaying) {
     return (
@@ -100,7 +106,7 @@ function PackReveal({ templateId, openId }: OpenParams) {
           error={error}
           onOpen={() => {
             started.current = true;
-            void start(false);
+            void start(wasOpened(openId));
           }}
         />
       );

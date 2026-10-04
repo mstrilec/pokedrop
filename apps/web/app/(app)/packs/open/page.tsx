@@ -10,7 +10,7 @@ export default async function PackOpenPage({ searchParams }: PageProps<'/packs/o
   if (!params) redirect('/packs');
 
   return (
-    <div className="flex min-h-[calc(100dvh-10rem)] items-center justify-center">
+    <div className="flex min-h-[calc(100dvh-10rem)] items-center justify-center overflow-clip">
       <PackRevealScreen key={params.openId} templateId={params.templateId} openId={params.openId} />
     </div>
   );
