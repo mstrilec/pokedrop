@@ -2,6 +2,7 @@
 
 import type { PackHistoryEntry } from '@pokedrop/shared';
 import { PackageOpen, Sparkles } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import { CardTile } from '@/components/cards/card-tile';
 import { cardView } from '@/components/cards/card-data';
 import { ListError, LoadMore } from '@/components/list-states';
@@ -17,7 +18,11 @@ const TILE_SIZES = '(min-width: 1024px) 160px, 30vw';
 function Opening({ entry }: { entry: PackHistoryEntry }) {
   const highPulls = entry.cards.filter((pull) => isHighRarity(rarityTier(pull.rarity))).length;
   return (
-    <li className="rounded-card border border-bd bg-surface p-5">
+    <li
+      id={`opening-${entry.openingId}`}
+      tabIndex={-1}
+      className="scroll-mt-20 rounded-card border border-bd bg-surface p-5 outline-none focus:ring-2 focus:ring-pri"
+    >
       <header className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
         <h2 className="text-h3 font-semibold">{entry.templateName}</h2>
         <time dateTime={entry.createdAt.toISOString()} className="text-small text-mut">
@@ -33,7 +38,7 @@ function Opening({ entry }: { entry: PackHistoryEntry }) {
           {entry.cost === null ? (
             <span className="text-small text-faint">Cost not recorded</span>
           ) : (
-            <CurrencyPill amount={entry.cost} size="sm" />
+            <CurrencyPill amount={entry.cost} size="sm" interactive={false} animate={false} />
           )}
         </span>
       </header>
@@ -68,8 +73,27 @@ function HistorySkeleton() {
   );
 }
 
+// The wallet links an opening as #opening-<id>: page through until it is loaded, then show it.
+function useOpeningFromHash(history: ReturnType<typeof usePackHistory>) {
+  const found = useRef(false);
+  const { data, hasNextPage, isFetchingNextPage, fetchNextPage } = history;
+  useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (found.current || !id.startsWith('opening-') || !data) return;
+    const element = document.getElementById(id);
+    if (element) {
+      found.current = true;
+      element.scrollIntoView({ block: 'start' });
+      element.focus({ preventScroll: true });
+    } else if (hasNextPage && !isFetchingNextPage) {
+      void fetchNextPage();
+    }
+  }, [data, hasNextPage, isFetchingNextPage, fetchNextPage]);
+}
+
 export function PackHistory() {
   const history = usePackHistory();
+  useOpeningFromHash(history);
 
   if (history.isPending) {
     return (

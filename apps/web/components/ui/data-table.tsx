@@ -94,9 +94,9 @@ export function DataTable<T>({
       aria-label={label}
       aria-busy={loading || undefined}
       aria-rowcount={loading ? -1 : rows.length + 1}
-      className={cn('overflow-hidden rounded-card border border-bd bg-surface', className)}
+      className={cn('overflow-x-auto rounded-card border border-bd bg-surface', className)}
     >
-      <div role="rowgroup">
+      <div role="rowgroup" className="min-w-fit">
         {table.getHeaderGroups().map((group) => (
           <div
             key={group.id}
@@ -143,7 +143,7 @@ export function DataTable<T>({
           </div>
         ))}
       </div>
-      <div role="rowgroup">
+      <div role="rowgroup" className="min-w-fit">
         {loading ? (
           Array.from({ length: skeletonRows }, (_, i) => (
             <div

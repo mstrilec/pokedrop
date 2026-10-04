@@ -1,8 +1,17 @@
 import type { Metadata } from 'next';
-import { PagePlaceholder } from '@/components/page-placeholder';
+import { PageHeader } from '@/components/page-header';
+import { WalletLedger } from '@/components/wallet/wallet-ledger';
 
 export const metadata: Metadata = { title: 'Wallet' };
 
-export default function Page() {
-  return <PagePlaceholder title="Wallet" ticket="PD-119" />;
+export default function WalletPage() {
+  return (
+    <>
+      <PageHeader
+        title="Wallet"
+        description="Your coins, and every transaction that moved them, newest first."
+      />
+      <WalletLedger />
+    </>
+  );
 }
