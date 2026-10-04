@@ -205,6 +205,7 @@ After the review fixes, the same way:
 
 - **Sorting.** Without `onSortingChange` the table sorts its own rows. Pass `sorting` and `onSortingChange` and it only reports: a server-paginated list (every admin table) sorts on the server, and a client sort would order only the page on screen. TanStack sorts a number column descending first.
 - **`useReactTable` and the React Compiler.** Lint warns (`react-hooks/incompatible-library`) because the table instance's functions cannot be memoized; the warning is disabled on that line, and the compiler skips the component.
+- **A table too narrow for its columns scrolls sideways** inside its own border (since PD-119): the rowgroups are `min-w-fit` and the table `overflow-x-auto`, so the minimum widths in `meta.width` hold and the page never widens.
 - **Trend direction is text**, not only an arrow and a color: a visually hidden *Up:*, *Down:* or *No change:* precedes the trend.
 - **Unread is text**, not only the dot and the tint: an unread row starts with a visually hidden *Unread:*.
 - **Coins spoken in full.** The pack button reads `250K · Open` but is named `Open Premium Collection for 250,000 coins`, and a shortfall reads `You need 249,880 more coins`; an abbreviation is for the eye.

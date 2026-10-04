@@ -96,3 +96,19 @@ Five pages in `(auth)`, each an `AuthCard` (`components/auth/auth-card.tsx`: ico
 - the first tile is *Meowth, Common* linking `/cards/base2-56`, which answered 200;
 - a verified member who never opened a pack: *No packs opened yet* with *Open your first pack* → `/packs`;
 - through the API: the 13 openings' `cost` 300 each, and the wallet's newest `PACK_SPEND` row `−300` with `balanceAfter` equal to the balance; no console errors.
+
+## Wallet (PD-119)
+
+`/wallet`: the balance, then the ledger as a `DataTable` — date, what caused the row, the amount (green in, red out) and the running balance — with tabs *All · Grants · Pack spends · Trades* in `?type=` (`useUrlTab`; the API's `GRANT`, `PACK_SPEND`, `TRADE`, which also covers reversals). `useWallet(type)` is an infinite query keyed `['wallet', 'list', { type }]`, so `openPack`'s invalidation of `['wallet']` reaches every filter.
+
+- **The running balance is the API's `balanceAfter`**, computed over the whole ledger before the filter, so a filtered row shows the same balance it shows unfiltered, and the newest row's equals the balance above the table. The page adds nothing up itself.
+- **Where a row leads.** A pack spend links `/packs/history#opening-<id>`; the history page pages through until that opening is loaded, then scrolls to it and focuses it. A trade or a reversal links `/trades/<id>`. Grants have no record to open: the welcome grant says so, and an admin's grant or adjustment says which by its sign. A row whose source no longer resolves says *Source no longer available*.
+- **The balance is a figure, not the topbar's pill**: `CurrencyPill` is a link to the wallet, which on the wallet itself would lead nowhere. The pack history's cost pill is `interactive={false}` for the same reason.
+- **`DataTable` scrolls sideways** when its columns' minimum widths do not fit — the wallet's four at 375 px — instead of clipping the last columns. The table itself scrolls; the page never does ([Components.md](Components.md), *Data display*).
+
+**Measured 2026-10-04** with a fresh headless Chrome profile against `next dev`, as a member with a welcome grant, an admin-style grant and 13 pack spends:
+
+- *100 coins*; 15 rows, *Showing 15 of 15 transactions*; the newest *Opened Base Set Booster · −300 · 100*, the oldest *Welcome grant for verifying your email · +1,000 · 1,000*; every row's balance equals the row below it plus its own amount;
+- ArrowRight twice on the tabs: `?type=packs`, 13 rows, all pack spends, with exactly the balances they show unfiltered, and the balance still *100 coins*; `?type=trades`: *No coins have changed hands in a trade yet.*;
+- Enter on the oldest pack spend: `/packs/history#opening-…`, which loaded the second page by itself (13 openings) and focused that opening, in view;
+- at 375 px: the page 375 px wide, the table 309 px showing 564 px of columns by scrolling, its last cell *100* reachable; no console errors.
