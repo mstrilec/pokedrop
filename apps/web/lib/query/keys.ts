@@ -1,4 +1,5 @@
 import type { QueryKey } from '@tanstack/react-query';
+import type { CardSearchParams } from '@/lib/api/endpoints/catalog';
 import type { InventoryParams } from '@/lib/api/endpoints/inventory';
 import type { WalletParams } from '@/lib/api/endpoints/wallet';
 
@@ -6,7 +7,11 @@ import type { WalletParams } from '@/lib/api/endpoints/wallet';
 // stale times and invalidations target; a key under it extends that root.
 export const keys = {
   me: ['me'],
-  catalog: { all: ['catalog'] },
+  catalog: {
+    all: ['catalog'],
+    facets: ['catalog', 'facets'],
+    search: (params: CardSearchParams = {}) => ['catalog', 'search', params],
+  },
   prices: { all: ['prices'] },
   inventory: {
     all: ['inventory'],

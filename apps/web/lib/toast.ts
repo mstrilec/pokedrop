@@ -2,7 +2,7 @@ import { toast } from 'sonner';
 import { ApiError } from '@/lib/api/core';
 import { isPublicPath } from '@/lib/routes';
 
-function messageOf(error: unknown): string {
+export function apiErrorMessage(error: unknown): string {
   if (!(error instanceof ApiError)) return 'Something went wrong. Try again.';
   if (error.kind === 'network') return 'Can’t reach PokéDrop. Check your connection and try again.';
   if (error.kind === 'contract' || error.statusCode >= 500) {
@@ -19,5 +19,5 @@ export function toastApiError(error: unknown): void {
     return;
   }
   const requestId = error instanceof ApiError ? error.requestId : undefined;
-  toast.error(messageOf(error), requestId ? { description: `Request ID ${requestId}` } : {});
+  toast.error(apiErrorMessage(error), requestId ? { description: `Request ID ${requestId}` } : {});
 }

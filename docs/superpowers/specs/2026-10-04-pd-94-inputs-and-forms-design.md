@@ -224,7 +224,7 @@ type FilterBarProps = {
 
 ## Facets
 
-`facets()` in `lib/api/endpoints/catalog.ts` calls `GET /catalog/facets` and parses `CatalogFacetsSchema`.
+`facets()` in `lib/api/endpoints/catalog.ts` calls `GET /facets` (the catalog controller has no prefix) and parses `CatalogFacetsSchema`.
 `useCatalogFacets()` keys it `keys.catalog.facets` (`['catalog', 'facets']`), which inherits the catalog root's
 30-minute stale time; the API caches the answer for a day. The counts are global over the whole mirror, so the same
 answer serves the catalog and the inventory, and FilterBar shows them as they are: a count is how many cards exist, not
