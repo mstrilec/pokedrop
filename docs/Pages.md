@@ -161,6 +161,9 @@ Five pages in `(auth)`, each an `AuthCard` (`components/auth/auth-card.tsx`: ico
 **Traps.**
 
 - **A store provider cannot be rendered from a Server Component** when its module is not `'use client'`: the page's first version imported `PackRevealProvider` and the server ran `createStoreContext`, which threw. The provider lives in the client root.
+- **Mark the opening when the answer arrives, not when the animation ends.** The first version set the mark after the 2 s floor, so Back and Forward (or a reload) a second after a fast answer found no mark and offered *Tap to open* on a pack already paid for. Whether a load is a return to an opened pack is read once, on arrival; reading it on every render could leave a page that arrived unmarked stuck on *Loading your pack…* once an earlier instance's request marked it.
+- **Glows, rays and the flash are wider than a phone.** Transformed and absolutely positioned boxes count toward the page's scroll width (415 px sealed, 697 px during the flash, at 375 px). The stage's wrapper is `overflow-clip`, which clips without creating a scroll container.
+- **After a failure, focus goes to the way out.** The failed stage's action is a link (*Go to wallet*, *Back to packs*) or *Try again*; focusing a ref that only the button carried left focus on `<body>`.
 - **The confirm's second press arrives on the next page.** *Tap to open* takes focus as it appears, so the second Enter of a double press — or a held key — opened the pack and skipped the sealed stage. The sealed stage ignores activation for its first 500 ms.
 
 **Measured 2026-10-04** with a fresh headless Chrome profile against `next dev`, real key events, the database checked after each run:
@@ -177,4 +180,5 @@ Five pages in `(auth)`, each an `AuthCard` (`components/auth/auth-card.tsx`: ico
 - Back half a second into the opening landed on `/packs`; Forward three seconds later showed the summary with 8 cards, one `PACK_SPEND` row;
 - the summary's URL in a second, fresh profile with the same session: the sealed stage, and the tap answered the same 8 cards in the same order, still one `PACK_SPEND` row and one opening;
 - the template deactivated between the confirm and the tap: *Pack template not found* with *Back to packs*, no ledger row;
+- after the final review's fixes: Back half a second after the tap and Forward a second later showed the summary (before: *Tap to open*); at 375 px the page's `scrollWidth` 375 on the sealed stage, during the flash and through a whole reveal (before: 415, 697, 406); after a 402 the focus on *Go to wallet* (before: `<body>`); all thirteen checks above re-run and unchanged;
 - afterwards, every user's balance equal to their ledger; no console errors in any run.
