@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { CardsSection } from './_sections/cards';
 import { DataDisplaySection } from './_sections/data-display';
+import { DomainSection } from './_sections/domain';
 import { InputsSection } from './_sections/inputs';
 import { NavigationSection } from './_sections/navigation';
 import { OverlaysSection } from './_sections/overlays';
@@ -23,6 +24,7 @@ export default function ComponentsGallery() {
       <CardsSection />
       <DataDisplaySection />
       <OverlaysSection />
+      <DomainSection />
     </>
   );
 }
