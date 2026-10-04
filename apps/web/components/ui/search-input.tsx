@@ -14,6 +14,8 @@ type SearchInputProps = {
   loading?: boolean;
   resultCount?: number;
   variant?: 'inline' | 'topbar';
+  /** The API's limit for `q`; the browser stops typing and cuts a paste there. */
+  maxLength?: number;
   className?: string;
 };
 
@@ -31,6 +33,7 @@ export function SearchInput({
   loading = false,
   resultCount,
   variant = 'inline',
+  maxLength = 100,
   className,
 }: SearchInputProps) {
   const id = useId();
@@ -52,9 +55,12 @@ export function SearchInput({
 
   function emit(next: string, now: boolean) {
     clearTimeout(timer.current);
+    // Trimmed, because the URL schema trims: an untrimmed emit would come back as a
+    // different value and overwrite the space the user just typed.
     const send = () => {
-      emitted.current = next;
-      onSearch(next);
+      const query = next.trim();
+      emitted.current = query;
+      onSearch(query);
     };
     if (now) send();
     else timer.current = setTimeout(send, debounceMs);
@@ -85,6 +91,7 @@ export function SearchInput({
         value={text}
         placeholder={placeholder}
         autoComplete="off"
+        maxLength={maxLength}
         onChange={(event) => {
           setText(event.target.value);
           emit(event.target.value, false);

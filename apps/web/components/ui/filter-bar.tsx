@@ -58,17 +58,30 @@ export function FilterBar({
   onViewChange,
   className,
 }: FilterBarProps) {
+  const root = useRef<HTMLDivElement>(null);
   const triggers = useRef(new Map<string, HTMLButtonElement>());
   const active = filters.filter((f) => f.kind === 'select' && current(value, f.key) !== undefined);
 
+  // A chip or Clear all is about to unmount under keyboard focus: move it to the filter's
+  // menu, or, while that menu is disabled, to the first control in the bar.
+  function refocus(key: string | undefined) {
+    const trigger = key ? triggers.current.get(key) : undefined;
+    if (trigger && !trigger.disabled) trigger.focus();
+    else root.current?.querySelector<HTMLElement>('input, button:not([disabled])')?.focus();
+  }
+
   function remove(key: string) {
     onChange({ [key]: undefined });
-    // The chip's own button is about to disappear; keep keyboard focus on this filter.
-    triggers.current.get(key)?.focus();
+    refocus(key);
+  }
+
+  function clearAll() {
+    onChange(Object.fromEntries(active.map((def) => [def.key, undefined])));
+    refocus(filters.find((def) => def.kind === 'select')?.key);
   }
 
   return (
-    <div className={cn('flex flex-col gap-3', className)}>
+    <div ref={root} className={cn('flex flex-col gap-3', className)}>
       <div className="flex flex-wrap items-center gap-2.5 rounded-card border border-bd bg-surface p-3">
         {search ? <div className="min-w-44 flex-1">{search}</div> : null}
         {filters.map((def) => {
@@ -155,13 +168,7 @@ export function FilterBar({
             );
           })}
           {active.length > 1 ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() =>
-                onChange(Object.fromEntries(active.map((def) => [def.key, undefined])))
-              }
-            >
+            <Button size="sm" variant="ghost" onClick={clearAll}>
               Clear all
             </Button>
           ) : null}

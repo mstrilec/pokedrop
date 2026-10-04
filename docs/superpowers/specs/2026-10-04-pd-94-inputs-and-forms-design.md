@@ -104,6 +104,10 @@ the search string, so its identity is stable and a query key built from it does 
 (`?tab=` survives a filter change). The keys in `resets` are deleted on every write, so a new filter always starts at the
 first page. Navigation is `router.push` or `router.replace` with `pathname + '?' + params` and `{ scroll: false }`.
 
+> **Amended after the final review (2026-10-04):** writes go through `window.history.pushState`/`replaceState`, built
+> from `window.location` at call time. Building from the render's params lost a write made before the previous navigation
+> committed. Next keeps `useSearchParams` in step with the native history API. See `docs/Components.md`.
+
 **History.** `push` by default; search passes `{ history: 'replace' }`.
 
 **Prerendering.** On a statically prerendered page, `useSearchParams` turns the client tree up to the nearest

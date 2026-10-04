@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useCallback, useMemo } from 'react';
 import { z } from 'zod';
 
@@ -10,6 +10,8 @@ export type UrlPatch<S extends z.ZodObject> = {
   [K in keyof z.output<S>]?: z.output<S>[K] | string | undefined;
 };
 type History = 'push' | 'replace';
+
+const DEFAULT_RESETS = ['page', 'cursor'];
 
 function defaultOf(field: z.core.$ZodType): unknown {
   const parsed = z.safeParse(field, undefined);
@@ -31,18 +33,20 @@ export function parseUrlState<S extends z.ZodObject>(
 
 export function useUrlState<S extends z.ZodObject>(
   schema: S,
-  { resets = ['page', 'cursor'] }: { resets?: string[] } = {},
+  { resets = DEFAULT_RESETS }: { resets?: string[] } = {},
 ): [z.output<S>, (patch: UrlPatch<S>, how?: { history?: History }) => void] {
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   const search = searchParams.toString();
 
   const value = useMemo(() => parseUrlState(schema, new URLSearchParams(search)), [schema, search]);
 
+  // Built from window.location at call time, not from the render's params: a write made
+  // before the previous one reaches React (a filter picked while a search is in flight, a
+  // debounce timer firing after Clear all) must not undo it. Next keeps useSearchParams in
+  // step with the native history API, and the page's data is fetched in the browser.
   const set = useCallback(
     (patch: UrlPatch<S>, { history = 'push' }: { history?: History } = {}) => {
-      const next = new URLSearchParams(search);
+      const next = new URLSearchParams(window.location.search);
       for (const key of resets) next.delete(key);
       for (const [key, raw] of Object.entries(patch)) {
         const field = schema.shape[key];
@@ -51,11 +55,11 @@ export function useUrlState<S extends z.ZodObject>(
         else next.set(key, String(raw));
       }
       const query = next.toString();
-      const url = query ? `${pathname}?${query}` : pathname;
-      if (history === 'replace') router.replace(url, { scroll: false });
-      else router.push(url, { scroll: false });
+      const url = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+      if (history === 'replace') window.history.replaceState(null, '', url);
+      else window.history.pushState(null, '', url);
     },
-    [router, pathname, search, schema, resets],
+    [schema, resets],
   );
 
   return [value, set];

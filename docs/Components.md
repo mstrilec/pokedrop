@@ -104,6 +104,8 @@ const form = useForm<SignIn>({ resolver: zodResolver(SignInSchema), mode: 'onTou
 - **Sign-up never says an address is taken.** Signing up with a registered email answers 200 with a decoy user while email verification is required; there is no "email already registered" state to design.
 - The password reveal button keeps one name, *Show password*, and says its state with `aria-pressed`; changing the name too would announce the toggle twice.
 
+**SearchInput emits the trimmed query** and stops at 100 characters (`maxLength`), the API's limit for `q`. The URL schema trims, so an untrimmed `dark ` came back as `dark`, looked like an outside change and overwrote the field: typing `dark `, pausing and typing `charizard` gave `darkcharizard`. A paste over 100 characters failed the schema and emptied the field.
+
 **`apiErrorMessage` changed.** It used to turn every 401 into *Sign in to continue.* A wrong password is Better Auth's 401 (`INVALID_EMAIL_OR_PASSWORD`, kind `auth`), so the sign-in form would have told a person with a typo that their session expired. Only our own API's 401s (kind `api`, no session) are replaced now; Better Auth's keep their sentence.
 
 ### Filters in the URL
@@ -117,7 +119,8 @@ setQuery({ q: 'char' }, { history: 'replace' });           // search: no history
 ```
 
 - **Reading** parses each key with its own field schema; a bad value falls back to that field's default and the rest survive. A bad link widens the results; it never empties the page or throws.
-- **Writing** merges the patch into the current params, drops `undefined`, `''` and values equal to the field's default (`sort=name_asc`), keeps keys the schema does not know (`?tab=`), and deletes `page` and `cursor` (`resets`), so a new filter starts on the first page. Navigation passes `{ scroll: false }`.
+- **Writing** merges the patch into the current params, drops `undefined`, `''` and values equal to the field's default (`sort=name_asc`), keeps keys the schema does not know (`?tab=`), and deletes `page` and `cursor` (`resets`), so a new filter starts on the first page.
+- **Writes go through `window.history`, not the router.** Next keeps `useSearchParams` in step with `pushState`/`replaceState`, and the URL changes the moment `set` returns, so the next write builds on it. The first version used `router.push`/`replace` on the render's params, as the spec said; the final review showed that a write made before the previous navigation committed undid it: a filter picked while a search was in flight dropped the search, and a debounce firing after *Clear all* brought the filters back. A side effect: a filter change no longer costs a server round trip, and no Server Component re-renders on it. Pages that use `useUrlState` fetch their data in the browser.
 - **History.** Choosing a filter, a sort or a tab pushes; search replaces.
 - **Static pages.** `useSearchParams` on a statically prerendered page turns the tree up to the nearest `<Suspense>` into client-only rendering. Every `(app)` page is dynamic, so this only matters on a public static page: wrap the component that calls `useUrlState` in `<Suspense>` there.
 
@@ -134,6 +137,13 @@ setQuery({ q: 'char' }, { history: 'replace' });           // search: no history
 - Tab from the search: Set, Rarity, Type, Sort, Grid view, List view, each chip's remove button, *Clear all*; in the open Set menu, pressing `j u n g` moved focus to *Jungle 64* (177 options); Escape returned focus to *Set*;
 - the demo form: submitting empty focused the email, set `aria-invalid="true"`, and its `aria-describedby` held *Enter an email address*; `unverified@pokedrop.test` put the API's sentence under the email; another address showed *Invalid email or password* above *Sign in*; no toast either time;
 - with the API stopped, Set, Rarity and Type read *couldn't load options* and were disabled, Sort still read *Name A–Z*, and typing `mew` still wrote `?q=mew`.
+
+After the review fixes, the same way:
+
+- typing `dark `, pausing 700 ms (the URL read `?q=dark`, the field `dark `) and typing `charizard` gave `?q=dark+charizard` and the field `dark charizard`;
+- on `?rarity=Rare&type=Water`, typing `mew` and activating *Clear all* at once: the URL was empty the moment the click returned, and 900 ms later read `?q=mew`, with no filter back;
+- Enter on *Clear all* left focus on the *Set* menu button (before: `<body>`); a chip removed while its menu is disabled sends focus to the first enabled control in the bar;
+- Back after *Clear all* restored `?rarity=Rare&type=Water`, both chips and 359 results.
 
 **How the browser pane got in the way.** When the desktop app's window is not drawing, transitions and Radix's close animations never end: a closed menu stays mounted, its focus trap keeps focus, and the next key goes to it. Three first attempts above failed that way, not in the code; taking a screenshot before each key press keeps the pane drawing. The pane's `type` action inserts text without `keydown`, so it cannot exercise a menu's typeahead; key presses can.
 
