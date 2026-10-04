@@ -162,7 +162,7 @@ After the review fixes, the same way:
 **Measured 2026-10-04** in the gallery under `next dev`:
 
 - `?tab=sent` loaded with *Sent* selected and its panel shown; `?tab=bogus` loaded with *All*;
-- from *Sent*, ArrowRight selected *Completed* (`?tab=completed`, one history entry), Home selected *All* and removed `tab` from the URL, End selected *Completed* again; only the active tab is in the tab order (`tabIndex` 0, the rest −1) and inactive panels are hidden;
+- from *Sent*, ArrowRight selected *Completed* (`?tab=completed`), Home selected *All* and removed `tab` from the URL, End selected *Completed* again; only the active tab is in the tab order (`tabIndex` 0, the rest −1) and inactive panels are hidden;
 - tab names read `All 5`, `Sent 2`;
 - at 375 px the page was 375 px wide; the three-level trail read *Collection › … › Charizard ex* with *Astral Eclipse* still in the accessibility tree, and the long trail kept *Collection* whole and truncated only the current crumb. The first attempt widened the page to 507 px: a `nav` in a flex row could not shrink below its text.
 
