@@ -3,6 +3,7 @@
 import { Coins } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { formatCoins } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 type CurrencyPillProps = {
@@ -17,13 +18,8 @@ type CurrencyPillProps = {
 };
 
 const full = new Intl.NumberFormat('en-US');
-const compact = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 });
 const COUNT_MS = 600;
 const DELTA_MS = 1800;
-
-export function formatCoins(amount: number): string {
-  return Math.abs(amount) >= 100_000 ? compact.format(amount) : full.format(amount);
-}
 
 function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
