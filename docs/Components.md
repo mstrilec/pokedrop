@@ -147,3 +147,22 @@ After the review fixes, the same way:
 
 **How the browser pane got in the way.** When the desktop app's window is not drawing, transitions and Radix's close animations never end: a closed menu stays mounted, its focus trap keeps focus, and the next key goes to it. Three first attempts above failed that way, not in the code; taking a screenshot before each key press keeps the pane drawing. The pane's `type` action inserts text without `keydown`, so it cannot exercise a menu's typeahead; key presses can.
 
+## Tabs and breadcrumbs (PD-97)
+
+| Component | File | Notes |
+| --- | --- | --- |
+| Tabs, TabsPanel | `components/ui/tabs.tsx` | Radix Tabs: `tablist`/`tab`/`tabpanel`, `aria-selected`, arrow keys, Home and End, roving focus; `tabs` (`value`, `label`, `count`), `value`, `onValueChange`, `label` names the list |
+| useUrlTab | `components/ui/tabs.tsx` | `useUrlTab('tab', TRADE_TABS)`: the tab in `?tab=` through `useUrlState`; the first value is the default and stays out of the URL, an unknown value falls back to it |
+| Breadcrumbs | `components/ui/breadcrumbs.tsx` | `trail` of `{ label, href? }`; `nav[aria-label="Breadcrumb"]`, an ordered list, the last crumb `aria-current="page"` and never a link, chevrons `aria-hidden` |
+
+- **Switching a tab pushes**, like a filter, so Back returns to the previous tab, and it deletes `page` and `cursor`.
+- **A tab's count is part of its name.** The label and the count are separate elements in a flex row, which would make the name `Sent2`; a space between them, invisible in the layout, makes it `Sent 2`.
+- **On a narrow screen** (below `sm`) the middle crumbs become `sr-only` and an `aria-hidden` ellipsis stands in for them, so a screen reader still hears the whole trail. Earlier crumbs never shrink; the current one truncates, with its full text in `title`. The `nav` is `min-w-0 max-w-full`, so it shrinks inside a flex row instead of widening the page.
+
+**Measured 2026-10-04** in the gallery under `next dev`:
+
+- `?tab=sent` loaded with *Sent* selected and its panel shown; `?tab=bogus` loaded with *All*;
+- from *Sent*, ArrowRight selected *Completed* (`?tab=completed`, one history entry), Home selected *All* and removed `tab` from the URL, End selected *Completed* again; only the active tab is in the tab order (`tabIndex` 0, the rest −1) and inactive panels are hidden;
+- tab names read `All 5`, `Sent 2`;
+- at 375 px the page was 375 px wide; the three-level trail read *Collection › … › Charizard ex* with *Astral Eclipse* still in the accessibility tree, and the long trail kept *Collection* whole and truncated only the current crumb. The first attempt widened the page to 507 px: a `nav` in a flex row could not shrink below its text.
+
