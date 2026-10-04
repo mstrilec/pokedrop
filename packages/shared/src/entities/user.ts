@@ -34,7 +34,11 @@ export type ProfilePrivacy = z.infer<typeof ProfilePrivacySchema>;
  * PATCH /users/me. Better Auth's own sign-up body takes any string for both.
  */
 export const ProfileIdentitySchema = z.object({
-  displayName: z.string().trim().min(1).max(64),
+  displayName: z
+    .string()
+    .trim()
+    .min(1, 'Enter a display name')
+    .max(64, 'Use at most 64 characters'),
   avatarUrl: z
     .url({ protocol: /^https$/ })
     .max(2048)

@@ -2,7 +2,7 @@ import { Logger } from '@nestjs/common';
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { APIError } from 'better-auth/api';
-import { ProfileIdentitySchema } from '@pokedrop/shared';
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, ProfileIdentitySchema } from '@pokedrop/shared';
 import type { AppConfig } from '../config/index.js';
 import type { WelcomeGrantService } from '../economy/index.js';
 import type { MailService, RenderedMail } from '../mail/index.js';
@@ -91,7 +91,9 @@ export function buildAuth(config: AppConfig, deps: AuthDependencies) {
     emailAndPassword: {
       enabled: true,
 
-      minPasswordLength: 12,
+      minPasswordLength: PASSWORD_MIN_LENGTH,
+
+      maxPasswordLength: PASSWORD_MAX_LENGTH,
 
       requireEmailVerification: true,
 
