@@ -9,7 +9,7 @@ import { getServerQueryClient } from '@/lib/query/server';
 import { SessionProvider } from '@/lib/session/context';
 import { identityOf } from '@/lib/session/identity';
 import { Sidebar } from './sidebar';
-import { AvatarMenu, CurrencyPill, MenuButton, NotificationBell } from './topbar-controls';
+import { AvatarMenu, BalancePill, MenuButton, NotificationBell } from './topbar-controls';
 
 // The chrome around every signed-in page, including the public pages a
 // signed-in visitor opens. The session's profile seeds the `me` query, so the
@@ -48,7 +48,7 @@ export function AppShell({ profile, children }: { profile: MyProfile; children: 
                 </form>
               </search>
               <div className="flex-1" />
-              <CurrencyPill />
+              <BalancePill />
               <NotificationBell />
               <Button asChild icon={PackageOpen} className="max-sm:px-3">
                 <Link href="/packs" aria-label="Open packs">

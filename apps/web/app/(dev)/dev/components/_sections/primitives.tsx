@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/icon-button';
 import { TRADE_STATUS_STYLES } from '@/lib/design/status';
 import { Group, Row, Specimen } from './frame';
+import { LoadingEconomySection } from './loading-economy';
 
 const VARIANTS = ['primary', 'secondary', 'ghost', 'confirm', 'destructive', 'economy'] as const;
 const SIZES = ['sm', 'md', 'lg'] as const;
@@ -139,6 +140,7 @@ export function PrimitivesSection() {
           <Avatar name="Ash" size={44} ring />
         </Row>
       </Specimen>
+      <LoadingEconomySection />
     </Group>
   );
 }

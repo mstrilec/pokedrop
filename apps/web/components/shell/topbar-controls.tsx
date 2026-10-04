@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, Coins, LogOut, Menu } from 'lucide-react';
+import { Bell, LogOut, Menu } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import {
@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar } from '@/components/ui/avatar';
+import { CurrencyPill } from '@/components/ui/currency-pill';
 import { IconButton } from '@/components/ui/icon-button';
 import { api } from '@/lib/api/browser';
 import { unreadCount } from '@/lib/api/endpoints/notifications';
@@ -22,7 +23,6 @@ import { useSession } from '@/lib/session/context';
 import { useUi } from '@/lib/stores/ui';
 
 const UNREAD_POLL_MS = 60_000;
-const coins = new Intl.NumberFormat('en-US');
 
 export function MenuButton() {
   const navOpen = useUi((s) => s.navOpen);
@@ -39,19 +39,9 @@ export function MenuButton() {
   );
 }
 
-export function CurrencyPill() {
+export function BalancePill() {
   const { data } = useMe();
-  const balance = data ? coins.format(data.currency) : '—';
-  return (
-    <Link
-      href="/wallet"
-      aria-label={`Balance ${balance} coins. Open wallet`}
-      className="focus-ring flex items-center gap-2 rounded-control border border-gold/30 bg-gold-dim px-3 py-2 text-gold"
-    >
-      <Coins aria-hidden className="size-4" />
-      <span className="font-mono text-mono">{balance}</span>
-    </Link>
-  );
+  return <CurrencyPill amount={data?.currency ?? null} />;
 }
 
 export function NotificationBell() {
