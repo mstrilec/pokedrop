@@ -217,3 +217,28 @@ After the review fixes, the same way:
 - Enter on the *Coins* header: `aria-sort="descending"`, `10,000, 1,250, 830, 40`; Enter again: `ascending`, `40, 830, 1,250, 10,000`; *Status* (not sortable) has no `aria-sort`; Enter on the focused second row reported *Opened Ash*;
 - with 120 coins: *Base Set Booster* (100) enabled; *Astral Eclipse* (150) disabled, described by *You need 30 more coins.*; *Premium Collection* named *Open Premium Collection for 250,000 coins*;
 - the ten notification rows read, for example, *Unread: MistyW proposed a trade 12 minutes ago*, *An admin voided your trade with MistyW 3 days ago*, *−200 coins were taken from your balance by an admin last month*, *You have a new notification last year*. A first version ran the sentence and the time together (*trade12 minutes ago*); a space between them, invisible in the column layout, separates them.
+
+## Overlays and feedback (PD-98)
+
+| Component | File | Notes |
+| --- | --- | --- |
+| Dialog | `components/ui/dialog.tsx` | Radix Dialog: focus trap, Escape and the scrim dismiss, scroll lock; `title`, `description`, `icon`, `tone` (`default` `danger` `success`, which also picks the confirm button), `trigger`, `children`, `onConfirm` + `confirmLabel`/`cancelLabel`, `confirming` |
+| Toast helpers | `lib/toast.ts` | `toastSuccess(message, action?)`, `toastInfo(message, action?)` beside PD-91's `toastApiError`; Sonner, restyled in PD-91 |
+| EmptyState | `components/ui/empty-state.tsx` | badge, title, one line, one call to action (`href` or `onClick`); `tone` `primary` `economy` `accent` `neutral` |
+| TradeStatusTimeline | `components/trades/trade-status-timeline.tsx` | an ordered list of `{ label, time, state, icon }`; `tradeTimelineSteps(detail)` builds it from `TradeDetail.timeline`, adding *Awaiting … response* and *Cards swap and the trade settles* while the trade is pending |
+
+- **Focus goes back where it came from.** Radix returns focus only to its own `Trigger`. A dialog opened from code (a row action, a confirm after a check) would drop focus to `<body>`, so `Dialog` remembers what had focus when it opened and returns there.
+- **`confirming` holds the dialog open**: Escape and the scrim do nothing, *Cancel* is disabled, and the confirm button is busy.
+- **`aria-modal="true"` is set explicitly.** Radix hides the rest of the page with `aria-hidden`, except elements that contain a live region, so they keep announcing; in the gallery that left `<main>` and Sonner's region exposed. `aria-modal` is what tells a screen reader to stay inside the dialog.
+- **Toasts are polite, errors included.** Sonner announces every toast through one `aria-live="polite"` region and gives no toast `role="alert"`, which the spec asks for errors. Every critical outcome is also shown in place (a form's `role="alert"`, a page's error state), which the spec requires anyway; PD-100 decides whether that is enough.
+- **Every list gets an EmptyState** — but the lists are M13's pages; the four in the gallery (collection, trades, decks, search) are the patterns they use. A list's empty state is part of its page ticket.
+- **The timeline says its states in words**: each step starts with a hidden *Done:*, *Current step:* or *Not yet:*, and the current one has `aria-current="step"`. Steps name people from the viewer's side: *Accepted and settled by you*.
+
+**Measured 2026-10-04** in headless Chrome against `next dev`, with real key events (the desktop pane was not drawing):
+
+- Enter on *Open Astral Eclipse*: a dialog labelled *Open Astral Eclipse pack?*, described by its body, focus on *Cancel*, `body` overflow hidden; Tab ×4 went *Open pack · 150*, *Cancel*, *Open pack · 150*, *Cancel*, never outside; Escape closed it and focus was on *Open Astral Eclipse*;
+- while the confirm was in flight, Escape left the dialog open with *Cancel* disabled and the confirm busy; when it finished the dialog closed, focus was back on the trigger, and a success toast with a *View* action appeared;
+- *Delete deck*, opened from code: Escape returned focus to *Delete deck*;
+- toasts: success (with *Undo*), info and an API error with *Request ID bc212513-demo*, all in Sonner's polite region;
+- each empty state's first focusable element is its call to action (three links, one button);
+- the pending timeline reads *Done: Proposed by MistyW … / Current step: Awaiting your response / Not yet: Cards swap and the trade settles*; the voided one ends *Done: Voided by an admin*.
