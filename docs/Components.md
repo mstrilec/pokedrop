@@ -242,3 +242,29 @@ After the review fixes, the same way:
 - toasts: success (with *Undo*), info and an API error with *Request ID bc212513-demo*, all in Sonner's polite region;
 - each empty state's first focusable element is its call to action (three links, one button);
 - the pending timeline reads *Done: Proposed by MistyW … / Current step: Awaiting your response / Not yet: Cards swap and the trade settles*; the voided one ends *Done: Voided by an admin*.
+
+## TCG domain (PD-99)
+
+| Component | File | Notes |
+| --- | --- | --- |
+| CopyCountStepper | `components/decks/copy-count-stepper.tsx` | − count +; `max` from `copiesAllowed()`; at the limit *+* stays focusable (`aria-disabled`) and pressing it says why (`role="alert"`); the count is read out as *3 copies of Charizard* |
+| DeckSlot | `components/decks/deck-slot.tsx` | a decklist row: art, name, set number, rarity, stepper; `locked` (promised in a pending trade), `dragging`, `dropTarget`; `focusDeckSlot(cardId)` scrolls to a row, focuses it and flashes it for 1.6 s |
+| copiesAllowed | `components/decks/deck-rules.ts` | 4 minus the copies of every other printing of the name; Infinity for basic energy |
+| DeckValidationBanner | `components/decks/deck-validation-banner.tsx` | a `DeckValidation` (the API's) as a checklist: each rule with an icon and a spoken *Passes*/*Fails*; each issue's message with a *Show {card} ({set number})* button per card; the summary badge is `role="status"` |
+| TradeOfferPanel | `components/trades/trade-offer-panel.tsx` | two regions labelled by whose side they are (*You give*, *MistyW gives*), cards with counts and *Locked in escrow*, an add-card slot and coins when `editable`, a line of card count, market value and coins per side |
+| CurrencyInput | `components/ui/currency-input.tsx` | a coin `spinbutton` with the gold affix; never emits above `max` and says so; `min` below 0 for admin grants; ArrowUp/Down step 10 (100 with Shift); grouped (`1,250`) when not focused |
+
+**One copy rule for the API and the builder.** The validator counts the limit by name across printings (*Charizard* from Base Set and from Base Set 2 share four) and exempts basic energy. That rule moved to `@pokedrop/shared` as `baseCardName()` and `copyLimitKey()`; `apps/api/src/decks/deck-validator.ts` and `copiesAllowed()` both use it, so the stepper cannot allow what the server refuses. Measured after the move against the live API: a deck of 3 *Charizard* (base1-4), 2 (base4-4) and 10 *Fire Energy* answered `COPY_LIMIT_EXCEEDED` for `["base1-4", "base4-4"]`, *Charizard has 5 copies; at most 4 are allowed*, and nothing for the energy.
+
+- **The page validates, not the banner.** The banner draws what `POST /decks/:id/validate` (or a deck save) returns; the gallery fakes the size and copy rules locally because it has no deck.
+- **Drag is PD-112's.** DeckSlot only draws `dragging` and `dropTarget`; dnd-kit, and tap-to-add as the touch fallback, come with the builder.
+
+**Measured 2026-10-04** in headless Chrome against `next dev`, with real key events:
+
+- the demo deck (3 + 2 *Charizard*, 10 *Fire Energy*, 2 locked *Mewtwo*) showed *2 rules failing*, *17 of 60 cards*, and *Charizard has 5 copies…* with *Show Charizard (BASE1 4)* and *Show Charizard (BASE4 4)*;
+- removing a base4-4 copy left 3 + 1 and *1 rule failing*; Enter on *Add a copy of Charizard* (base1-4) kept *3 copies of Charizard*, the button `aria-disabled="true"` and focused, and its description *4-copy limit, counting other printings* as `role="alert"`;
+- three Enters on *Add a copy of Fire Energy* went from 10 to 13; the locked *Mewtwo* has both stepper buttons disabled and says *Locked in a pending trade*;
+- Enter on *Show Charizard (BASE4 4)* focused `deck-slot-base4-4`, in view, highlighted; the highlight was gone 1.8 s later;
+- typing `5000` into *Coins you give* with a 1,250 balance showed `1250`, `aria-valuenow` 1250, `aria-invalid`, and *You have 1,250 coins; that is the most you can offer.*; ArrowUp stayed at 1250; on leaving the field it read `1,250`;
+- typing `-300` into the admin grant gave `aria-valuenow` −300, *-300 coins*;
+- the read-only panel's sides are *MistyW gives — 1 card · market value $180.00 · 120 coins* (with *Locked in escrow*) and *You give — 2 cards · market value $48.00*.
