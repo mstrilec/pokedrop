@@ -23,7 +23,7 @@ export function AppShell({ profile, children }: { profile: MyProfile; children: 
       <HydrationBoundary state={dehydrate(queryClient)}>
         <a
           href="#content"
-          className="focus-ring sr-only z-50 rounded-control bg-pri px-4 py-2 text-on-pri focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
+          className="focus-ring sr-only z-50 rounded-control bg-pri-strong px-4 py-2 text-on-pri focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
         >
           Skip to content
         </a>

@@ -9,7 +9,8 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: 'bg-pri font-semibold text-on-pri shadow-sm hover:bg-pri-hover hover:shadow-glow',
+        primary:
+          'bg-pri-strong font-semibold text-on-pri shadow-sm hover:bg-pri-strong-hover hover:shadow-glow',
         secondary: 'border-bd-2 bg-surface-2 font-semibold text-tx hover:border-mut hover:bg-elev',
         ghost: 'font-medium text-mut hover:bg-surface-2 hover:text-tx',
         confirm: 'bg-grn font-bold text-on-grn hover:brightness-108',

@@ -98,7 +98,7 @@ export function CurrencyPill({
           aria-hidden
           className={cn(
             'absolute -top-2.5 right-1 rounded-pill px-1.5 font-mono text-[10px] leading-4 font-semibold animate-in fade-in slide-in-from-bottom-1',
-            delta.value > 0 ? 'bg-grn text-on-grn' : 'bg-red text-on-red',
+            delta.value > 0 ? 'bg-grn text-on-grn' : 'bg-red-strong text-on-red',
           )}
         >
           {delta.value > 0 ? '+' : '−'}

@@ -18,12 +18,14 @@
   --elev: #22262f;
   --tx: #eef0f4;
   --mut: #969cab;
-  --faint: #636876;
+  --faint: #858a96;
   --bd: rgba(255, 255, 255, 0.08);
   --bd2: rgba(255, 255, 255, 0.13);
 
   --pri: #4c8dff;
   --pri-hover: #5d99ff;
+  --pri-strong: #3f74d2;
+  --pri-strong-hover: #3a6cc4;
   --pri-dim: rgba(76, 141, 255, 0.14);
   --on-pri: #fff;
   --gold: #f2b23c;
@@ -31,7 +33,8 @@
   --on-gold: #1a1204;
   --grn: #34d399;
   --on-grn: #04120b;
-  --red: #ef4444;
+  --red: #f05151;
+  --red-strong: #d73d3d;
   --red-dim: rgba(239, 68, 68, 0.14);
   --on-red: #fff;
 
@@ -44,11 +47,11 @@
   --c-rare: #4c8dff;
   --c-rare-tint: rgba(76, 141, 255, 0.14);
   --c-rare-border: rgba(76, 141, 255, 0.3);
-  --c-ultra: #b06bf0;
-  --c-ultra-tint: rgba(176, 107, 240, 0.14);
-  --c-ultra-border: rgba(176, 107, 240, 0.3);
-  --c-ultra-edge: #b06bf066;
-  --c-ultra-glow: 0 0 22px #b06bf022;
+  --c-ultra: #b06cf0;
+  --c-ultra-tint: rgba(176, 108, 240, 0.14);
+  --c-ultra-border: rgba(176, 108, 240, 0.3);
+  --c-ultra-edge: #b06cf066;
+  --c-ultra-glow: 0 0 22px #b06cf022;
   --c-secret: #f2b23c;
   --c-secret-tint: rgba(242, 178, 60, 0.14);
   --c-secret-border: rgba(242, 178, 60, 0.3);
@@ -134,6 +137,8 @@
 
   --color-pri: var(--pri);
   --color-pri-hover: var(--pri-hover);
+  --color-pri-strong: var(--pri-strong);
+  --color-pri-strong-hover: var(--pri-strong-hover);
   --color-pri-dim: var(--pri-dim);
   --color-on-pri: var(--on-pri);
   --color-gold: var(--gold);
@@ -142,6 +147,7 @@
   --color-grn: var(--grn);
   --color-on-grn: var(--on-grn);
   --color-red: var(--red);
+  --color-red-strong: var(--red-strong);
   --color-red-dim: var(--red-dim);
   --color-on-red: var(--on-red);
 

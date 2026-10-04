@@ -15,7 +15,9 @@ const HIGHLIGHT_MS = 1600;
 export function focusDeckSlot(cardId: string): boolean {
   const slot = document.getElementById(deckSlotId(cardId));
   if (!slot) return false;
-  slot.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  // An explicit 'smooth' wins over the reduced-motion CSS rule, so ask the media query.
+  const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  slot.scrollIntoView({ block: 'center', behavior: still ? 'instant' : 'smooth' });
   slot.focus({ preventScroll: true });
   slot.dataset.highlight = 'true';
   setTimeout(() => delete slot.dataset.highlight, HIGHLIGHT_MS);
@@ -64,7 +66,7 @@ export function DeckSlot({
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-small font-semibold text-tx">{card.name}</span>
         <span className="flex items-center gap-2 text-[11px]">
-          <span className="font-mono text-faint">{setNumber(card.id)}</span>
+          <span className="font-mono text-mut">{setNumber(card.id)}</span>
           <span className={RARITY_STYLES[tier].text}>{card.rarity ?? tier}</span>
         </span>
         {locked ? (

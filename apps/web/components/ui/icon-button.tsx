@@ -65,7 +65,7 @@ export function IconButton({
       {flagged && showCount && count !== undefined ? (
         <span
           aria-hidden
-          className="absolute -top-1.5 -right-1.5 min-w-4.5 rounded-pill border-2 border-bg bg-red px-1 text-center font-mono text-[10px] leading-3.5 font-semibold text-on-red"
+          className="absolute -top-1.5 -right-1.5 min-w-4.5 rounded-pill border-2 border-bg bg-red-strong px-1 text-center font-mono text-[10px] leading-3.5 font-semibold text-on-red"
         >
           {count > 99 ? '99+' : count}
         </span>
