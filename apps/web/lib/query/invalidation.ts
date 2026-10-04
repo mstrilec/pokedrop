@@ -3,6 +3,8 @@ import { keys } from './keys';
 
 export const mutationKeys = {
   openPack: ['openPack'],
+  markNotificationRead: ['markNotificationRead'],
+  markAllNotificationsRead: ['markAllNotificationsRead'],
 } as const;
 
 type MutationName = keyof typeof mutationKeys;
@@ -11,6 +13,8 @@ type MutationName = keyof typeof mutationKeys;
 // so a mutation hook only has to carry its mutationKey.
 export const INVALIDATES: Record<MutationName, readonly QueryKey[]> = {
   openPack: [keys.me, keys.wallet.all, keys.inventory.all, keys.packs.all],
+  markNotificationRead: [keys.notifications.all],
+  markAllNotificationsRead: [keys.notifications.all],
 };
 
 export function invalidatedBy(mutationKey: QueryKey | undefined): readonly QueryKey[] {

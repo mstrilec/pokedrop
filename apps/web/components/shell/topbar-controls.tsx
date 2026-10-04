@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Bell, LogOut, Menu } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -15,14 +15,10 @@ import {
 import { Avatar } from '@/components/ui/avatar';
 import { CurrencyPill } from '@/components/ui/currency-pill';
 import { IconButton } from '@/components/ui/icon-button';
-import { api } from '@/lib/api/browser';
-import { unreadCount } from '@/lib/api/endpoints/notifications';
-import { keys } from '@/lib/query/keys';
 import { useMe } from '@/lib/query/me';
+import { useUnreadCount } from '@/lib/query/notifications';
 import { useSession } from '@/lib/session/context';
 import { useUi } from '@/lib/stores/ui';
-
-const UNREAD_POLL_MS = 60_000;
 
 export function MenuButton() {
   const navOpen = useUi((s) => s.navOpen);
@@ -45,11 +41,7 @@ export function BalancePill() {
 }
 
 export function NotificationBell() {
-  const { data } = useQuery({
-    queryKey: keys.notifications.unreadCount,
-    queryFn: () => api.call(unreadCount()),
-    refetchInterval: UNREAD_POLL_MS,
-  });
+  const { data } = useUnreadCount();
   return (
     <IconButton asChild icon={Bell} label="Notifications" badge={data?.count ?? 0}>
       <Link href="/notifications" />

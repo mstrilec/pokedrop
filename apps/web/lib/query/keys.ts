@@ -30,6 +30,7 @@ export const keys = {
   notifications: {
     all: ['notifications'],
     unreadCount: ['notifications', 'unread-count'],
+    list: (params: { unread: boolean }) => ['notifications', 'list', params],
   },
   profiles: { all: ['profiles'] },
   admin: { all: ['admin'] },
