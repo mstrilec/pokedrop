@@ -127,3 +127,54 @@ Five pages in `(auth)`, each an `AuthCard` (`components/auth/auth-card.tsx`: ico
 - the rows link to two places, `/trades/<the trade>` and `/wallet`; both answered 200;
 - Enter on one row's *Mark as read*: one `PATCH`, the bell *19 unread* and the tab *Unread 19* without a reload; Enter on another unread row: `/trades/<id>`, a second `PATCH`, the bell *18 unread*;
 - *Mark all as read*: exactly one request, `PATCH /notifications/read-all`, the bell back to *Notifications*, the toast *Marked 18 notifications as read*, the button disabled and no *Mark as read* left; ArrowRight to *Unread*: `?show=unread` and *You are all caught up* with a link to `/trades`; no console errors.
+
+## Packs (PD-104)
+
+`/packs`: a `PackTemplateCard` per active template (`usePackTemplates`, `GET /packs/templates`, keyed `['packs', 'templates']`), the member's balance from `useMe()`. A pack above the balance is disabled and says how many coins are missing, and *Short of coins? See your wallet* appears under the grid. *Open* asks through `ConfirmOpenDialog` (`components/packs/confirm-open-dialog.tsx`): *Open {name}?*, the template's `guarantee` and *This action can't be undone.*, and *Open pack · {cost}*.
+
+**Confirming sends nothing.** It creates an `openId` and navigates to `/packs/open?template=<id>&open=<openId>` (`openUrl` in `lib/pack-open-flow.ts`); the tap on the sealed pack is the request. The design is `docs/superpowers/specs/2026-10-04-pd-104-pd-105-pack-opening-flow-design.md`: posting on confirm would have made the opening animation two seconds of theatre with the cards already known. The dialog holds itself busy once confirmed, so a second click finds nothing to do.
+
+**Measured 2026-10-04** with a fresh headless Chrome profile against `next dev`, real key events, the database checked:
+
+- the seed's *Base Set Booster · 300 · Open*; Enter opened *Open Base Set Booster?* reading *8 cards: 4 Common, 3 Uncommon, 1 Rare or better. This action can't be undone.*, focus on *Cancel*, buttons *Cancel / Open pack · 300*;
+- Enter twice on *Open pack · 300*: `/packs/open?template=seed-template-base&open=<uuid>` and no `POST …/open` at all;
+- at 100 coins: the button disabled, *You need 200 more coins.*, *Short of coins? See your wallet*;
+- `/packs/open`, `?template=x` and `?template=x&open=nope` each redirected to `/packs` from the server.
+
+## Pack reveal (PD-105)
+
+`/packs/open` renders `PackRevealScreen` (`components/packs/reveal/pack-reveal.tsx`), which provides the reveal store, keyed by the `openId`, and drives `usePackReveal` and `useOpenPack` through four stage components in the same folder.
+
+| Stage | What happens |
+| --- | --- |
+| sealed | the pack floating with its sweep; *Tap to open* focused; a tap on the pack works too |
+| opening | shake and flash; the request is in flight; *Still opening…* after 6 s |
+| reveal | one large `RevealCard`: *Reveal card* flips it, *Next card* brings the next; *3 / 8* and *Skip all →*; Ultra and Secret pulls add rays, a burst and *Ultra Rare pull*; a polite live region reads *Card 3 of 8: Charizard, Rare Holo* |
+| summary | *{name} opened*, cards, *Rare or better*, market value, balance; every card as a `CardTile`; *View in collection* and *Open another · {cost}* |
+
+- **`opened` waits for both** the answer and 2 s (`OPENING_MIN_MS`), so a fast server still gets the animation and a slow one only stretches it. Under `prefers-reduced-motion: reduce` the minimum is 0 and the global rule ends every animation at once; the JavaScript reads the preference through `lib/motion.ts`, shared with `CurrencyPill`.
+- **A reload after the opening goes to the summary.** A successful answer sets `sessionStorage['pokedrop.opened.<openId>']`; a load that finds it shows *Loading your pack…*, replays the request — `POST` with the same `openId` answers the original cards and charges nothing — and skips to the summary. Without the mark the page shows the sealed pack, and a tap there replays just as safely (a second tab, a refused storage).
+- **Failures stay on the sealed stage**, from `useOpenPack`'s now-silent mutation (`meta: { toast: false }`): a 402 says *You don't have enough coins for this pack.* with *Go to wallet*; a 404 or 409 shows the API's sentence with *Back to packs*; anything else offers *Try again* on the same `openId`.
+- ***Open another*** `router.replace`s to a fresh `openUrl`, and the store, keyed by the `openId`, starts again at sealed.
+- **Motion tokens** in `globals.css`: `animate-float-pack`, `-sweep`, `-shake`, `-flash`, `-burst`, `-ray-spin`, `-card-in`, values from `design/Booster Opening.dc.html`.
+
+**Traps.**
+
+- **A store provider cannot be rendered from a Server Component** when its module is not `'use client'`: the page's first version imported `PackRevealProvider` and the server ran `createStoreContext`, which threw. The provider lives in the client root.
+- **The confirm's second press arrives on the next page.** *Tap to open* takes focus as it appears, so the second Enter of a double press — or a held key — opened the pack and skipped the sealed stage. The sealed stage ignores activation for its first 500 ms.
+
+**Measured 2026-10-04** with a fresh headless Chrome profile against `next dev`, real key events, the database checked after each run:
+
+- Enter twice on *Tap to open*: one `POST`, one `PACK_SPEND` row, the balance 5,000 → 4,700 in the database and the topbar (*Balance 4,700 coins*) without a reload;
+- the whole flow from `/packs`: the reveal 2,081 ms after the tap, *1 / 8* and focus on *Reveal card*; 16 presses to the summary *Base Set Booster opened* with 8 tiles, *Cards 8 · Rare or better 1 · Market value $8.53 · Balance 2,500 coins*, *3 cards have no market price yet.*, focus on the heading;
+- *Skip all →* on card 2: the summary with all 8 cards;
+- with reduced motion emulated: the reveal 69 ms after the tap and the card flip's transition 0.00001 s;
+- the answer held 8 s at the network: *Still opening…* at 6,122 ms, the reveal at 8,135 ms;
+- a reload on the sealed stage: still sealed, the same `openId`, no request; a reload on card 4: *Loading your pack…* then the summary with 8 cards, the balance unchanged (3,800), one `PACK_SPEND` row and one opening for that `openId`;
+- 300 coins at the confirm, 0 at the tap: *You don't have enough coins for this pack.* with *Go to wallet*, no ledger row;
+- by keyboard alone: 19 Tabs to the pack's button, *Cancel* focused in the dialog, Tab to *Open pack · 300*, Space, *Tap to open* focused, Space; the live region spoke 8 times, from *Card 1 of 8: Weedle, Common* to *Card 8 of 8: Pidgeotto, Rare*;
+- *Open another* and its confirm: a new `openId`, `history.length` unchanged (3), the sealed stage;
+- Back half a second into the opening landed on `/packs`; Forward three seconds later showed the summary with 8 cards, one `PACK_SPEND` row;
+- the summary's URL in a second, fresh profile with the same session: the sealed stage, and the tap answered the same 8 cards in the same order, still one `PACK_SPEND` row and one opening;
+- the template deactivated between the confirm and the tap: *Pack template not found* with *Back to packs*, no ledger row;
+- afterwards, every user's balance equal to their ledger; no console errors in any run.
