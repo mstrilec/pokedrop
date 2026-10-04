@@ -24,6 +24,7 @@ export const keys = {
   packs: {
     all: ['packs'],
     history: ['packs', 'history'],
+    templates: ['packs', 'templates'],
   },
   decks: { all: ['decks'] },
   trades: { all: ['trades'] },

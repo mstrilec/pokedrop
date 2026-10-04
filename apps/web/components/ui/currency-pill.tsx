@@ -4,6 +4,7 @@ import { Coins } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { formatCoins } from '@/lib/format';
+import { prefersReducedMotion } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
 type CurrencyPillProps = {
@@ -20,10 +21,6 @@ type CurrencyPillProps = {
 const full = new Intl.NumberFormat('en-US');
 const COUNT_MS = 600;
 const DELTA_MS = 1800;
-
-function prefersReducedMotion(): boolean {
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
 
 // The CSS reduced-motion rule cannot reach a count driven by requestAnimationFrame.
 function useCountTo(target: number | null, enabled: boolean): number | null {

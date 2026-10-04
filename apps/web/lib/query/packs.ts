@@ -1,7 +1,7 @@
 import type { PackTemplateId } from '@pokedrop/shared';
-import { useInfiniteQuery, useMutation } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api/browser';
-import { openPack, packHistory } from '@/lib/api/endpoints/packs';
+import { openPack, packHistory, packTemplates } from '@/lib/api/endpoints/packs';
 import { mutationKeys } from './invalidation';
 import { keys } from './keys';
 
@@ -23,7 +23,12 @@ export function usePackHistory() {
 export function useOpenPack() {
   return useMutation({
     mutationKey: mutationKeys.openPack,
+    meta: { toast: false },
     mutationFn: ({ templateId, openId }: { templateId: PackTemplateId; openId: string }) =>
       api.call(openPack(templateId, { openId })),
   });
+}
+
+export function usePackTemplates() {
+  return useQuery({ queryKey: keys.packs.templates, queryFn: () => api.call(packTemplates()) });
 }
