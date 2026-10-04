@@ -34,7 +34,7 @@ It lives in its own route group, `app/(dev)/`, whose layout answers 404 in produ
 - **Avatar has no `gradient` prop.** A per-user gradient would have to be written as hex, which the lint rule refuses; every fallback uses the brand gradient, `--pri` to `--c-ultra`. The radius is 26 % of the side, which is what the mockups' 34 px / 9 px and 88 px / 20 px tiles have in common.
 - **Badge `tone` names a color, not a family.** The spec's families (rarity, status, utility, role) are uses of these tones: rarity through `rarity`, status through `TRADE_STATUS_STYLES`, utility tags through `shape="tag"`, the admin role as `danger` with a border and a shield.
 
-**The shell uses them.** The menu button and the notification bell are IconButtons, the account menu's trigger is an Avatar (so an uploaded avatar now shows there), and *Open packs* is a Button. The CurrencyPill is still the shell's own until PD-93.
+**The shell uses them.** The menu button and the notification bell are IconButtons, the account menu's trigger is an Avatar (so an uploaded avatar now shows there), and *Open packs* is a Button. The balance became the CurrencyPill in PD-93.
 
 **Measured 2026-10-04** in the gallery under `next dev`:
 
@@ -47,3 +47,26 @@ It lives in its own route group, `app/(dev)/`, whose layout answers 404 in produ
 In the shell, signed in as an admin against the live API: Tab from the top of `/admin/sync` stopped at *Skip to content*, the logo, the 16 sidebar links, search, the balance, the bell, *Open packs*, the account menu and the admin sub-nav, in PD-90's order; the bell, *Open packs* and the account trigger each showed the ring; Enter on the account trigger opened its menu on *My profile*. After an admin grant the bell read *Notifications, 1 unread* with its dot and the balance *500 coins*. The menu's Escape-returns-focus was not re-measured: the browser pane was not drawing, so Radix's close animation never ended. The trigger's behaviour comes from Radix and only its contents changed; PD-100's keyboard pass covers it.
 
 **Text contrast below the spec's 4.5 : 1** (measured on `--surface`): white on the primary fill **3.2**, red text on `--red-dim` (destructive button, Declined, Voided, Admin) **4.19**, violet on its tint (Countered, Ultra Rare) **4.48**. Every other variant passes, from 4.69 (Rare) to 14.6 (secondary). These are the design system's own token pairs, so they are left for PD-100's contrast pass, which decides between adjusting the tokens and accepting them.
+
+## Loading and economy primitives (PD-93)
+
+| Component | File | Notes |
+| --- | --- | --- |
+| Spinner | `components/ui/spinner.tsx` | `size` in px (34), ring 7.5 % of it; `role="status"` with `label`, hidden unless `showLabel` |
+| Skeleton | `components/ui/skeleton.tsx` | `line` `block` `circle`; `width`/`height` as CSS lengths; `aria-hidden`, the loading container carries `aria-busy` |
+| CurrencyPill | `components/ui/currency-pill.tsx` | `amount` (`null` while unknown), `sm`/`md`, `interactive` links to `/wallet`, `animate` |
+| CompletionMeter | `components/ui/completion-meter.tsx` | `label`, `value`, `max`, `color` as a CSS color (`var(--e-fire)`), `height`, `showHeader` |
+
+- **Skeletons do not size themselves.** The ticket asks that nothing shifts on load; that is the caller's job, by passing the measured size of the content. The gallery shows a card tile, a list row and an avatar built that way, after the mockups' loading states.
+- **Large balances abbreviate** from 100 000 (`125K`, `1.3M`); the accessible name always carries the exact figure (`1,250,000 coins`). Below that the figure is grouped (`1,250`).
+- **The balance counts, it does not jump.** When `amount` changes, the numeral counts from the old value to the new one over 600 ms and a `+500` or `−150` chip shows for 1.8 s. The count runs on `requestAnimationFrame`, which the global reduced-motion CSS rule cannot reach, so the hook checks `prefers-reduced-motion` itself and sets the new value at once. The numeral is `aria-hidden`, so a screen reader hears the final balance in the name and never the frames in between.
+- **CompletionMeter speaks the count, not only the bar:** `aria-valuetext` is `42 of 64 cards, 66%`, and the visible header shows `42/64 · 66%`. The header is `aria-hidden`, because the progressbar already says it.
+- **The shell's balance is a CurrencyPill**, `BalancePill` in `topbar-controls.tsx`, fed by `useMe()`.
+
+**Measured 2026-10-04** in the gallery under `next dev`:
+
+- granting 500 on a 1 250 balance showed `1,454` after 100 ms, `1,602` after 200, `1,715` after 350 and `1,750` from 700 ms; the `+500` chip was there throughout and gone at 2.6 s; the name read `Balance 1,750 coins. Open wallet` the whole time;
+- with `matchMedia('(prefers-reduced-motion: reduce)')` answering true, spending 150 showed `1,600` 30 ms later;
+- the four meters: `0 of 102 cards, 0%`, `42 of 64 cards, 66%`, `62 of 62 cards, 100%`, `30 of 83 cards, 36%`, each fill at that width;
+- the three spinners announce `Loading`, `Loading` and `Opening pack…`; all seven skeleton parts are hidden from assistive tech;
+- signed in, the topbar balance is 40 px high and reads `Balance 500 coins. Open wallet`.
