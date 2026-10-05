@@ -25,30 +25,32 @@ function pushGuard(): void {
  * page, and Back, through a sentinel history entry that `popstate` puts back. `onAttempt`
  * decides; calling the `leave` it is given goes on. The sentinel is removed when the page
  * stops being dirty, so one Back leaves after a save. When Back has nowhere to go — the page
- * opened the tab — leaving goes to `fallback` instead.
+ * opened the tab — leaving goes to `fallback` instead. The function it returns leaves on
+ * purpose, without asking.
  */
 export function useUnsavedChanges(
   dirty: boolean,
   onAttempt: (leave: Leave) => void,
   fallback = '/',
-): void {
+): (href: string) => void {
   const router = useRouter();
   const attempt = useRef(onAttempt);
+  const leaving = useRef(false);
   useEffect(() => {
     attempt.current = onAttempt;
   });
 
   useEffect(() => {
     if (!dirty) return;
-    let leaving = false;
+    leaving.current = false;
     let fallbackTimer: number | undefined;
 
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (!leaving) event.preventDefault();
+      if (!leaving.current) event.preventDefault();
     };
 
     const onClick = (event: MouseEvent) => {
-      if (leaving || event.defaultPrevented || event.button !== 0) return;
+      if (leaving.current || event.defaultPrevented || event.button !== 0) return;
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       const link = (event.target as Element | null)?.closest('a[href]');
       if (!(link instanceof HTMLAnchorElement) || link.target === '_blank' || link.download) {
@@ -62,7 +64,7 @@ export function useUnsavedChanges(
       event.preventDefault();
       event.stopPropagation();
       attempt.current(() => {
-        leaving = true;
+        leaving.current = true;
         router.push(url.pathname + url.search + url.hash);
       });
     };
@@ -70,10 +72,10 @@ export function useUnsavedChanges(
     // Only a step back from the sentinel onto the page's own entry is Back. A fragment link (a
     // skip link) adds an entry with no state, and stepping onto the sentinel stays on the page.
     const onPopState = (event: PopStateEvent) => {
-      if (leaving || event.state === null || onGuardEntry()) return;
+      if (leaving.current || event.state === null || onGuardEntry()) return;
       pushGuard();
       attempt.current(() => {
-        leaving = true;
+        leaving.current = true;
         const here = window.location.href;
         window.history.go(-2);
         // Nothing two entries back: go(-2) does nothing, so leave to the fallback.
@@ -92,7 +94,14 @@ export function useUnsavedChanges(
       document.removeEventListener('click', onClick, true);
       window.removeEventListener('popstate', onPopState);
       window.clearTimeout(fallbackTimer);
-      if (!leaving && onGuardEntry()) window.history.back();
+      if (!leaving.current && onGuardEntry()) window.history.back();
     };
   }, [dirty, router, fallback]);
+
+  // Leaving on purpose (a sent offer): no prompt, and the cleanup must not pop the sentinel
+  // under the navigation.
+  return (href: string) => {
+    leaving.current = true;
+    router.push(href);
+  };
 }

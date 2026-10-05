@@ -1,13 +1,21 @@
 'use client';
 
-import { ArrowDownLeft, ArrowUpRight, Coins, Lock, Plus, X } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Coins, Lock, Minus, Plus, X } from 'lucide-react';
 import { useId } from 'react';
 import { CardTile } from '@/components/cards/card-tile';
 import { type CardView, formatUsd } from '@/components/cards/card-data';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { cn } from '@/lib/utils';
 
-export type OfferLine = { card: CardView; count: number; locked?: boolean };
+export type OfferLine = {
+  card: CardView;
+  count: number;
+  locked?: boolean;
+  /** The stepper's ceiling when editable: available copies on the give side. */
+  max?: number;
+  /** Why this line keeps the offer from being sent, shown under it. */
+  problem?: string;
+};
 export type OfferSide = {
   /** `You give`, `MistyW gives`: whose side, unambiguously. */
   label: string;
@@ -24,6 +32,7 @@ type TradeOfferPanelProps = {
   balance?: number;
   onAddCard?: (side: SideKey) => void;
   onRemoveCard?: (side: SideKey, cardId: string) => void;
+  onCountChange?: (side: SideKey, cardId: string, count: number) => void;
   onCoinsChange?: (side: SideKey, coins: number) => void;
   className?: string;
 };
@@ -42,13 +51,14 @@ function Side({
   balance,
   onAddCard,
   onRemoveCard,
+  onCountChange,
   onCoinsChange,
 }: {
   side: SideKey;
   data: OfferSide;
 } & Pick<
   TradeOfferPanelProps,
-  'editable' | 'balance' | 'onAddCard' | 'onRemoveCard' | 'onCoinsChange'
+  'editable' | 'balance' | 'onAddCard' | 'onRemoveCard' | 'onCountChange' | 'onCoinsChange'
 >) {
   const headingId = useId();
   const give = side === 'give';
@@ -81,7 +91,33 @@ function Side({
           <li key={line.card.id} className="flex flex-col gap-1.5">
             <CardTile card={line.card} sizes="120px" />
             <div className="flex items-center justify-between gap-1 text-[11.5px]">
-              <span className="font-mono text-mut">×{line.count}</span>
+              {editable && !line.locked && onCountChange ? (
+                <span className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    aria-label={`One fewer ${line.card.name}`}
+                    disabled={line.count <= 1}
+                    onClick={() => onCountChange(side, line.card.id, line.count - 1)}
+                    className="focus-ring flex size-6 cursor-pointer items-center justify-center rounded-tag border border-bd-2 text-mut hover:text-tx disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Minus aria-hidden className="size-3" />
+                  </button>
+                  <span aria-live="polite" className="min-w-6 text-center font-mono text-tx">
+                    <span className="sr-only">{line.card.name}: </span>×{line.count}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={`One more ${line.card.name}`}
+                    disabled={line.max !== undefined && line.count >= line.max}
+                    onClick={() => onCountChange(side, line.card.id, line.count + 1)}
+                    className="focus-ring flex size-6 cursor-pointer items-center justify-center rounded-tag border border-bd-2 text-mut hover:text-tx disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Plus aria-hidden className="size-3" />
+                  </button>
+                </span>
+              ) : (
+                <span className="font-mono text-mut">×{line.count}</span>
+              )}
               {line.locked ? (
                 <span className="flex items-center gap-1 text-gold">
                   <Lock aria-hidden className="size-3" />
@@ -99,6 +135,7 @@ function Side({
                 </button>
               ) : null}
             </div>
+            {line.problem ? <p className="text-[11px] leading-4 text-red">{line.problem}</p> : null}
           </li>
         ))}
         {editable ? (
