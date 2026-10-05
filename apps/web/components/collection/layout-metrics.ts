@@ -29,3 +29,17 @@ export function useElementWidth(ref: RefObject<HTMLElement | null>): number {
     () => 0,
   );
 }
+
+/** The element's distance from the top of a scrolling ancestor's content; scrolling leaves it alone. */
+export function useOffsetWithin(ref: RefObject<HTMLElement | null>, scroller: HTMLElement): number {
+  return useSyncExternalStore(
+    subscribeToLayout,
+    () => {
+      const element = ref.current;
+      if (!element) return 0;
+      const top = element.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+      return Math.round(top + scroller.scrollTop);
+    },
+    () => 0,
+  );
+}

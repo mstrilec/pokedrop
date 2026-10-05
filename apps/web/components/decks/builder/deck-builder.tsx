@@ -18,6 +18,7 @@ import { toastApiError, toastError, toastSuccess } from '@/lib/toast';
 import { useMediaQuery } from '@/lib/use-media-query';
 import { useUnsavedChanges } from '@/lib/use-unsaved-changes';
 import { BuilderHeader, failingRules } from './builder-header';
+import { CardPool } from './card-pool';
 import { DeckChecks } from './deck-checks';
 import { DeckList } from './deck-list';
 import { useDeckChecks } from './use-deck-checks';
@@ -44,6 +45,7 @@ function Builder({ deck }: { deck: DeckDetail }) {
   const [tab, setTab] = useState<Tab>('deck');
   const [pendingLeave, setPendingLeave] = useState<(() => void) | null>(null);
   const [gone, setGone] = useState(false);
+  const [poolElement, setPoolElement] = useState<HTMLElement | null>(null);
 
   const draft = useDeckDraft((s) => s.draft);
   const dirty = useDeckDraft(isDirty);
@@ -107,7 +109,7 @@ function Builder({ deck }: { deck: DeckDetail }) {
     requestAnimationFrame(() => document.getElementById('deck-checks')?.focus());
   };
 
-  const pool: ReactNode = null;
+  const pool: ReactNode = <CardPool scrollElement={wide ? poolElement : null} dragEnabled={wide} />;
   const list = (
     <div id="deck-list" tabIndex={-1} className="outline-none">
       <DeckList />
@@ -141,7 +143,7 @@ function Builder({ deck }: { deck: DeckDetail }) {
             gridTemplateColumns: widest ? 'minmax(0, 1fr) 22.5rem 20rem' : 'minmax(0, 1fr) 22.5rem',
           }}
         >
-          <section aria-label="Card pool" className={column}>
+          <section aria-label="Card pool" ref={setPoolElement} className={column}>
             {pool}
           </section>
           {widest ? (

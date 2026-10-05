@@ -1,23 +1,14 @@
 'use client';
 
-import { useWindowVirtualizer } from '@tanstack/react-virtual';
-import { type ReactNode, useEffect, useRef } from 'react';
-import { useDocumentTop, useElementWidth } from './layout-metrics';
+import { useVirtualizer, useWindowVirtualizer, type VirtualItem } from '@tanstack/react-virtual';
+import { type ReactNode, type RefObject, useEffect, useRef } from 'react';
+import { useDocumentTop, useElementWidth, useOffsetWithin } from './layout-metrics';
 
 const GAP = 16;
 // A tile is 5:7 art over a 37 px footer.
 const FOOTER = 37;
 
-export function VirtualCardGrid<T>({
-  items,
-  getKey,
-  renderTile,
-  label,
-  minTileWidth = 150,
-  hasMore,
-  loadingMore,
-  onLoadMore,
-}: {
+type GridProps<T> = {
   items: T[];
   getKey: (item: T) => string;
   renderTile: (item: T) => ReactNode;
@@ -26,20 +17,83 @@ export function VirtualCardGrid<T>({
   hasMore: boolean;
   loadingMore: boolean;
   onLoadMore: () => void;
-}) {
-  const container = useRef<HTMLDivElement>(null);
+  /** Virtualize inside this scrolling element instead of the window (the deck builder's pool). */
+  scrollElement?: HTMLElement | null;
+};
+
+type Layout = { columns: number; tileWidth: number; rowCount: number };
+
+// What the row renderer needs from either virtualizer.
+type Rows = {
+  getVirtualItems: () => VirtualItem[];
+  getTotalSize: () => number;
+  measure: () => void;
+  measureElement: (element: HTMLDivElement | null) => void;
+  options: { scrollMargin: number };
+};
+
+function useLayout(
+  container: RefObject<HTMLDivElement | null>,
+  minTileWidth: number,
+  count: number,
+): Layout {
   const width = useElementWidth(container);
-  const top = useDocumentTop(container);
   const columns = Math.max(1, Math.floor((width + GAP) / (minTileWidth + GAP)));
   const tileWidth = width > 0 ? (width - GAP * (columns - 1)) / columns : minTileWidth;
-  const rowCount = Math.ceil(items.length / columns);
+  return { columns, tileWidth, rowCount: Math.ceil(count / columns) };
+}
 
+const rowSize = (layout: Layout) => (layout.tileWidth * 7) / 5 + FOOTER + GAP;
+
+export function VirtualCardGrid<T>(props: GridProps<T>) {
+  return props.scrollElement ? (
+    <ElementGrid {...props} scroller={props.scrollElement} />
+  ) : (
+    <WindowGrid {...props} />
+  );
+}
+
+function WindowGrid<T>(props: GridProps<T>) {
+  const container = useRef<HTMLDivElement>(null);
+  const layout = useLayout(container, props.minTileWidth ?? 150, props.items.length);
+  const top = useDocumentTop(container);
   const virtualizer = useWindowVirtualizer({
-    count: rowCount,
-    estimateSize: () => (tileWidth * 7) / 5 + FOOTER + GAP,
+    count: layout.rowCount,
+    estimateSize: () => rowSize(layout),
     overscan: 3,
     scrollMargin: top,
   });
+  return <GridRows {...props} container={container} layout={layout} rows={virtualizer} />;
+}
+
+function ElementGrid<T>(props: GridProps<T> & { scroller: HTMLElement }) {
+  const container = useRef<HTMLDivElement>(null);
+  const layout = useLayout(container, props.minTileWidth ?? 150, props.items.length);
+  const top = useOffsetWithin(container, props.scroller);
+  // eslint-disable-next-line react-hooks/incompatible-library -- the React Compiler is not enabled here
+  const virtualizer = useVirtualizer({
+    count: layout.rowCount,
+    getScrollElement: () => props.scroller,
+    estimateSize: () => rowSize(layout),
+    overscan: 3,
+    scrollMargin: top,
+  });
+  return <GridRows {...props} container={container} layout={layout} rows={virtualizer} />;
+}
+
+function GridRows<T>({
+  items,
+  getKey,
+  renderTile,
+  label,
+  hasMore,
+  loadingMore,
+  onLoadMore,
+  container,
+  layout,
+  rows: virtualizer,
+}: GridProps<T> & { container: RefObject<HTMLDivElement | null>; layout: Layout; rows: Rows }) {
+  const { columns, rowCount } = layout;
   const rows = virtualizer.getVirtualItems();
   const lastRendered = rows.at(-1)?.index ?? -1;
 
