@@ -73,7 +73,7 @@ export function BuilderHeader({
         value={draft.name}
         maxLength={DECK_NAME_MAX}
         onChange={(event) => setName(event.target.value)}
-        className="focus-ring h-10 min-w-40 flex-1 rounded-control border border-bd-2 bg-bg px-3 text-h3 font-semibold text-tx"
+        className="focus-ring h-10 min-w-32 flex-1 basis-0 rounded-control border border-bd-2 bg-bg px-3 text-h3 font-semibold text-tx"
       />
       <select
         aria-label="Format"

@@ -1,6 +1,6 @@
 'use client';
 
-import type { DeckDetail } from '@pokedrop/shared';
+import { type DeckDetail, toDeckStats } from '@pokedrop/shared';
 import { Copy, LogIn } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -12,6 +12,7 @@ import { useSession } from '@/lib/session/context';
 import { formatLabel } from './deck-format';
 import { groupBySupertype } from './deck-groups';
 import { DeckSlot } from './deck-slot';
+import { DeckStatsPanel } from './stats/deck-stats';
 
 export function PublicDeck({ deck }: { deck: DeckDetail }) {
   const session = useSession();
@@ -19,6 +20,14 @@ export function PublicDeck({ deck }: { deck: DeckDetail }) {
   const clone = useCloneDeck();
   const total = deck.cards.reduce((sum, entry) => sum + entry.count, 0);
   const groups = groupBySupertype(deck.cards, (entry) => entry.card);
+  const stats = toDeckStats(
+    deck.cards.map(({ card, count }) => ({
+      supertype: card.supertype,
+      rarity: card.rarity,
+      types: card.types,
+      count,
+    })),
+  );
 
   return (
     <>
@@ -74,6 +83,7 @@ export function PublicDeck({ deck }: { deck: DeckDetail }) {
             </div>
           ))}
         </section>
+        <DeckStatsPanel stats={stats} />
       </div>
     </>
   );

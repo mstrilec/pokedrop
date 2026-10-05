@@ -2,6 +2,7 @@
 
 import type { DeckStats, DeckValidation } from '@pokedrop/shared';
 import { DeckValidationBanner } from '@/components/decks/deck-validation-banner';
+import { DeckStatsPanel } from '@/components/decks/stats/deck-stats';
 import { Spinner } from '@/components/ui/spinner';
 import { useDeckDraft } from '@/lib/stores/deck-draft';
 
@@ -27,7 +28,7 @@ export function DeckChecks({
           <Spinner size={14} /> Checking your copies…
         </p>
       ) : null}
-      <p className="sr-only">{stats.totalCards} cards in the draft.</p>
+      <DeckStatsPanel stats={stats} />
     </div>
   );
 }
