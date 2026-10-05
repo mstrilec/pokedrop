@@ -4,7 +4,7 @@ import { ERROR_CODES, type InventoryCard } from '@pokedrop/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, Info, Trash2, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
-import { type ReactNode, useMemo, useReducer, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useReducer, useState } from 'react';
 import { cardView } from '@/components/cards/card-data';
 import { ListError } from '@/components/list-states';
 import { PageHeader } from '@/components/page-header';
@@ -12,7 +12,9 @@ import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import { api } from '@/lib/api/browser';
 import { ApiError } from '@/lib/api/core';
+import { ownedCounts } from '@/lib/api/endpoints/inventory';
 import { useCard } from '@/lib/query/catalog';
 import { useOwnedCounts } from '@/lib/query/inventory';
 import { keys } from '@/lib/query/keys';
@@ -127,6 +129,32 @@ function TradeComposer({
     return have === 0 ? 'No copies available now' : `Only ${have} available now`;
   };
 
+  // Back from another tab, where a trade may have locked or released copies: count them again.
+  useEffect(() => {
+    const onFocus = () => void queryClient.invalidateQueries({ queryKey: keys.inventory.ownedAll });
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [queryClient]);
+
+  // The cached counts may be minutes old; a copy locked from another tab must show before Review.
+  async function review() {
+    if (giveIds.length > 0) {
+      const fresh = await queryClient.fetchQuery({
+        queryKey: keys.inventory.owned(giveIds),
+        queryFn: () => api.call(ownedCounts(giveIds)),
+        staleTime: 0,
+      });
+      const now = new Map<string, number>(fresh.map((row) => [row.cardId, row.availableQuantity]));
+      const balance = me.data?.currency;
+      if (
+        composeProblems(state, { meId, balance, available: (id) => now.get(id) ?? 0 }).length > 0
+      ) {
+        return;
+      }
+    }
+    dispatch({ type: 'step', step: 'review' });
+  }
+
   async function send() {
     const body = termsOf(state);
     try {
@@ -219,7 +247,7 @@ function TradeComposer({
               })),
             }}
             get={{
-              label: `${name} gives`,
+              label: state.counterparty ? `${name} gives` : 'They give',
               coins: state.coinsGet,
               cards: state.get.map((line) => ({ card: cardView(line.card), count: line.count })),
             }}
@@ -243,7 +271,7 @@ function TradeComposer({
               icon={ArrowRight}
               disabled={problems.length > 0}
               aria-describedby={problems.length > 0 ? 'compose-problem' : undefined}
-              onClick={() => dispatch({ type: 'step', step: 'review' })}
+              onClick={() => void review()}
             >
               Review offer
             </Button>
