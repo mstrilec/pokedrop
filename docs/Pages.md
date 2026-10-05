@@ -14,6 +14,7 @@ The tickets were written before the API, and a few of them asked for what the AP
 | D2 | Owned counts come from a private `GET /inventory/owned?cardIds=…`; the public `/cards` stays the same for every visitor | PD-108, PD-110, PD-112 |
 | D3 | The owner's `GET /decks` carries `valid`, computed by the validator on read and never stored | PD-111 |
 | D4 | The deck builder validates its draft in the browser with the API's own validator, from `@pokedrop/shared`; rule failures never block a save — only what the API would refuse with a 400 does | PD-112, PD-113 |
+| D5 | The trade composer asks for any catalog card (the counterparty's showcase first) — inventories stay private and settlement checks; counterparties come from a member name search, `GET /users?q=`; counter-offers use the same composer | PD-115, PD-116 |
 | D7 | Settings shows the email read-only and has no theme choice: dark is the only theme | PD-118 |
 
 ## Landing (PD-101)
@@ -332,3 +333,33 @@ So the client may show fewer cards than the server will return, never others. **
 - *Accept* on the *Psychic Energy* row: the dialog restating both sides with focus on *Cancel*; *Accept trade*: the toast, the row gone from *Incoming* (*Incoming 1*), the topbar balance *4,100 → 4,130* without a reload, `/users/me` and `/inventory/owned` refetched; the card was in the other member's inventory; on *Completed* the row reads *Accepted*;
 - *Decline* on the other: Escape closed the dialog with no request; *Decline trade*: the toast, *Nothing waiting on you* on *Incoming*, the row *Declined* on *Completed*; a member with no sent trades: *No offers out*;
 - at 375 px: `scrollWidth` 375, a 64-character display name cut with an ellipsis; no console errors.
+
+## Trade composer (PD-115)
+
+`/trades/new` (`components/trades/composer/`): pick a collector, put cards and coins on either side, review the offer in plain words, send it — or, with `?counter=<tradeId>`, answer an open offer with a counter-offer from the same screen. Design: `docs/superpowers/specs/2026-10-05-pd-115-trade-composer-design.md`.
+
+- **Who** — *Trade with* is a combobox over `GET /users?q=` (D5, API.md *Users / Profile*): two characters or more, a 300 ms pause, arrows and Enter; the choice is a chip with *Change*. The caller is never a result. In counter mode the counterparty is the offer's initiator and cannot change.
+- **What** — the existing `TradeOfferPanel`, *You give* and *Misty gives*, now with a count stepper per line and a picker behind each add slot (`CardPickerDialog`). *You give* lists the caller's cards: a card whose copies are all promised to pending trades is grey and says *All copies locked in pending trades*; a line stops at its available copies. *Misty gives* is the whole catalog with Misty's showcase first — their collection is private, so the review says the trade can only be accepted if they have the cards. A card on one side is refused on the other.
+- **What keeps Review disabled** (`composeProblems`, the first reason beside the button): no counterparty, the caller as counterparty, nothing on either side, more than 20 cards a side, a card on both sides, a give line over its available copies, coins over the balance. The available copies come from `GET /inventory/owned`, re-read when *Review offer* is pressed and whenever the tab regains focus, so a copy locked from another tab is flagged on its line (*No copies available now*) before the review, and a released one clears.
+- **The review** restates both sides as lists headed *You give Misty* and *Misty gives you*, with arrows and words, and what follows: the offered cards lock until Misty answers, the caller cancels or the offer expires (the window is the server's; the sent trade shows `expiresAt`); Misty's cards are checked only at acceptance; a counter replaces Misty's offer. *Send offer* goes to `/trades?tab=sent`.
+- **Refusals keep the draft** and return to editing: 409 `CARDS_UNAVAILABLE` (a copy locked meanwhile — the line is flagged), 402 (coins), 409 `TRADE_NOT_PENDING` for a counter on an offer already answered.
+- **Pre-fill** — `?to=<userId>` sets the counterparty (the caller's own id is dropped with *You can’t trade with yourself.*), `?card=<cardId>` puts one copy on their side, `?counter=<tradeId>` flips an open offer made to the caller (anything else: *You can only counter an open offer made to you.*). The links to it come with the card page (PD-110), the profile (PD-117) and the trade page (PD-116).
+- **Leaving** an offer the user has changed asks first (*Leave this offer?*, *Stay* / *Discard the offer*); a pre-filled offer nobody touched leaves freely.
+
+**Measured 2026-10-05** under `next dev` against the API, with real key and pointer events:
+
+- *Trade with*: `PD102` (the caller) → *No collectors match*; `nnn`, ArrowDown, Enter → the second member's chip; *Change* → the field again;
+- the give picker on *Growlithe*: *Growlithe (BASE1 28), ×4 · 4 locked* grey with *All copies locked in pending trades*, the other eleven printings open; *Lightning Energy (×3 · 1 locked)* clicked four times: two added, then *All available copies added*, and the line's *One more* disabled;
+- `?to=<own id>`: *You can’t trade with yourself.*, no counterparty, *Choose who to trade with*; `?to=<member>&card=base1-10`: their chip and *Mewtwo ×1* on their side, and *Mewtwo (BASE1 10)* in the give picker refused with *Already on …’s side — a card can’t be on both*;
+- the review of *1 × Mewtwo (BASE1 10) + 10 coins* for *1 × Blaine's Charizard (GYM2 2)*: both headed lists, *Your 1 card locks until … answers, you cancel, or the offer expires.* and the line on unchecked cards;
+- a changed offer: the sidebar's *Inventory* → *Leave this offer?* with focus on *Stay*; *Send offer* → the toast, `/trades?tab=sent` with the new row first (*You give Mewtwo, 10 coins · You get Blaine's Charizard · Expires in 7d 0h*), no prompt on the way, and `GET /inventory/owned` *base1-10: 2 owned, 1 available*;
+- a single-copy *Ninetales* added, then locked by a trade from the page's `fetch`: *Review offer* stayed on editing with *Ninetales: no copies available — remove it* and the line marked; after cancelling that trade and the tab regaining focus, the problem cleared and *Review offer* went through; a *Venusaur* locked between Review and Send: 409, back on editing with *Some of your copies were locked by another trade meanwhile*, the draft intact;
+- the second member countering the first member's gift of *Growlithe ×3*: *Counter PD102 Tester’s offer*, no *Change*, the gift on *PD102 Tester gives*, 25 coins added on their own side; the review's *Your counter-offer replaces PD102 Tester’s offer, which closes as Countered.*; sent: the original *COUNTERED*, the new trade *PENDING* from them to the first member with *REQUESTED Growlithe ×3* and 25 coins; `?counter=` on their own trade and on `nope`: the two explanations;
+- at 375 px: `scrollWidth` 375 on editing and review, the picker 341/341; one Tab from the picker's search to the first card, Enter added it; no console errors anywhere.
+
+**Traps:**
+
+- A send leaves through the `leaveTo` that `useUnsavedChanges` returns, never `router.push` after clearing the dirty state: the guard's cleanup would pop its sentinel entry under the navigation.
+- The owned counts are cached without refetching on focus elsewhere; the composer re-reads them on *Review offer* and on focus, or a lock made from another tab stays invisible until the server refuses the send.
+- Prisma reads an insensitive `equals` as `ILIKE`: the user search escapes `%` and `_` in the exact match as well as in `contains`.
+- A 64-character display name without spaces widened the page: the panel's and the review's sides are `min-w-0` with `wrap-anywhere`.
