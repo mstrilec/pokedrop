@@ -61,8 +61,7 @@ export const INVENTORY_COLUMNS = [
       const { quantity, lockedQuantity } = row.original;
       return lockedQuantity > 0 ? (
         <span className="inline-flex items-center gap-1.5">
-          {quantity} ·<Lock aria-hidden className="size-3.5 text-gold" />
-          {lockedQuantity} locked
+          {quantity} · <Lock aria-hidden className="size-3.5 text-gold" /> {lockedQuantity} locked
         </span>
       ) : (
         quantity
