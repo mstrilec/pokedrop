@@ -1,8 +1,14 @@
 import type { Metadata } from 'next';
-import { PagePlaceholder } from '@/components/page-placeholder';
+import { InventoryHeader } from '@/components/inventory/inventory-header';
+import { InventoryView } from '@/components/inventory/inventory-view';
 
-export const metadata: Metadata = { title: 'Inventory' };
+export const metadata: Metadata = { title: 'Your collection' };
 
-export default function Page() {
-  return <PagePlaceholder title="Inventory" ticket="PD-107" />;
+export default function InventoryPage() {
+  return (
+    <>
+      <InventoryHeader />
+      <InventoryView />
+    </>
+  );
 }

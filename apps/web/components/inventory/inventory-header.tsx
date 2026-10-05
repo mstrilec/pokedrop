@@ -24,7 +24,7 @@ export function InventoryHeader() {
         title="Your collection"
         description={
           data
-            ? `${count.format(data.totalCards)} cards · ${count.format(data.uniqueCards)} unique · worth ${formatUsd(data.collectionValueUsd)}`
+            ? `${count.format(data.totalCards)} cards · ${count.format(data.uniqueCards)} unique · worth ${formatUsd(data.collectionValueUsd)}, ${count.format(data.pricedCards)} of ${count.format(data.uniqueCards)} priced`
             : summary.isError
               ? 'Totals are unavailable right now.'
               : 'Counting your cards…'
@@ -51,12 +51,6 @@ export function InventoryHeader() {
           tone="success"
           loading={summary.isPending}
           value={data ? formatUsd(data.collectionValueUsd) : '—'}
-          trend={
-            data
-              ? `priced: ${count.format(data.pricedCards)} of ${count.format(data.uniqueCards)}`
-              : undefined
-          }
-          trendTone="flat"
         />
         <StatCard
           label="Sets started"
