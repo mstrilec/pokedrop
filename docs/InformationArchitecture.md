@@ -33,6 +33,7 @@
 | Public Deck | `/decks/:id` | Shareable read-only. |
 | Card Detail | `/cards/:id` | Shareable · **SEO** (Server Component). |
 | Catalog/Browse | `/cards` | Public since PD-108; owned badges only with a session. Also part of the User App below. |
+| Sets Gallery | `/sets` | Public since PD-109; completion only with a session. Also part of the User App below. |
 
 Any action (trade, add-to-deck) on a public page prompts sign-in.
 

@@ -242,3 +242,19 @@ So the client may show fewer cards than the server will return, never others. **
 - signed in, as the member with 5,000 cards: one `/inventory/owned` request with 100 ids for the first page; all 25 rendered tiles named exactly as the database says (`N owned`, `N owned, K locked`, `all locked`, or `not owned`); scrolling to 500 cards: 5 catalog pages and 5 owned requests;
 - *pikachu* typed into the topbar's search on `/dashboard`: `/cards?q=pikachu`, the field reading *pikachu*, *Showing 100 of 213 cards*, every tile a Pikachu;
 - at 375 px: `scrollWidth` 375 signed in and signed out, and on the landing page signed out (before the nav fix: 377).
+
+## Sets gallery (PD-109)
+
+`/sets`: a card per set — logo, name, series, release date, printed card count — linking `/cards?set=<id>`, with tabs *Newest first · Oldest first · By series* in `?order=`. *By series* groups the sets under their series, in the order of each series' newest release. All 176 come from `GET /sets` (`useSets`, keyed `['catalog', 'sets']`); there are few enough not to virtualize.
+
+- **Public (D1)**, like the catalog: moved to `(public)`, out of the proxy's protected list, into `isPublicPath`. Signed out there is no meter and no request for one.
+- **Completion is the inventory summary's own figures.** Signed in, each set's `CompletionMeter` takes `owned` and `total` from `GET /inventory/summary`'s `setCompletion` — the same numbers the inventory's header shows. A set the collection has nothing from is *0 of* its `printedTotal`, the base the summary counts against. While the summary loads, each card shows a placeholder bar. `useInventorySummary` takes an `enabled` flag for this.
+- The header's line counts sets started and sets complete from the same summary.
+
+**Measured 2026-10-05** under `next dev` against the API, fresh headless profiles:
+
+- anonymous `curl /sets`: 200; signed out: 176 sets, no meters, no `/inventory/summary` request, *176 sets, from the first expansion to the newest.*, no console errors;
+- signed in, as the member with 5,000 cards: *176 sets · 50 started · 49 complete*; 176 meters — the 50 owned sets equal to the summary's `owned`/`total` exactly, the other 126 at 0 of their `printedTotal`, no mismatch; Base's meter speaks *102 of 102 cards, 100%*, as the summary says;
+- Enter on Base: `/cards?set=base1`, *Showing 100 of 102 cards* (the set's `cardCount` is 102), the catalog's menu reading *Set: Base*;
+- *Oldest first* starts Base, Jungle, Wizards Black Star Promos; *Newest first* 30th Celebration, 30th Celebration: Classic Collection, Pitch Black; *By series* 17 series from Mega Evolution, all 176 sets;
+- at 375 px: `scrollWidth` 375, no broken logo, no console errors.
