@@ -6,6 +6,8 @@ import { ListError } from '@/components/list-states';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ApiError } from '@/lib/api/core';
 import { useDeck } from '@/lib/query/decks';
+import { useSession } from '@/lib/session/context';
+import { DeckBuilder } from './builder/deck-builder';
 import { PublicDeck } from './public-deck';
 
 export function DeckPageSkeleton() {
@@ -22,13 +24,21 @@ export function DeckPageSkeleton() {
 }
 
 export function DeckPage({ id, initial }: { id: string; initial: DeckDetail }) {
+  const session = useSession();
   const deck = useDeck(id, initial);
 
-  if (deck.isPending) return <DeckPageSkeleton />;
-  if (deck.isError) {
-    // Deleted, or made private, while open: the next refetch answers 404.
-    if (deck.error instanceof ApiError && deck.error.statusCode === 404) notFound();
-    return <ListError error={deck.error} onRetry={() => void deck.refetch()} />;
+  // Deleted, or made private, while open: the next refetch answers 404.
+  if (deck.error instanceof ApiError && deck.error.statusCode === 404) notFound();
+  if (deck.data === undefined) {
+    return deck.isError ? (
+      <ListError error={deck.error} onRetry={() => void deck.refetch()} />
+    ) : (
+      <DeckPageSkeleton />
+    );
   }
-  return <PublicDeck deck={deck.data} />;
+  return deck.data.userId === session?.id ? (
+    <DeckBuilder deck={deck.data} />
+  ) : (
+    <PublicDeck deck={deck.data} />
+  );
 }
