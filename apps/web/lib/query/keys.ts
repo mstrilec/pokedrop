@@ -16,6 +16,7 @@ export const keys = {
   inventory: {
     all: ['inventory'],
     list: (params: InventoryParams = {}) => ['inventory', 'list', params],
+    summary: ['inventory', 'summary'],
   },
   wallet: {
     all: ['wallet'],
