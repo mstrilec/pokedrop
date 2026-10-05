@@ -1,10 +1,9 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
-import { LegalitiesSchema, type DeckValidation, type Legalities } from '@pokedrop/shared';
+import { validateDeck, type DeckValidation } from '@pokedrop/shared';
+import { toLegalities } from '../common/card-summary.js';
 import { APP_CONFIG, type AppConfig } from '../config/index.js';
 import { InventoryService } from '../inventory/index.js';
 import { PrismaService, type TransactionClient } from '../prisma/index.js';
-import { validateDeck } from './deck-validator.js';
 
 @Injectable()
 export class DeckValidationService {
@@ -58,9 +57,4 @@ export class DeckValidationService {
       available,
     });
   }
-}
-
-function toLegalities(value: Prisma.JsonValue): Legalities {
-  const parsed = LegalitiesSchema.safeParse(value);
-  return parsed.success ? parsed.data : {};
 }

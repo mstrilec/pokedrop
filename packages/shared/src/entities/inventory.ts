@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CardSchema } from './card.js';
+import { CardSchema, LegalitiesSchema } from './card.js';
 import { CardSearchQuerySchema } from './catalog.js';
 import { CardIdSchema, InventoryItemIdSchema, UserIdSchema } from '../primitives/id.js';
 import { PaginationQuerySchema, cursorPageOf } from '../primitives/pagination.js';
@@ -75,8 +75,12 @@ export const InventoryCardSchema = CardSchema.pick({
 });
 export type InventoryCard = z.infer<typeof InventoryCardSchema>;
 
+/** The card summary plus legalities: what the deck validator reads about a card. */
+export const PlayableCardSchema = InventoryCardSchema.extend({ legalities: LegalitiesSchema });
+export type PlayableCard = z.infer<typeof PlayableCardSchema>;
+
 export const InventoryEntrySchema = InventoryItemSchema.omit({ userId: true }).extend({
-  card: InventoryCardSchema,
+  card: PlayableCardSchema,
 });
 export type InventoryEntry = z.infer<typeof InventoryEntrySchema>;
 

@@ -19,3 +19,6 @@ export * from './entities/audit.js';
 export * from './entities/notification.js';
 export * from './entities/sync.js';
 export * from './entities/metrics.js';
+
+export * from './decks/validate.js';
+export * from './decks/stats.js';

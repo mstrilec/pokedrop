@@ -3,7 +3,7 @@ import {
   DeckStatsSchema,
   type ChartDatum,
   type DeckStats,
-} from '@pokedrop/shared';
+} from '../entities/deck.js';
 
 export type StatsRow = {
   supertype: string;

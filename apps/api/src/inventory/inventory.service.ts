@@ -13,6 +13,7 @@ import {
 } from '@pokedrop/shared';
 import { domainError } from '../common/errors/domain-error.js';
 import { toNumber } from '../common/decimal.js';
+import { toLegalities } from '../common/card-summary.js';
 import { PrismaService, type TransactionClient } from '../prisma/index.js';
 import { escapeLike } from '../common/escape-like.js';
 import { CacheService, cacheKeys } from '../redis/index.js';
@@ -52,6 +53,7 @@ const ENTRY_SELECT = {
       latestPriceUsd: true,
       latestPriceEur: true,
       priceUpdatedAt: true,
+      legalities: true,
     },
   },
 } satisfies Prisma.InventoryItemSelect;
@@ -342,6 +344,7 @@ function toEntry(row: EntryRow): unknown {
       ...row.card,
       latestPriceUsd: toNumber(row.card.latestPriceUsd),
       latestPriceEur: toNumber(row.card.latestPriceEur),
+      legalities: toLegalities(row.card.legalities),
     },
   };
 }

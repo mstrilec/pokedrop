@@ -1,3 +1,4 @@
+import type { Legalities } from '../entities/card.js';
 import {
   baseCardName,
   copyLimitKey,
@@ -7,8 +8,7 @@ import {
   type DeckIssueCode,
   type DeckRule,
   type DeckValidation,
-  type Legalities,
-} from '@pokedrop/shared';
+} from '../entities/deck.js';
 
 export type ValidationCard = {
   cardId: string;

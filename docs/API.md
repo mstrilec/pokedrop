@@ -299,7 +299,8 @@ Served entirely from the mirror. No route here can reach an external API — `Ca
         "id": "base1-4", "setId": "base1", "name": "Charizard",
         "supertype": "Pokémon", "subtypes": ["Stage 2"], "types": ["Fire"], "hp": 120,
         "rarity": "Rare Holo", "imageSmall": "https://…",
-        "latestPriceUsd": 944.53, "latestPriceEur": 1531, "priceUpdatedAt": "2026-09-27T10:04:21.588Z"
+        "latestPriceUsd": 944.53, "latestPriceEur": 1531, "priceUpdatedAt": "2026-09-27T10:04:21.588Z",
+        "legalities": { "unlimited": "Legal" }
       }
     }
   ],
@@ -311,7 +312,7 @@ Served entirely from the mirror. No route here can reach an external API — `Ca
 
 **The caller is the only user this route can read.** It takes no user parameter; `userId` comes from the session and is its own `AND` clause that no filter or cursor branch can widen. `userId` is not echoed on the rows. Verified: a second user sees only their own three rows, and a cursor forged around the first user's item id still returns only the second user's rows. No session is a 401.
 
-**`card` is a slim projection**, not the catalog's full `Card`: what a tile, a dense table and client-side search need. Attacks, abilities and the rest are on the cached `GET /cards/:id`.
+**`card` is a slim projection**, not the catalog's full `Card`: what a tile, a dense table and client-side search need, plus `legalities` since PD-112, so a card added to a deck from the collection carries what the deck validator reads. Attacks, abilities and the rest are on the cached `GET /cards/:id`.
 
 **The cursor carries the last row's sort value and id, never a reference to the row.** A settled trade deletes a row whose quantity reaches zero, and a cursor that pointed at that row would break mid-scroll. Verified: deleting the row a cursor was built from, then asking for the next page, continues from the right place. The cursor is tied to the `sort` it was issued under — another sort, a value of the wrong kind or anything that does not decode is a 400 `Invalid cursor`. It is **not** tied to the filters: a client drops it whenever a filter or the sort changes.
 
@@ -543,6 +544,7 @@ A PATCH takes any non-empty subset. **`cards` replaces the whole decklist** — 
     { "cardId": "base1-4", "count": 2, "card": { "id": "base1-4", "name": "Charizard", "supertype": "Pokémon", "…": "…" } }
   ],
   "ownerDisplayName": "Ash",
+  "rules": { "deckSize": 60 },
   "createdAt": "2026-09-28T09:21:38.508Z", "updatedAt": "2026-09-28T09:21:38.508Z",
   "validation": { "valid": false, "…": "…" }
 }
@@ -550,7 +552,7 @@ A PATCH takes any non-empty subset. **`cards` replaces the whole decklist** — 
 
 `validation` is on the owner's save responses only — `POST`, `PATCH` and clone — never on `GET /decks/:id`; its shape is under *Validation*.
 
-`ownerDisplayName` is there for the shareable page; with `userId` it is all a deck says about its owner — never their email. `card` is the inventory's slim projection, so the builder renders a decklist without a request per card. Entries are ordered by `cardId`. `GET /decks` returns `pageOf` summaries: the same fields without `cards`, plus `cardCount` — the sum of copies, not distinct cards — newest `updatedAt` first.
+`ownerDisplayName` is there for the shareable page; with `userId` it is all a deck says about its owner — never their email. `card` is the inventory's slim projection plus `legalities` (the card's format map, as on `GET /cards/:id`), so the builder renders and validates a decklist without a request per card. `rules.deckSize` is the configured deck size (`DECK_SIZE`, 60 by default): a client validating a draft reads it rather than assuming 60. Since PD-112 `validateDeck` and `toDeckStats` live in `@pokedrop/shared`, and the deck builder runs the same validator on its draft (D4 in `docs/Pages.md`). Entries are ordered by `cardId`. `GET /decks` returns `pageOf` summaries: the same fields without `cards`, plus `cardCount` — the sum of copies, not distinct cards — newest `updatedAt` first.
 
 **A private deck is indistinguishable from a missing one.** A read, edit or delete of a private deck by anyone but its owner — signed in or not — gets the same 404 as an id that never existed. A public deck exists for anyone to see, so a stranger's edit or delete of it is an honest 403 from `assertOwner`. `GET /decks/:id` is `@Public()` because the shareable deck page renders signed out.
 

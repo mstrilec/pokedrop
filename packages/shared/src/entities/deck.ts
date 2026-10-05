@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { CardIdSchema, DeckCardIdSchema, DeckIdSchema, UserIdSchema } from '../primitives/id.js';
 import { PaginationQuerySchema, pageOf } from '../primitives/pagination.js';
-import { InventoryCardSchema } from './inventory.js';
+import { PlayableCardSchema } from './inventory.js';
 
 export const DeckCardSchema = z.object({
   id: DeckCardIdSchema,
@@ -75,13 +75,15 @@ export const UpdateDeckSchema = z
 export type UpdateDeck = z.infer<typeof UpdateDeckSchema>;
 
 export const DeckEntrySchema = DeckCardSchema.pick({ cardId: true, count: true }).extend({
-  card: InventoryCardSchema,
+  card: PlayableCardSchema,
 });
 export type DeckEntry = z.infer<typeof DeckEntrySchema>;
 
 export const DeckDetailSchema = DeckSchema.extend({
   ownerDisplayName: z.string(),
   cards: z.array(DeckEntrySchema),
+  /** Configuration the builder reads instead of copying it: the deck size is `DECK_SIZE`. */
+  rules: z.object({ deckSize: z.number().int().min(1) }),
 });
 export type DeckDetail = z.infer<typeof DeckDetailSchema>;
 

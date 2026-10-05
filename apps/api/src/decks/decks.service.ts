@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import {
   DECK_NAME_MAX,
@@ -14,13 +14,15 @@ import {
   type DeckValidation,
   OwnDeckPageSchema,
   type OwnDeckPage,
+  type StatsRow,
+  toDeckStats,
   type UpdateDeck,
 } from '@pokedrop/shared';
-import { CARD_SUMMARY_SELECT, toCardSummary } from '../common/card-summary.js';
+import { PLAYABLE_CARD_SELECT, toPlayableCard } from '../common/card-summary.js';
 import { assertOwner } from '../common/ownership.js';
 import type { AuthUser } from '../common/request-auth.js';
+import { APP_CONFIG, type AppConfig } from '../config/index.js';
 import { PrismaService, type TransactionClient } from '../prisma/index.js';
-import { toDeckStats, type StatsRow } from './deck-stats.js';
 import { DeckValidationService } from './deck-validation.service.js';
 
 const DETAIL_SELECT = {
@@ -35,7 +37,7 @@ const DETAIL_SELECT = {
   user: { select: { displayName: true } },
   cards: {
     orderBy: { cardId: 'asc' },
-    select: { cardId: true, count: true, card: { select: CARD_SUMMARY_SELECT } },
+    select: { cardId: true, count: true, card: { select: PLAYABLE_CARD_SELECT } },
   },
 } satisfies Prisma.DeckSelect;
 
@@ -50,6 +52,7 @@ export class DecksService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly validation: DeckValidationService,
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
   /** The owner's decks, each with the verdict on it as saved — computed now, never stored. */
@@ -131,13 +134,13 @@ export class DecksService {
   private async saveResult(tx: TransactionClient, id: string): Promise<DeckSaveResult> {
     const validation = await this.validation.validate(id, tx);
     const row = await tx.deck.findUniqueOrThrow({ where: { id }, select: DETAIL_SELECT });
-    return { ...toDetail(row), validation };
+    return { ...toDetail(row, this.config.decks.size), validation };
   }
 
   async get(id: string, viewer: AuthUser | undefined): Promise<DeckDetail> {
     const row = await this.prisma.deck.findUnique({ where: { id }, select: DETAIL_SELECT });
     assertVisible(row, viewer);
-    return toDetail(row);
+    return toDetail(row, this.config.decks.size);
   }
 
   create(user: AuthUser, input: CreateDeck): Promise<DeckSaveResult> {
@@ -290,14 +293,15 @@ function copyName(name: string): string {
   return `${name.slice(0, DECK_NAME_MAX - COPY_SUFFIX.length).trimEnd()}${COPY_SUFFIX}`;
 }
 
-function toDetail({ user, ...row }: DetailRow): DeckDetail {
+function toDetail({ user, ...row }: DetailRow, deckSize: number): DeckDetail {
   return DeckDetailSchema.parse({
     ...row,
     ownerDisplayName: user.displayName,
     cards: row.cards.map((entry) => ({
       cardId: entry.cardId,
       count: entry.count,
-      card: toCardSummary(entry.card),
+      card: toPlayableCard(entry.card),
     })),
+    rules: { deckSize },
   });
 }
