@@ -69,7 +69,7 @@ Taken with the user during brainstorming:
 | `validateDeck`, `ValidationCard`, `ValidationInput` move | `packages/shared/src/decks/validate.ts` | D4. The API's `DeckValidationService` and `DecksService` import them; their behaviour is unchanged |
 | `toDeckStats`, `StatsRow` move | `packages/shared/src/decks/stats.ts` | The stats panel and the public deck page compute stats from the cards they hold |
 | `DeckEntry.card` gains `legalities` | `DeckEntrySchema` in `packages/shared/src/entities/deck.ts`, the service's `DETAIL_SELECT` | The validator reads legality for every deck card |
-| `InventoryCardSchema` gains `legalities` | `packages/shared/src/entities/inventory.ts`, the inventory service's card select | Cards added from *My cards* carry what the validator needs. Catalog cards (`CardSchema`) have it already |
+| Inventory entries' card gains `legalities`, through a new `PlayableCardSchema` (`InventoryCardSchema` + `legalities`), which deck entries use too | `packages/shared/src/entities/inventory.ts`, the inventory service's card select | Cards added from *My cards* carry what the validator needs. Catalog cards (`CardSchema`) have it already. `InventoryCardSchema` itself is unchanged: it is also the card of pack openings, history, trades and showcases |
 | `DeckDetail` gains `rules: { deckSize: number }` | `DeckDetailSchema`, `toDetail()` | The deck size is configuration (`DECK_SIZE`, default 60); the client reads it instead of copying the constant. Not private, so every viewer gets it |
 
 No new endpoint. `docs/API.md` records the three new fields.
@@ -214,8 +214,8 @@ For anyone who is not the owner, signed in or out, of a public deck: the name, t
 the format and the card count; the decklist in the same groups with read-only rows (`DeckSlot` gains `readOnly`: *×3*
 instead of a stepper); the stats panel from the deck's cards. No verdict: it depends on the owner's copies, which are
 private (as in D3). **Clone** for a signed-in viewer, opening the copy in the builder; *Sign in to clone* for a guest,
-with `next` back to the deck. `generateMetadata` names the tab after a public deck (a server fetch without cookies);
-otherwise *Deck*.
+with `next` back to the deck. `generateMetadata` names the tab after the deck for anyone the API shows it to (a server fetch with the
+visitor's cookies, so the owner's private deck too); otherwise *Deck*.
 
 ## Dependencies
 
