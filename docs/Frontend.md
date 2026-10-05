@@ -53,7 +53,7 @@ Every page in [InformationArchitecture.md](InformationArchitecture.md) exists as
 
 **Three URLs belong to two zones.** `/cards/:id`, `/profile/:id` and `/decks/:id` are shareable and render signed out, and they are also part of the signed-in app — "My profile", card detail from the inventory, the deck builder. Next refuses two route groups that resolve to the same path, so each page lives once, in `(public)`, and its chrome follows the session rather than the folder. `/decks/:id` is one page for the public deck and the owner's builder; which one renders is decided by ownership, exactly as `GET /decks/:id` answers the owner and everyone else from one route.
 
-The consequence for PD-89: route groups do not appear in URLs, so the proxy cannot tell zones apart by folder. `/cards` (browse, session required) and `/cards/:id` (public) share a prefix, and the protected list has to match paths, not prefixes.
+The consequence for PD-89: route groups do not appear in URLs, so the proxy cannot tell zones apart by folder. `/decks` (session required) and `/decks/:id` (public) share a prefix, and the protected list has to match paths, not prefixes. (`/cards` and `/cards/:id` were the first such pair, until PD-108 made the catalog public.)
 
 The ticket and the original tree called the public group `(marketing)`; it holds more than marketing, so it is `(public)`, after the IA zone.
 
@@ -162,7 +162,7 @@ const result = await api.call(openPack(templateId, { openId }));    // the brows
 2. **Layouts** validate with the API. `getSession()` in `lib/session/server.ts` calls `/users/me` once per request (React `cache`), returning the profile or `null` with a reason: `signed-out` (no cookie, or 401) or `suspended` (403 `ACCOUNT_SUSPENDED`). `(app)/layout.tsx` redirects without a profile; `(app)/admin/layout.tsx` repeats the role check for client-side navigation; `(public)/layout.tsx` never redirects and chooses its chrome by the session.
 3. **The API** is the boundary. The first two layers are navigation comfort.
 
-**Protected paths** are listed in `lib/route-access.ts`, which only the proxy imports: prefixes `/dashboard`, `/packs`, `/inventory`, `/sets`, `/trades`, `/settings`, `/wallet`, `/notifications`, `/admin`, and the exact paths `/cards` and `/decks`, because `/cards/:id` and `/decks/:id` are public. A new protected section has to be added there. The browser asks the opposite question through `isPublicPath()` in `lib/routes.ts` — the landing page, the auth pages and the three shareable detail pages — so the list naming the admin area never ships to it.
+**Protected paths** are listed in `lib/route-access.ts`, which only the proxy imports: prefixes `/dashboard`, `/packs`, `/inventory`, `/sets`, `/trades`, `/settings`, `/wallet`, `/notifications`, `/admin`, and the exact path `/decks`, because `/decks/:id` is public. A new protected section has to be added there. The browser asks the opposite question through `isPublicPath()` in `lib/routes.ts` — the landing page, the auth pages, the catalog (`/cards`) and the three shareable detail pages — so the list naming the admin area never ships to it. **Since PD-108 the catalog `/cards` is public** (decision D1 in `docs/Pages.md`): it moved to `(public)`, and only its owned badges need a session.
 
 **Return URLs** are read only through `safeNext()`, which resolves the value the way a browser would and keeps it only if it stays on this origin and is not `/sign-in`; anything else becomes `/dashboard`.
 

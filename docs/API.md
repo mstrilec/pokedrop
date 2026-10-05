@@ -273,6 +273,9 @@ Served entirely from the mirror. No route here can reach an external API — `Ca
 |---|---|---|---|
 | GET | `/inventory` | member | The caller's cards — filtered, sorted, keyset-paged. Aggregates are `/inventory/summary` |
 | GET | `/inventory/summary` | member | Value, completion, counts (cached 5m) |
+| GET | `/inventory/owned` | member | `cardIds` (comma-separated, 1–100 distinct): how many of each the caller holds |
+
+**`GET /inventory/owned?cardIds=base1-4,base1-28,…`** answers `[{ cardId, quantity, availableQuantity }]` for the cards the caller holds, ordered by `cardId`; a card not held is absent. One indexed read on `(userId, cardId)`. Duplicate ids are folded; an empty list or more than 100 is a 400; no session, 401. It exists for the catalog (PD-108): one request per page of cards rather than one per card, and the public `GET /cards` stays the same for every visitor. Measured 2026-10-05: `base1-28,base1-100,base1-1,zz-999` → three rows (`zz-999` absent), `base1-28` with `quantity` 4 and `availableQuantity` 0 (all four in pending trades); `base1-28,base1-28` → one row; empty and 101 ids → 400; signed out → 401.
 
 **`GET /inventory`**
 

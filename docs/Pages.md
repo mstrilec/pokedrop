@@ -224,3 +224,21 @@ So the client may show fewer cards than the server will return, never others. **
 - **a failing page**: the next page's request (and its retry) refused at the network: *Couldn't load more. Try again* under the 100 loaded cards; *Try again* → *Showing 200 of 5,000 cards*;
 - **keyboard**: Tab from the search goes *Set → Rarity → Type → Copies → Sort → Grid view → List view* and on into the tiles in order; Enter on the list's *Price* header gave `sort=price_desc` and `aria-sort` *descending*; no console errors;
 - **after the final review's fixes**, everything above re-run on a fresh build with the same results (grid median 7.0 ms, p95 7.1 ms, none over 33 ms; list the same), and: clearing `zzz` with the answer held 2 s showed *Searching…* (busy), then the cards — never *Your collection is empty* (before: it did); typing `zubat` over the unfiltered list sent 1 request (before: 35, 34 of them pages of the old query); focus returning to 1,300 loaded cards sent none (before: 13).
+
+## Catalog (PD-108)
+
+`/cards`: every mirrored card through the collection view — `FilterBar` (search, Set, Rarity, Type, Sort) over a `VirtualCardGrid` of `CardTile`s — on 100-card pages of `GET /cards` (`useCatalogBrowse`, an infinite query over `page`, with the inventory's rules: `answeredFor`, `keepPreviousData`, no refetch on focus, `gcTime: 0`). The filters are the inventory's vocabulary over the global facets; the sort is the API's, name A–Z or Z–A.
+
+- **Public (D1).** The page moved to `(public)`; the proxy no longer protects `/cards`, and `isPublicPath` includes it. Signed out it renders in the public chrome, says *Sign in to see which ones you own*, and asks for nothing that needs a session.
+- **Owned badges (D2).** For each loaded page, signed in, one `GET /inventory/owned?cardIds=…` with that page's 100 ids (`useOwnedCounts`, keyed under `inventory`, so an opened pack or a settled trade refreshes them). A card is drawn *not owned* — greyscale with the lock, as the mockup's "locked cards are trade targets" — only once its page's counts have answered; until then it has no badge, rather than a wrong one. Copies in pending trades read as on the inventory: *×4 · 1 locked*, or greyscale when all of them are promised.
+- **The instant filter and its states are the inventory's**, now one function, `collectionView` in `lib/name-match.ts`: narrowing while the field runs ahead, `stale` while the cards answer something else, and `current` before claiming *No cards match* or loading more.
+- **The topbar's search** is a plain `GET /cards?q=` form; the page reads `q` from the URL.
+- **Public pages share the app shell's padding.** The public layout's `main` is `p-8`, like the app shell's, so a page sits the same with or without a session; the landing page undoes it (`-m-8`) to run edge to edge. The public nav's buttons are tighter below `sm`: at 375 px the logo and both buttons were 2 px wider than the screen — on the landing page too, which PD-101 had measured only signed in.
+
+**Measured 2026-10-05** under `next dev` against the API, fresh headless profiles:
+
+- anonymous `curl`: `/cards` 200 and `/cards/base1-4` 200; `/decks` and `/sets` still 307 to sign in;
+- signed out: *Showing 100 of 20,670 cards*, the public nav, no tile named *owned*, no request to `/inventory/owned`, no console errors; `/cards?set=base1&rarity=Rare%20Holo`, opened signed out, *Showing 16 of 16 cards* from `base1-1`;
+- signed in, as the member with 5,000 cards: one `/inventory/owned` request with 100 ids for the first page; all 25 rendered tiles named exactly as the database says (`N owned`, `N owned, K locked`, `all locked`, or `not owned`); scrolling to 500 cards: 5 catalog pages and 5 owned requests;
+- *pikachu* typed into the topbar's search on `/dashboard`: `/cards?q=pikachu`, the field reading *pikachu*, *Showing 100 of 213 cards*, every tile a Pikachu;
+- at 375 px: `scrollWidth` 375 signed in and signed out, and on the landing page signed out (before the nav fix: 377).
