@@ -182,3 +182,41 @@ Five pages in `(auth)`, each an `AuthCard` (`components/auth/auth-card.tsx`: ico
 - the template deactivated between the confirm and the tap: *Pack template not found* with *Back to packs*, no ledger row;
 - after the final review's fixes: Back half a second after the tap and Forward a second later showed the summary (before: *Tap to open*); at 375 px the page's `scrollWidth` 375 on the sealed stage, during the flash and through a whole reveal (before: 415, 697, 406); after a 402 the focus on *Go to wallet* (before: `<body>`); all thirteen checks above re-run and unchanged;
 - afterwards, every user's balance equal to their ledger; no console errors in any run.
+
+## Inventory (PD-107)
+
+`/inventory`: the collection's header — *10,078 cards · 5,000 unique · worth $237,061.08, 3,980 of 5,000 priced*, four `StatCard`s, the first six sets' `CompletionMeter`s behind *Show all N sets* — then a `FilterBar` (search, Set, Rarity, Type, Copies, Sort, the grid/list toggle) over the collection, drawn by the shared collection view ([Components.md](Components.md), *Collection view*). The design is `docs/superpowers/specs/2026-10-05-pd-107-inventory-design.md`.
+
+- **Everything is in the URL**: `q`, `set`, `rarity`, `type`, `minQuantity`, `sort` and `view`. A filter or sort pushes a history entry; search replaces. The last view chosen is also kept in `localStorage` (`pokedrop.inventory-view`), so `/inventory` without `?view=` opens in it.
+- **Infinite scroll over keyset pages of 100.** `useInventory(filters)` is an infinite query keyed by the filters, with `keepPreviousData`: a new filter keeps the old cards on screen, dimmed and `aria-busy`, until its own first page arrives. Every page carries the filters it answers (`answeredFor`), which is how the page knows the old cards are stale.
+- **Set options are the user's own sets**, from the summary's `setCompletion` (*Celebrations · 25/25*), not the mirror's 176. Rarity and type options are the global facets. *Copies* is `minQuantity`: *2+ (duplicates)*, *4+ (playset)*.
+- **The list's *Card*, *Price* and *Acquired* headers set the server's sort** through `?sort=`; the table never reorders what it has loaded.
+- **Locked copies**: a tile reads *×3 · 1 locked*; a card whose every copy is promised to a pending trade is greyscale with the lock; the list's *Copies* reads *3 · 1 locked* with a lock icon.
+
+**The instant filter is not Fuse.js.** The ticket asked for Fuse.js and for the client never to contradict the server; the server matches a substring of the name, and Fuse is fuzzy, so the two asks conflict. While the field runs ahead of the server — before the 300 ms debounce, and until the answer arrives — `narrowToTyped` decides what may be shown:
+
+| What is typed, against what the cards on screen answer | Shown |
+| --- | --- |
+| it extends that query (typing on) | those cards narrowed by the server's own rule — each is in the server's answer for the new text |
+| that query extends it (deleting) | those cards, unchanged — a subset of the answer to come |
+| neither (new text) | those cards dimmed and `aria-busy` until the answer |
+
+So the client may show fewer cards than the server will return, never others. **The rule folds only ASCII case**, like the database's `C` collation: `ILIKE '%POKÉ%'` does not match *Pokémon Center* there, so the client does not either.
+
+**Known limit:** Tab reaches only rendered cards — the visible rows and a few beyond. The rest render as the page scrolls (PageDown, Space), and Tab continues from there; search and filters stay the fast way to a card.
+
+**Traps.**
+
+- **A note in `StatCard`'s `trend` is read as a direction.** The value's coverage first sat there and was announced *No change: priced 68 of 109*; it moved into the header's line.
+- **The page's own measurements can trip the API's rate limit.** Collecting every page of the server's answer for each typed text (to compare with what the page showed) ran into 429s; the measuring script waits and retries. The page itself sends one request per settled query and per page.
+
+**Measured 2026-10-05** against `next build && next start` and the API, a fresh headless Chrome profile, real key events, a member seeded with 5,000 distinct cards (10,078 copies) over 50 sets:
+
+- the header and the summary agree: *Sets started* 50, `setCompletion` 50, six meters and *Show all 50 sets*;
+- **scrolling to the end at 60 px a frame**, loading all 50 pages on the way: the grid in 34.8 s, 4,966 frames, median 7.0 ms, p95 7.1 ms, 2 frames over 16.7 ms, none over 33 ms (max 21 ms), 30 tiles in the DOM at the end; the list in 40.4 s, 5,750 frames, median 7.0 ms, p95 7.1 ms, 5 over 16.7 ms, none over 33 ms, 21 rows in the DOM; both ending *Showing 5,000 of 5,000 cards*;
+- **the instant filter** typing `c`, `ch`, `cha`, `char` and deleting back to `c`: every name on screen, before the debounce and after the answer, was in the server's answer for that text (0 outside, against 442, 118, 28 and 14 distinct names); replacing `char` with `p`: dimmed and `aria-busy` at once, then *Showing 100 of 1,043 cards*; `POK` → `POKÉ`: nothing shown and nothing from the server; `POK` → `POKé`: nine *Poké…* names at once, all in the server's answer, *Slowpoke* gone;
+- **URL**: choosing a set, *Common*, *Copies 2+*, *Price high–low* and the list gave `?set=cel25&rarity=Common&minQuantity=2&sort=price_desc&view=list`, and a reload kept every one, the menus reading *Set: Celebrations · 25/25 · Rarity: Common · Copies: 2+ (duplicates) · Sort: Price high–low* with the list pressed; a search `pi`, a set, then `pik`, then Back: `?q=pi`, the field `pi`, nothing on screen outside the server's answer for `pi`; a rarity changed while its answer was held 2 s: the old 20 tiles dimmed and `aria-busy`, then *Showing 100 of 857 cards*;
+- **locked copies**: Growlithe (4 copies, all in pending trades) greyscale with the lock, named *Growlithe, Uncommon, 4 owned, all locked in pending trades, $1.45*; Lightning Energy (3, 1 locked) *…, 3 owned, 1 locked in pending trades, $0.49*, not greyscale; the list's *Copies* *4 · 4 locked* and *3 · 1 locked*;
+- **at 375 px**: `scrollWidth` 375 in both views; resizing 1280 → 800 → 1280 mid-scroll went 5 → 4 → 5 columns with no overlapping rows;
+- **a failing page**: the next page's request (and its retry) refused at the network: *Couldn't load more. Try again* under the 100 loaded cards; *Try again* → *Showing 200 of 5,000 cards*;
+- **keyboard**: Tab from the search goes *Set → Rarity → Type → Copies → Sort → Grid view → List view* and on into the tiles in order; Enter on the list's *Price* header gave `sort=price_desc` and `aria-sort` *descending*; no console errors.

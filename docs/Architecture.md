@@ -216,7 +216,7 @@ lib/
 - **Server Components** for read-heavy pages (card detail, public profiles, set lists) — fast first paint + SEO.
 - **Client Components** for interactive surfaces (deck builder, pack reveal, trade composer).
 - **TanStack Query** owns server state; **Zustand** owns ephemeral client state (deck draft, reveal sequence, modals).
-- Forms via **React Hook Form + Zod**. Toasts via **Sonner**. Theming via **next-themes**. Animations via **Motion**. Drag-and-drop via **dnd-kit**. Dense tables via **TanStack Table**. Charts via **Recharts** (Tremor for admin). Instant client filtering via **Fuse.js** over already-fetched pages.
+- Forms via **React Hook Form + Zod**. Toasts via **Sonner**. Theming via **next-themes**. Animations via **Motion**. Drag-and-drop via **dnd-kit**. Dense tables via **TanStack Table**. Charts via **Recharts** (Tremor for admin). Instant client narrowing of already-fetched pages by the server's own name predicate (`lib/name-match.ts`), not Fuse.js: fuzzy matching would show cards the server does not return (PD-107). Long lists are virtualized with **TanStack Virtual**.
 
 ## 6. Request data flow (read path)
 

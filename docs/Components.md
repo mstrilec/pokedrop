@@ -270,6 +270,23 @@ After the review fixes, the same way:
 - typing `-300` into the admin grant gave `aria-valuenow` −300, *-300 coins*;
 - the read-only panel's sides are *MistyW gives — 1 card · market value $180.00 · 120 coins* (with *Locked in escrow*) and *You give — 2 cards · market value $48.00*.
 
+## Collection view (PD-107)
+
+What the inventory, the catalog (PD-108) and the deck builder's pool (PD-112) show cards through. It knows nothing about the inventory: it takes items and draws them with the caller's tile.
+
+| Piece | File | Notes |
+| --- | --- | --- |
+| VirtualCardGrid | `components/collection/virtual-card-grid.tsx` | `items`, `getKey`, `renderTile`, `label`, `minTileWidth` (150), `hasMore`, `loadingMore`, `onLoadMore`; virtualizes **rows** against the window (`useWindowVirtualizer`), the column count from the container's width; asks for more when the last rendered row is within three of the end; a `list` of `listitem`s |
+| useDocumentTop, useElementWidth | `components/collection/layout-metrics.ts` | an element's offset from the document's top and its width, kept current by a `ResizeObserver` on the body — the virtualizers' `scrollMargin` and the grid's columns |
+| DataTable `virtualize` | `components/ui/data-table.tsx` | `{ estimateRowHeight, totalRows?, onEndReached? }`: only the rows in view render, between spacers; `aria-rowcount` is `totalRows` + 1 and each row carries `aria-rowindex`; `onEndReached` fires within ten rows of the end. Without it the table renders every row, as before |
+| CardTile `locked` | `components/cards/card-tile.tsx` | of `owned`, how many are promised to pending trades: the badge reads *×3 · 1 locked*; all of them locked greys the tile and adds the lock, named *3 owned, all locked in pending trades*. `owned={0}` still means *not owned* |
+| SearchInput `onInput` | `components/ui/search-input.tsx` | every text the field holds, before the debounce — typed, cleared, or adopted from the URL on Back |
+| matchesName, narrowToTyped | `lib/name-match.ts` | the server's `q` rule — a substring, ASCII case folded, `%` `_` `\` literal — and what may be shown while the field runs ahead of the answer; see [Pages.md](Pages.md), *Inventory* |
+
+- **The window scrolls, so the virtualizers are window virtualizers.** Each needs its list's distance from the top of the document (`scrollMargin`), which moves as content above it loads; `useDocumentTop` follows it.
+- **No React Compiler opt-out is needed today**: the compiler is not enabled. If it ever is, the virtualized components must opt out (`'use no memo'`), because TanStack Virtual's instance changes without changing identity.
+- The gallery's DataTable and CardTile specimens were re-checked after these changes: the members table still reads `aria-rowcount` 5 with 4 rows, and the tiles still read *Abra, Common, 3 owned, $1.51* and *…, not owned, …*.
+
 ## Accessibility audit (PD-100)
 
 The whole library was swept in the gallery, in headless Chrome against `next dev`, with axe-core 4.10 loaded from cdnjs into the page and real key events over the DevTools protocol. Nothing was added to the repository to do it: v1 has no test suite, so the audit is a measurement, recorded here, not a check that runs again by itself.
