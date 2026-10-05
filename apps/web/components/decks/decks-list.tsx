@@ -4,7 +4,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
   DECK_FORMATS,
   DECK_NAME_MAX,
-  type DeckFormat,
   DeckFormatSchema,
   type OwnDeckSummary,
 } from '@pokedrop/shared';
@@ -31,16 +30,7 @@ import {
   useUpdateDeck,
 } from '@/lib/query/decks';
 import { toastSuccess } from '@/lib/toast';
-
-const FORMAT_LABELS: Record<DeckFormat, string> = {
-  standard: 'Standard',
-  expanded: 'Expanded',
-  unlimited: 'Unlimited',
-};
-
-function formatLabel(format: string): string {
-  return format in FORMAT_LABELS ? FORMAT_LABELS[format as DeckFormat] : format;
-}
+import { FORMAT_LABELS, formatLabel } from './deck-format';
 
 // The API's rules for a new deck's name and format, with sentences for people.
 const NewDeckSchema = z.object({

@@ -1,4 +1,10 @@
-import type { CreateDeck, DeckCardInput, DeckFormat, UpdateDeck } from '@pokedrop/shared';
+import type {
+  CreateDeck,
+  DeckCardInput,
+  DeckDetail,
+  DeckFormat,
+  UpdateDeck,
+} from '@pokedrop/shared';
 import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api/browser';
 import { ApiError } from '@/lib/api/core';
@@ -51,10 +57,11 @@ export function useDeleteDeck() {
   });
 }
 
-export function useDeck(id: string) {
+export function useDeck(id: string, initial?: DeckDetail) {
   return useQuery({
     queryKey: keys.decks.detail(id),
     queryFn: () => api.call(deck(id)),
+    initialData: initial,
     // A 404 is an answer (gone, or someone's private deck), not a failure to retry.
     retry: (failures, error) =>
       !(error instanceof ApiError && error.statusCode === 404) && failures < 2,

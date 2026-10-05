@@ -27,26 +27,19 @@ export function focusDeckSlot(cardId: string): boolean {
 type DeckSlotProps = {
   card: CardView;
   count: number;
-  max: number;
-  onChange: (count: number) => void;
   /** The card is promised in a pending trade; its count cannot change here. */
   locked?: boolean;
-  /** Drag feedback for the builder (PD-112), which owns the drag itself. */
+  /** Drag feedback for the builder, which owns the drag itself. */
   dragging?: boolean;
   dropTarget?: boolean;
   className?: string;
-};
+} & (
+  | { readOnly?: false; max: number; onChange: (count: number) => void }
+  | { readOnly: true; max?: never; onChange?: never }
+);
 
-export function DeckSlot({
-  card,
-  count,
-  max,
-  onChange,
-  locked = false,
-  dragging = false,
-  dropTarget = false,
-  className,
-}: DeckSlotProps) {
+export function DeckSlot(props: DeckSlotProps) {
+  const { card, count, locked = false, dragging = false, dropTarget = false, className } = props;
   const tier = rarityTier(card.rarity);
   return (
     <div
@@ -76,13 +69,17 @@ export function DeckSlot({
           </span>
         ) : null}
       </div>
-      <CopyCountStepper
-        count={count}
-        max={max}
-        onChange={onChange}
-        cardName={card.name}
-        disabled={locked}
-      />
+      {props.readOnly ? (
+        <span className="font-mono text-mono text-tx">×{count}</span>
+      ) : (
+        <CopyCountStepper
+          count={count}
+          max={props.max}
+          onChange={props.onChange}
+          cardName={card.name}
+          disabled={locked}
+        />
+      )}
     </div>
   );
 }
