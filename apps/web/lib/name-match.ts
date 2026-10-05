@@ -30,3 +30,33 @@ export function narrowToTyped<T>(
   if (done.includes(next)) return { items, stale: false };
   return { items, stale: true };
 }
+
+/**
+ * What a server-filtered collection may show. `stale`: dim it, it answers something else.
+ * `current`: it answers exactly the field and the filters — only then may the page say
+ * "nothing matches", and only then is it worth loading more of it.
+ */
+export function collectionView<T>({
+  items,
+  nameOf,
+  typed,
+  answeredQ,
+  otherFiltersMatch,
+  placeholder,
+}: {
+  items: T[];
+  nameOf: (item: T) => string;
+  typed: string;
+  /** The `q` the items on screen were fetched for. */
+  answeredQ: string;
+  /** Whether every filter besides `q` is the one the items were fetched for. */
+  otherFiltersMatch: boolean;
+  /** TanStack Query's `isPlaceholderData`: the items belong to another query. */
+  placeholder: boolean;
+}): { items: T[]; stale: boolean; current: boolean } {
+  const narrowed = narrowToTyped(items, nameOf, typed, answeredQ);
+  const stale = narrowed.stale || !otherFiltersMatch;
+  const current =
+    !stale && !placeholder && asciiLower(typed.trim()) === asciiLower(answeredQ.trim());
+  return { items: narrowed.items, stale, current };
+}

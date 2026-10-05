@@ -11,18 +11,18 @@ export default async function PublicLayout({ children }: LayoutProps<'/'>) {
 
   return (
     <SessionProvider identity={null}>
-      <header className="flex items-center gap-4 border-b border-bd px-5 py-4 sm:px-14">
+      <header className="flex items-center gap-3 border-b border-bd px-4 py-4 sm:gap-4 sm:px-14">
         <Logo href="/" />
         <nav aria-label="Account" className="ml-auto flex items-center gap-2">
-          <Button asChild variant="ghost">
+          <Button asChild variant="ghost" className="max-sm:px-2.5">
             <Link href="/sign-in">Sign in</Link>
           </Button>
-          <Button asChild>
+          <Button asChild className="max-sm:px-3">
             <Link href="/register">Create account</Link>
           </Button>
         </nav>
       </header>
-      <main className="flex-1">{children}</main>
+      <main className="flex-1 p-8">{children}</main>
     </SessionProvider>
   );
 }

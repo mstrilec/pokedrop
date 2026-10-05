@@ -11,12 +11,14 @@ export const keys = {
     all: ['catalog'],
     facets: ['catalog', 'facets'],
     search: (params: CardSearchParams = {}) => ['catalog', 'search', params],
+    browse: (params: CardSearchParams = {}) => ['catalog', 'browse', params],
   },
   prices: { all: ['prices'] },
   inventory: {
     all: ['inventory'],
     list: (params: InventoryParams = {}) => ['inventory', 'list', params],
     summary: ['inventory', 'summary'],
+    owned: (cardIds: readonly string[]) => ['inventory', 'owned', cardIds],
   },
   wallet: {
     all: ['wallet'],

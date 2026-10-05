@@ -109,7 +109,8 @@ export default async function LandingPage() {
   ].filter((stat) => stat !== null);
 
   return (
-    <div className="overflow-hidden">
+    // The page runs edge to edge: it undoes the padding both shells give their main.
+    <div className="-m-8 overflow-hidden">
       <section
         aria-labelledby="hero-title"
         className="mx-auto grid max-w-300 items-center gap-14 px-5 py-14 sm:px-14 lg:grid-cols-[1.05fr_0.95fr] lg:py-24"

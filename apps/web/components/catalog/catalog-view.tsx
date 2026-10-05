@@ -1,75 +1,58 @@
 'use client';
 
-import type { InventoryEntry } from '@pokedrop/shared';
-import {
-  ArrowDownWideNarrow,
-  Copy,
-  Droplet,
-  Grid3x3,
-  PackageOpen,
-  SearchX,
-  Star,
-} from 'lucide-react';
-import { type ReactNode, useState, useSyncExternalStore } from 'react';
+import { type Card, CardSearchQuerySchema, type CardSort } from '@pokedrop/shared';
+import { ArrowDownWideNarrow, Droplet, Grid3x3, SearchX, Star } from 'lucide-react';
+import { type ReactNode, useState } from 'react';
 import { CardTile } from '@/components/cards/card-tile';
 import { cardView } from '@/components/cards/card-data';
 import { VirtualCardGrid } from '@/components/collection/virtual-card-grid';
 import { ListError } from '@/components/list-states';
+import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
-import { DataTable } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { type FilterDef, FilterBar } from '@/components/ui/filter-bar';
 import { SearchInput } from '@/components/ui/search-input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { collectionView } from '@/lib/name-match';
-import { useCatalogFacets } from '@/lib/query/catalog';
-import { type InventoryFilters, useInventory, useInventorySummary } from '@/lib/query/inventory';
+import { type CatalogFilters, useCatalogBrowse, useCatalogFacets } from '@/lib/query/catalog';
+import { useOwnedCounts } from '@/lib/query/inventory';
+import { useSession } from '@/lib/session/context';
 import { useUrlState } from '@/lib/url-state';
 import { cn } from '@/lib/utils';
-import { INVENTORY_COLUMNS, sortingOf, sortOf } from './inventory-columns';
-import {
-  InventoryUrlSchema,
-  SORT_LABELS,
-  storedView,
-  storeView,
-  type View,
-} from './inventory-query';
+
+const CatalogUrlSchema = CardSearchQuerySchema.pick({
+  q: true,
+  set: true,
+  rarity: true,
+  type: true,
+  sort: true,
+});
+
+const SORT_LABELS: Record<CardSort, string> = { name_asc: 'Name A–Z', name_desc: 'Name Z–A' };
 
 const count = new Intl.NumberFormat('en-US');
-const noSubscription = () => () => {};
-const ROW_HEIGHT = 69;
 
-function sameFiltersBesidesQ(a: InventoryFilters, b: InventoryFilters): boolean {
-  return (
-    a.set === b.set &&
-    a.rarity === b.rarity &&
-    a.type === b.type &&
-    a.minQuantity === b.minQuantity &&
-    a.sort === b.sort
-  );
+function sameFiltersBesidesQ(a: CatalogFilters, b: CatalogFilters): boolean {
+  return a.set === b.set && a.rarity === b.rarity && a.type === b.type && a.sort === b.sort;
 }
 
-export function InventoryView() {
-  const [query, setQuery] = useUrlState(InventoryUrlSchema);
-  const stored = useSyncExternalStore(noSubscription, storedView, () => null);
-  const view: View = query.view ?? stored ?? 'grid';
-  const filters: InventoryFilters = {
+export function CatalogView() {
+  const signedIn = useSession() !== null;
+  const [query, setQuery] = useUrlState(CatalogUrlSchema);
+  const filters: CatalogFilters = {
     q: query.q,
     set: query.set,
     rarity: query.rarity,
     type: query.type,
-    minQuantity: query.minQuantity,
     sort: query.sort,
   };
-
-  const list = useInventory(filters);
-  const summary = useInventorySummary();
+  const list = useCatalogBrowse(filters);
   const facets = useCatalogFacets();
   const [typed, setTyped] = useState(query.q ?? '');
 
   const pages = list.data?.pages ?? [];
-  const entries = pages.flatMap((page) => page.items);
+  const cards = pages.flatMap((page) => page.items);
   const total = pages[0]?.total ?? 0;
   const answeredFor = pages[0]?.answeredFor;
   const {
@@ -77,16 +60,18 @@ export function InventoryView() {
     stale,
     current,
   } = collectionView({
-    items: entries,
-    nameOf: (entry) => entry.card.name,
+    items: cards,
+    nameOf: (card) => card.name,
     typed,
     answeredQ: answeredFor?.q ?? '',
     otherFiltersMatch: answeredFor === undefined || sameFiltersBesidesQ(answeredFor, filters),
     placeholder: list.isPlaceholderData,
   });
-  const filtered = Boolean(
-    filters.q || filters.set || filters.rarity || filters.type || filters.minQuantity,
+  const { owned, known } = useOwnedCounts(
+    pages.map((page) => page.items.map((card) => card.id)),
+    signedIn,
   );
+  const filtered = Boolean(filters.q || filters.set || filters.rarity || filters.type);
 
   const filterDefs: FilterDef[] = [
     {
@@ -94,11 +79,8 @@ export function InventoryView() {
       label: 'Set',
       icon: Grid3x3,
       kind: 'select',
-      options: summary.data?.setCompletion.map((set) => ({
-        value: set.setId,
-        label: `${set.name} · ${set.owned}/${set.total}`,
-      })),
-      error: summary.isError,
+      options: facets.data?.sets,
+      error: facets.isError,
     },
     {
       key: 'rarity',
@@ -117,16 +99,6 @@ export function InventoryView() {
       error: facets.isError,
     },
     {
-      key: 'minQuantity',
-      label: 'Copies',
-      icon: Copy,
-      kind: 'select',
-      options: [
-        { value: '2', label: '2+ (duplicates)' },
-        { value: '4', label: '4+ (playset)' },
-      ],
-    },
-    {
       key: 'sort',
       label: 'Sort',
       icon: ArrowDownWideNarrow,
@@ -141,12 +113,27 @@ export function InventoryView() {
     }
   };
 
+  const renderTile = (card: Card) => {
+    const mine = owned.get(card.id);
+    // Signed out, ownership is not the question; signed in, a card is "not owned" only once
+    // its page's counts have answered.
+    const ownedCount = !signedIn || !known.has(card.id) ? undefined : (mine?.quantity ?? 0);
+    return (
+      <CardTile
+        card={cardView(card)}
+        owned={ownedCount}
+        locked={mine ? mine.quantity - mine.available : 0}
+        sizes="(min-width: 1024px) 180px, 45vw"
+      />
+    );
+  };
+
   let content: ReactNode;
   if (list.isPending) {
     content = (
       <div
         aria-busy="true"
-        aria-label="Loading your cards"
+        aria-label="Loading cards"
         className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6"
       >
         {Array.from({ length: 12 }, (_, slot) => (
@@ -167,30 +154,21 @@ export function InventoryView() {
       </p>
     );
   } else if (total === 0) {
-    content = filtered ? (
+    content = (
       <EmptyState
         icon={SearchX}
         tone="neutral"
-        title="No cards match these filters"
-        body="Try a different set, rarity or name."
-        cta={{
-          label: 'Clear filters',
-          onClick: () =>
-            setQuery({
-              q: undefined,
-              set: undefined,
-              rarity: undefined,
-              type: undefined,
-              minQuantity: undefined,
-            }),
-        }}
-      />
-    ) : (
-      <EmptyState
-        icon={PackageOpen}
-        title="Your collection is empty"
-        body="Every card you pull or trade for lands here."
-        cta={{ label: 'Open a pack', href: '/packs', icon: PackageOpen }}
+        title="No cards match"
+        body={filtered ? 'Try a different name, set or rarity.' : 'The catalog is empty.'}
+        cta={
+          filtered
+            ? {
+                label: 'Clear filters',
+                onClick: () =>
+                  setQuery({ q: undefined, set: undefined, rarity: undefined, type: undefined }),
+              }
+            : undefined
+        }
       />
     );
   } else {
@@ -199,37 +177,15 @@ export function InventoryView() {
         aria-busy={stale || undefined}
         className={cn('transition-opacity', stale && 'opacity-50')}
       >
-        {view === 'grid' ? (
-          <VirtualCardGrid<InventoryEntry>
-            items={shown}
-            getKey={(entry) => entry.id}
-            label="Your cards"
-            renderTile={(entry) => (
-              <CardTile
-                card={cardView(entry.card)}
-                owned={entry.quantity}
-                locked={entry.lockedQuantity}
-                sizes="(min-width: 1024px) 180px, 45vw"
-              />
-            )}
-            hasMore={current && list.hasNextPage}
-            loadingMore={list.isFetchingNextPage}
-            onLoadMore={loadMore}
-          />
-        ) : (
-          <DataTable
-            label="Your cards"
-            columns={INVENTORY_COLUMNS}
-            data={shown}
-            getRowId={(entry) => entry.id}
-            sorting={sortingOf(query.sort)}
-            onSortingChange={(updater) => {
-              const next = typeof updater === 'function' ? updater(sortingOf(query.sort)) : updater;
-              setQuery({ sort: sortOf(next) });
-            }}
-            virtualize={{ estimateRowHeight: ROW_HEIGHT, totalRows: total, onEndReached: loadMore }}
-          />
-        )}
+        <VirtualCardGrid<Card>
+          items={shown}
+          getKey={(card) => card.id}
+          label="Cards"
+          renderTile={renderTile}
+          hasMore={current && list.hasNextPage}
+          loadingMore={list.isFetchingNextPage}
+          onLoadMore={loadMore}
+        />
         <div className="mt-6 flex flex-col items-center gap-3">
           <p role="status" className="text-small text-mut">
             {list.isFetchingNextPage ? (
@@ -237,7 +193,7 @@ export function InventoryView() {
                 <Spinner size={16} /> Loading more…
               </span>
             ) : (
-              `Showing ${count.format(entries.length)} of ${count.format(total)} cards`
+              `Showing ${count.format(cards.length)} of ${count.format(total)} cards`
             )}
           </p>
           {list.isFetchNextPageError ? (
@@ -255,6 +211,14 @@ export function InventoryView() {
 
   return (
     <>
+      <PageHeader
+        title="Browse cards"
+        description={
+          signedIn
+            ? 'Every card in the catalog, including the ones you do not own yet.'
+            : 'Every card in the catalog. Sign in to see which ones you own.'
+        }
+      />
       <FilterBar
         className="mb-6"
         search={
@@ -263,18 +227,13 @@ export function InventoryView() {
             onSearch={(q) => setQuery({ q: q || undefined }, { history: 'replace' })}
             onInput={setTyped}
             loading={list.isFetching && !list.isFetchingNextPage}
-            resultCount={stale ? undefined : total}
-            placeholder="Search your cards…"
+            resultCount={current ? total : undefined}
+            placeholder="Search every card…"
           />
         }
         filters={filterDefs}
         value={query}
         onChange={setQuery}
-        view={view}
-        onViewChange={(next) => {
-          storeView(next);
-          setQuery({ view: next });
-        }}
       />
       {content}
     </>

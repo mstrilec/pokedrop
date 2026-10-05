@@ -11,6 +11,7 @@ const PUBLIC_EXACT = [
   '/sign-in',
   '/forgot-password',
   '/reset-password',
+  '/cards',
 ];
 const PUBLIC_DETAIL = /^\/(cards|decks|profile)\/[^/]+\/?$/;
 

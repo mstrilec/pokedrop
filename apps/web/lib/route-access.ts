@@ -12,8 +12,8 @@ const PROTECTED_PREFIXES = [
   '/admin',
 ];
 
-// /cards/:id and /decks/:id are public; only the lists need a session.
-const PROTECTED_EXACT = ['/cards', '/decks'];
+// /decks/:id is public; only the list needs a session. /cards is public entirely.
+const PROTECTED_EXACT = ['/decks'];
 
 export function isProtected(pathname: string): boolean {
   const path = pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
