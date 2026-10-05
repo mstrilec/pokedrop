@@ -23,6 +23,10 @@ export function toastApiError(error: unknown): void {
   toast.error(apiErrorMessage(error), requestId ? { description: `Request ID ${requestId}` } : {});
 }
 
+export function toastError(message: string): void {
+  toast.error(message);
+}
+
 type ToastAction = { label: string; onClick: () => void };
 
 export function toastSuccess(message: string, action?: ToastAction): void {

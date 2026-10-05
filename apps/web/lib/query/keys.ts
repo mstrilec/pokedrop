@@ -20,6 +20,7 @@ export const keys = {
     list: (params: InventoryParams = {}) => ['inventory', 'list', params],
     summary: ['inventory', 'summary'],
     owned: (cardIds: readonly string[]) => ['inventory', 'owned', cardIds],
+    ownedAll: ['inventory', 'owned'],
   },
   wallet: {
     all: ['wallet'],
@@ -33,6 +34,7 @@ export const keys = {
   decks: {
     all: ['decks'],
     mine: ['decks', 'mine'],
+    detail: (id: string) => ['decks', 'detail', id],
   },
   trades: { all: ['trades'] },
   notifications: {

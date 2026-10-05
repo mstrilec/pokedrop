@@ -9,6 +9,7 @@ export const mutationKeys = {
   updateDeck: ['updateDeck'],
   cloneDeck: ['cloneDeck'],
   deleteDeck: ['deleteDeck'],
+  saveDeck: ['saveDeck'],
 } as const;
 
 type MutationName = keyof typeof mutationKeys;
@@ -23,6 +24,8 @@ export const INVALIDATES: Record<MutationName, readonly QueryKey[]> = {
   updateDeck: [keys.decks.all],
   cloneDeck: [keys.decks.all],
   deleteDeck: [keys.decks.all],
+  // A save's verdict counts the owner's copies; the builder's counts follow it.
+  saveDeck: [keys.decks.all, keys.inventory.ownedAll],
 };
 
 export function invalidatedBy(mutationKey: QueryKey | undefined): readonly QueryKey[] {

@@ -1,6 +1,7 @@
 import {
   type CreateDeckSchema,
   type DeckListQuerySchema,
+  DeckDetailSchema,
   DeckSaveResultSchema,
   OwnDeckPageSchema,
   type UpdateDeckSchema,
@@ -11,6 +12,9 @@ import { del, get, patch, post } from '../core';
 export type DeckListParams = z.input<typeof DeckListQuerySchema>;
 
 export const myDecks = (params: DeckListParams = {}) => get('/decks', OwnDeckPageSchema, params);
+
+/** Public decks for anyone; a private one only for its owner (otherwise 404). */
+export const deck = (id: string) => get(`/decks/${id}`, DeckDetailSchema);
 
 export const createDeck = (body: z.input<typeof CreateDeckSchema>) =>
   post('/decks', DeckSaveResultSchema, body);

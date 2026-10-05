@@ -1,7 +1,15 @@
-import type { CreateDeck, UpdateDeck } from '@pokedrop/shared';
-import { useInfiniteQuery, useMutation } from '@tanstack/react-query';
+import type { CreateDeck, DeckCardInput, DeckFormat, UpdateDeck } from '@pokedrop/shared';
+import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api/browser';
-import { cloneDeck, createDeck, deleteDeck, myDecks, updateDeck } from '@/lib/api/endpoints/decks';
+import { ApiError } from '@/lib/api/core';
+import {
+  cloneDeck,
+  createDeck,
+  deck,
+  deleteDeck,
+  myDecks,
+  updateDeck,
+} from '@/lib/api/endpoints/decks';
 import { mutationKeys } from './invalidation';
 import { keys } from './keys';
 
@@ -40,5 +48,30 @@ export function useDeleteDeck() {
   return useMutation({
     mutationKey: mutationKeys.deleteDeck,
     mutationFn: (id: string) => api.call(deleteDeck(id)),
+  });
+}
+
+export function useDeck(id: string) {
+  return useQuery({
+    queryKey: keys.decks.detail(id),
+    queryFn: () => api.call(deck(id)),
+    // A 404 is an answer (gone, or someone's private deck), not a failure to retry.
+    retry: (failures, error) =>
+      !(error instanceof ApiError && error.statusCode === 404) && failures < 2,
+  });
+}
+
+export type DeckDraftBody = {
+  name: string;
+  format: DeckFormat;
+  ownedOnly: boolean;
+  cards: DeckCardInput[];
+};
+
+export function useSaveDeck(id: string) {
+  return useMutation({
+    mutationKey: mutationKeys.saveDeck,
+    mutationFn: (body: DeckDraftBody) => api.call(updateDeck(id, body)),
+    meta: { toast: false },
   });
 }
