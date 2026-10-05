@@ -13,6 +13,7 @@ The tickets were written before the API, and a few of them asked for what the AP
 | D1 | `/cards` and `/sets` render signed out; owned badges and completion are simply absent | PD-108, PD-109 |
 | D2 | Owned counts come from a private `GET /inventory/owned?cardIds=…`; the public `/cards` stays the same for every visitor | PD-108, PD-110, PD-112 |
 | D3 | The owner's `GET /decks` carries `valid`, computed by the validator on read and never stored | PD-111 |
+| D4 | The deck builder validates its draft in the browser with the API's own validator, from `@pokedrop/shared`; rule failures never block a save — only what the API would refuse with a 400 does | PD-112, PD-113 |
 | D7 | Settings shows the email read-only and has no theme choice: dark is the only theme | PD-118 |
 
 ## Landing (PD-101)
@@ -278,3 +279,37 @@ So the client may show fewer cards than the server will return, never others. **
 - *New deck* submitted empty: *Name the deck* under the field; *Fire Test*, *Expanded*: `/decks/<id>`, an empty expanded deck, listed first as *Invalid*;
 - a member with no decks: *No decks yet* with *Build your first deck*;
 - at 375 px: `scrollWidth` 375; no console errors.
+
+## Deck builder (PD-112, PD-113)
+
+`/decks/:id` is one page for two people (`components/decks/deck-page.tsx`): the owner gets the builder, anyone else the read-only public deck. The server page loads the deck once (with the visitor's cookies, shared with `generateMetadata` through React `cache`), so a missing deck or someone else's private one is the not-found page, and the client starts from that answer as `useDeck`'s `initialData`. Design: `docs/superpowers/specs/2026-10-05-pd-112-pd-113-deck-builder-design.md`.
+
+- **The draft** (`lib/stores/deck-draft.ts`) is the name, the format, *Owned only / Theorycraft* (`ownedOnly`) and the cards, plus what the validator reads about each card and the owner's available copies. It is seeded once per deck; a refetch of the deck never touches it — *Public* saves at once (`PATCH isPublic`), invalidates every deck query, and the draft survives. Only a save replaces it.
+- **Validation is the API's own (D4).** `validateDeck` and `toDeckStats` moved to `@pokedrop/shared`; `useDeckChecks` runs them on every change, with no request and no debounce. Deck entries and inventory entries carry `legalities` (`PlayableCardSchema`) and the deck carries `rules.deckSize`. A card whose available copies are not known yet counts as available until `GET /inventory/owned` answers (*Checking your copies…*), so nothing flashes *not owned*. After a save the server's verdict replaces the page's until the next change — the one way they can differ is a trade locking copies in between.
+- **Save** is one `PATCH` of the whole draft (Ctrl/⌘+S too). Rule failures never block it — the API saves an invalid deck on purpose — only what the API would refuse with a 400 does (an empty name, more than 100 distinct cards); the header names the reason. A save that fails keeps the draft: offline or 5xx *Couldn't save — your changes are still here*, 404 *This deck no longer exists*. The mutation runs with `networkMode: 'always'`, so offline it fails at once instead of pausing.
+- **The pool** (`card-pool.tsx`) is *My cards* (the inventory, available copies on every tile) or *All cards* (the catalog, owned badges by `GET /inventory/owned`), with search and set, rarity and type, on PD-107's instant narrowing. It virtualizes inside its own column (`VirtualCardGrid` `scrollElement`). Every tile has *+ Add*, which refuses at the copy limit (counting other printings), at 100 distinct cards or 100 copies, and says why.
+- **Drag** (`builder-dnd.tsx`, `@dnd-kit/core`): pool → deck adds a copy, deck → pool removes one; the card's art (or a row's art and name) is the handle, a 6 px move starts a drag, so a click stays a click. The keyboard sensor moves between the two zones on ←/→; Space picks up and drops, Escape cancels. Every step is announced with the card's name and the result. Below 1024 px there is no drag: three tabs (*Pool / Deck · n / Check*), *+ Add* and the steppers.
+- **Leaving** with unsaved changes asks first — links, Back and reload — through `useUnsavedChanges` (Frontend.md): *Stay*, *Save and leave* or *Discard changes*.
+- **Checks and stats:** `DeckValidationBanner` on the live verdict, *Show card* scrolls to the row (switching to *Deck* first on a phone); the stats panel (Recharts, loaded with the panel only) draws supertypes, Pokémon types and rarities, each a `<figure>` with a caption summary and a visually hidden table of the same numbers.
+- **The public view** shows the decklist read-only, the owner and the stats — never a verdict, which depends on the owner's private copies — with *Clone* for a member and *Sign in to clone* for a guest.
+
+**Measured 2026-10-05** under `next dev` against the API, with real key and pointer events:
+
+- a 60-card deck from an empty one by keys only — search, Tab to *+ Add*, Enter ×56 on *Lightning Energy* and ×4 on *Mewtwo*, Ctrl+S: **95 key presses**, *60/60 · Legal*, *Saved*, and `GET /decks/:id` holding exactly *Mewtwo ×4, Lightning Energy ×56*;
+- two printings of *Charizard* (base1-4 and base4-4), two of each: a fifth by *+ Add* refused with *Charizard is at the 4-copy limit*, both steppers *4-copy limit, counting other printings*; a fifth *Mewtwo* by drop announced *Mewtwo is at the 4-copy limit; nothing added* and changed nothing;
+- pointer: pool → deck *Added Mewtwo — 1 copy in the deck*, the deck column outlined while over it; deck → pool *Removed a copy of Charizard — 4 left*; keyboard: Space *Picked up Mewtwo from the pool. Arrow right to move it to the deck, Space to drop, Escape to cancel.*, → *Over the deck*, Space *Added Mewtwo — 2 copies in the deck*; Escape *Cancelled; the deck is unchanged*; a click on *+ Add* added without a drag;
+- smoothness: a pool of *My cards* (5,000) scrolled to row 30, 16–27 tiles rendered; a drag of 60 pointer moves across the pool onto the deck: under `next build` / `next start` **no long task**, frames median 7 ms, worst 13.9 ms; under `next dev` one 95 ms task at the drag's start and none while moving;
+- agreement: for two decks, after a change and a save and after restoring it, every rule's state and issue count on the page equal `POST /decks/:id/validate`; switching to *Standard* re-ran legality with **no request** (base-set cards record no standard legality, so the validator warns, as the API does); an owned-only deck with a card then locked by a new trade between load and save: the page predicted *1 rule failing*, the save answered *2 rules failing* with *needs 1 copy; 0 available*, and the page showed the server's;
+- charts: removing an *Alakazam* moved *Pokémon 60 → 59* and *Psychic 8 → 7* in the captions and the hidden tables at once;
+- leaving: with a clean draft no dialog; dirty: the sidebar's *Inventory* opened *Leave without saving?* with focus on *Stay*; *Stay* kept the page and the draft; Back opened it again; *Discard changes* went back to `/decks`; forward came back to the saved deck; *Save and leave* from a link saved and went on; reload raised the browser's `beforeunload`; after a save one Back left the page; flipping *Public* kept *Unsaved changes* and the draft;
+- offline: *Couldn't save — your changes are still here*, *Unsaved changes*, *Save* enabled; online again it saved; a deck deleted from another tab: *This deck no longer exists*, *Back to decks* → `/decks`;
+- 375 px: *Pool / Deck 60 / Check*, `scrollWidth` 375, no drag handles; *Show Mewtwo (BASE1 10)* switched to *Deck* and focused and highlighted `deck-slot-base1-10`;
+- a guest on a public deck: name, *Standard · 5 cards · by PD102 Tester*, the stats, *Sign in to clone*, no builder; on a private one *Page not found*, tab *Deck · PokéDrop*; another member: *Clone* → the builder on *Unfinished (copy)*, private; no console errors anywhere.
+
+**Traps:**
+
+- Keying the draft store by `updatedAt` would wipe it whenever *Public* is flipped: that mutation invalidates the deck query, and a new answer would mean a new store.
+- dnd-kit fires *over* for the zone a drag starts in at once, which replaced the pick-up instructions in the live region before a screen reader finished them; the builder announces nothing for the origin zone.
+- `react-hooks/refs` fails `drag.setNodeRef` on the object `useDraggable` returns; destructure it. `react-hooks/incompatible-library` fires for `useVirtualizer` (not for `useWindowVirtualizer`); the React Compiler is not enabled.
+- A missing or private deck answers the not-found page with `noindex` but HTTP 200: `(public)/loading.tsx` makes every page in the group stream, so the status is sent before the page runs.
+- A TanStack Query mutation pauses while offline by default; a save that should fail visibly needs `networkMode: 'always'`.

@@ -263,7 +263,7 @@ Zustand holds what only the browser knows: what the user is doing, not what the 
 
 **The deck draft is the one card list outside TanStack Query**, on purpose: it is the user's unsaved edit, not a copy of server state. It starts from the deck query, and after a save the builder resets it from the refreshed query. `isDirty` compares it with the last saved list, so undoing back to the saved deck is clean again. `applyDrag` records the list before the drag, and `undoDrag` restores it — one step.
 
-**Leaving with unsaved changes.** `useUnsavedChanges(dirty)` asks before a click on a link to another page and registers `beforeunload` for closing or reloading the tab. The App Router cannot cancel a navigation, so back and forward are not caught, and anything the builder navigates to itself has to check `isDirty` first.
+**Leaving with unsaved changes.** `useUnsavedChanges(dirty, onAttempt)` (since PD-112) registers `beforeunload` for closing or reloading the tab, stops a click on a link to another page, and catches Back with a sentinel history entry that `popstate` puts back; each time it calls `onAttempt(leave)`, and the page decides — the deck builder opens *Leave without saving?* with *Stay*, *Save and leave* and *Discard changes*, and calling `leave` goes on. The App Router cannot cancel a navigation, so this is the whole of it: anything the page navigates to itself has to check `isDirty` first. The sentinel is removed when the page stops being dirty, so one Back leaves after a save. It installs only when the page becomes dirty, never on mount, which keeps React Strict Mode's double effects in development away from the history stack.
 
 **Measured 2026-10-01:**
 
