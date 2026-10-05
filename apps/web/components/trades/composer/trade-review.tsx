@@ -1,7 +1,7 @@
 'use client';
 
 import { ArrowDownLeft, ArrowLeft, ArrowUpRight, Send } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { formatCoins } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -59,6 +59,9 @@ export function TradeReview({
   onSend: () => void;
 }) {
   const name = state.counterparty?.displayName ?? '';
+  const heading = useRef<HTMLHeadingElement>(null);
+  // The compose view this replaced held the focus; the review starts at its own heading.
+  useEffect(() => heading.current?.focus(), []);
   const given = cardCount(state.give);
   const consequences: ReactNode[] = [];
   if (given > 0) {
@@ -77,6 +80,9 @@ export function TradeReview({
 
   return (
     <div className="flex flex-col gap-5">
+      <h2 ref={heading} tabIndex={-1} className="text-h3 outline-none">
+        Check the offer before you send it
+      </h2>
       <div className="grid gap-4 md:grid-cols-2">
         <SideList
           heading={`You give ${name}`}

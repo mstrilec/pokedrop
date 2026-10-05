@@ -2,7 +2,7 @@
 
 import type { TradeParty } from '@pokedrop/shared';
 import { UserSearch } from 'lucide-react';
-import { type KeyboardEvent, useId, useState } from 'react';
+import { type KeyboardEvent, useEffect, useId, useRef, useState } from 'react';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useUserSearch } from '@/lib/query/users';
@@ -27,6 +27,16 @@ export function CounterpartyPicker({
   const search = useUserSearch(query);
   const results = query.length >= 2 ? (search.data ?? []) : [];
   const showList = open && query.length >= 2;
+  const changeButton = useRef<HTMLButtonElement>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const focusNext = useRef<'change' | 'input' | null>(null);
+
+  // The chip and the field replace each other; focus moves to whichever appeared.
+  useEffect(() => {
+    if (focusNext.current === 'change') changeButton.current?.focus();
+    if (focusNext.current === 'input') input.current?.focus();
+    focusNext.current = null;
+  }, [value]);
 
   if (value) {
     return (
@@ -36,7 +46,15 @@ export function CounterpartyPicker({
           <Avatar name={value.displayName} src={value.avatarUrl} size={32} decorative />
           <span className="min-w-0 flex-1 truncate font-semibold text-tx">{value.displayName}</span>
           {locked ? null : (
-            <Button variant="ghost" size="sm" onClick={() => onChange(null)}>
+            <Button
+              ref={changeButton}
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                focusNext.current = 'input';
+                onChange(null);
+              }}
+            >
               Change
             </Button>
           )}
@@ -46,6 +64,7 @@ export function CounterpartyPicker({
   }
 
   const choose = (party: TradeParty) => {
+    focusNext.current = 'change';
     onChange(party);
     setText('');
     setOpen(false);
@@ -80,6 +99,7 @@ export function CounterpartyPicker({
           className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-faint"
         />
         <input
+          ref={input}
           id={inputId}
           role="combobox"
           aria-expanded={showList}

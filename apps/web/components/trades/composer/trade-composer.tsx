@@ -4,7 +4,7 @@ import { ERROR_CODES, type InventoryCard } from '@pokedrop/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, Info, Trash2, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
-import { type ReactNode, useEffect, useMemo, useReducer, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { cardView } from '@/components/cards/card-data';
 import { ListError } from '@/components/list-states';
 import { PageHeader } from '@/components/page-header';
@@ -53,23 +53,32 @@ export function TradeComposerPage({
   const cardQuery = useCard(counter ? undefined : card);
   const trade = useTrade(counter);
 
-  if (me.isError) return <ListError error={me.error} onRetry={() => void me.refetch()} />;
+  if (me.data === undefined && me.isError) {
+    return <ListError error={me.error} onRetry={() => void me.refetch()} />;
+  }
   if (me.isPending || profile.isLoading || cardQuery.isLoading || trade.isLoading) {
     return <Skeleton shape="block" height="24rem" />;
   }
   for (const query of [profile, cardQuery, trade]) {
-    if (query.isError && !is404(query.error)) {
+    if (query.isError && query.data === undefined && !is404(query.error)) {
       return <ListError error={query.error} onRetry={() => void query.refetch()} />;
     }
   }
 
-  const { state, notices, blocked } = initialState({
+  // Read once: later refetches (the countered offer turning Countered, a new balance) must not
+  // swap the screen or count as the user's changes, so ComposerStart keeps the first answer.
+  const start = initialState({
     meId: me.data.id,
     to: !counter && to ? { profile: profile.data, missing: profile.isError } : undefined,
     card: !counter && card ? { card: cardQuery.data, missing: cardQuery.isError } : undefined,
     counter: counter ? { trade: trade.data, missing: trade.isError } : undefined,
   });
 
+  return <ComposerStart start={start} meId={me.data.id} />;
+}
+
+function ComposerStart({ start, meId }: { start: ReturnType<typeof initialState>; meId: string }) {
+  const [{ state, notices, blocked }] = useState(start);
   if (blocked) {
     return (
       <>
@@ -84,7 +93,7 @@ export function TradeComposerPage({
       </>
     );
   }
-  return <TradeComposer initial={state} notices={notices} meId={me.data.id} />;
+  return <TradeComposer initial={state} notices={notices} meId={meId} />;
 }
 
 function TradeComposer({
@@ -99,6 +108,9 @@ function TradeComposer({
   const queryClient = useQueryClient();
   const [state, dispatch] = useReducer(composerReducer, initial);
   const [picker, setPicker] = useState<Side | null>(null);
+  const [checking, setChecking] = useState(false);
+  const reviewButton = useRef<HTMLButtonElement>(null);
+  const backToCompose = useRef(false);
   const [notice, setNotice] = useState<ReactNode>(notices.length > 0 ? notices.join(' ') : null);
   const [pendingLeave, setPendingLeave] = useState<(() => void) | null>(null);
   const me = useMe();
@@ -137,22 +149,44 @@ function TradeComposer({
   }, [queryClient]);
 
   // The cached counts may be minutes old; a copy locked from another tab must show before Review.
+  // Back from the review (or refused by the server): focus returns to *Review offer*.
+  useEffect(() => {
+    if (state.step === 'compose' && backToCompose.current) {
+      backToCompose.current = false;
+      reviewButton.current?.focus();
+    }
+  }, [state.step]);
+
   async function review() {
+    setChecking(true);
+    try {
+      if (!(await stillAvailable())) return;
+      dispatch({ type: 'step', step: 'review' });
+    } catch (error) {
+      toastApiError(error);
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  async function stillAvailable(): Promise<boolean> {
     if (giveIds.length > 0) {
       const fresh = await queryClient.fetchQuery({
         queryKey: keys.inventory.owned(giveIds),
         queryFn: () => api.call(ownedCounts(giveIds)),
         staleTime: 0,
+        // Offline, fail and say so rather than pause with the button spinning.
+        networkMode: 'always',
       });
       const now = new Map<string, number>(fresh.map((row) => [row.cardId, row.availableQuantity]));
       const balance = me.data?.currency;
       if (
         composeProblems(state, { meId, balance, available: (id) => now.get(id) ?? 0 }).length > 0
       ) {
-        return;
+        return false;
       }
     }
-    dispatch({ type: 'step', step: 'review' });
+    return true;
   }
 
   async function send() {
@@ -168,6 +202,7 @@ function TradeComposer({
       );
       leaveTo('/trades?tab=sent');
     } catch (error) {
+      backToCompose.current = true;
       dispatch({ type: 'step', step: 'compose' });
       if (error instanceof ApiError && error.code === ERROR_CODES.CARDS_UNAVAILABLE) {
         setNotice(
@@ -221,7 +256,10 @@ function TradeComposer({
         <TradeReview
           state={state}
           sending={sending}
-          onBack={() => dispatch({ type: 'step', step: 'compose' })}
+          onBack={() => {
+            backToCompose.current = true;
+            dispatch({ type: 'step', step: 'compose' });
+          }}
           onSend={() => void send()}
         />
       ) : (
@@ -268,7 +306,9 @@ function TradeComposer({
               <Link href="/trades">Cancel</Link>
             </Button>
             <Button
+              ref={reviewButton}
               icon={ArrowRight}
+              loading={checking}
               disabled={problems.length > 0}
               aria-describedby={problems.length > 0 ? 'compose-problem' : undefined}
               onClick={() => void review()}

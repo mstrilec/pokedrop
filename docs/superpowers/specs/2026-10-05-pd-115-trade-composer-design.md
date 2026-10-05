@@ -109,8 +109,8 @@ dialog's scroll area); choosing a tile adds one copy (or one more) and keeps the
 A step of its own, not a dialog, so it fits a phone:
 
 - **You give Misty** — `2 × Charizard (BASE1 4)`, `50 coins`; an up-right arrow and the word *give*.
-- **Misty gives you** — the same, down-left arrow. An empty side reads *Nothing — a gift* (give side empty) or *Nothing in
-  return* (get side empty).
+- **Misty gives you** — the same, down-left arrow. An empty side reads *Nothing — a request* (give side empty) or
+  *Nothing in return — a gift* (get side empty).
 - **What happens:** *Your 3 cards lock until Misty answers, you cancel, or the offer expires.* (the window is the
   server's; the sent trade shows its `expiresAt`); *Misty's cards aren't checked now — the trade can only be accepted
   if Misty has them.*; in counter mode *Your counter-offer replaces Misty's offer, which closes as Countered.*

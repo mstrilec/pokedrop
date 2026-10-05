@@ -57,9 +57,11 @@ export class TradesService {
     }
     const recipient = await this.prisma.user.findUnique({
       where: { id: input.recipientId },
-      select: { id: true },
+      select: { id: true, suspendedAt: true },
     });
-    if (recipient === null) {
+    // A suspended account cannot answer: the offer would only lock the caller's cards until it
+    // expired. The same 404 as an unknown id, as the member search leaves them out too.
+    if (recipient === null || recipient.suspendedAt !== null) {
       throw new NotFoundException('User not found');
     }
     await this.assertTerms(user.id, input);
