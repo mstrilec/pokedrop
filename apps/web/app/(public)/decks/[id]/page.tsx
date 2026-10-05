@@ -10,7 +10,7 @@ import { serverApi } from '@/lib/api/server';
 // private deck is the same 404 as one that never existed. One request for the page and its title.
 const loadDeck = cache(async (id: string) => {
   try {
-    return await serverApi.call(deck(id));
+    return { deck: await serverApi.call(deck(id)), at: Date.now() };
   } catch (error) {
     if (error instanceof ApiError && error.statusCode === 404) return null;
     throw error;
@@ -20,12 +20,12 @@ const loadDeck = cache(async (id: string) => {
 export async function generateMetadata({ params }: PageProps<'/decks/[id]'>): Promise<Metadata> {
   const { id } = await params;
   const found = await loadDeck(id).catch(() => null);
-  return { title: found?.name ?? 'Deck' };
+  return { title: found?.deck.name ?? 'Deck' };
 }
 
 export default async function Page({ params }: PageProps<'/decks/[id]'>) {
   const { id } = await params;
   const found = await loadDeck(id);
   if (!found) notFound();
-  return <DeckPage id={id} initial={found} />;
+  return <DeckPage id={id} initial={found.deck} initialAt={found.at} />;
 }

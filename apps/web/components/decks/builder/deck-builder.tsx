@@ -51,28 +51,39 @@ function Builder({ deck }: { deck: DeckDetail }) {
   const draft = useDeckDraft((s) => s.draft);
   const dirty = useDeckDraft(isDirty);
   const reset = useDeckDraft((s) => s.reset);
+  const commit = useDeckDraft((s) => s.commit);
+  const basis = useDeckDraft((s) => s.basis);
   const { validation, stats, checkingCopies } = useDeckChecks(deck.rules.deckSize);
   const save = useSaveDeck(deck.id);
   const blocker = saveBlocker(draft, dirty);
   const total = draft.cards.reduce((sum, card) => sum + card.count, 0);
 
-  useUnsavedChanges(dirty && !gone, (leave) => setPendingLeave(() => leave));
+  useUnsavedChanges(dirty && !gone, (leave) => setPendingLeave(() => leave), '/decks');
+
+  // A newer server copy (another tab saved, or this page opened from a stale cache) replaces a
+  // clean draft; a dirty one is the user's and stays.
+  useEffect(() => {
+    if (!dirty && deck.updatedAt.getTime() > basis) reset(deck);
+  }, [deck, dirty, basis, reset]);
 
   async function submit(thenLeave?: () => void) {
     if (blocker !== null || save.isPending) return;
+    const sent = draft;
     try {
       const result = await save.mutateAsync({
-        name: draft.name.trim(),
-        format: draft.format,
-        ownedOnly: draft.ownedOnly,
-        cards: draft.cards,
+        name: sent.name.trim(),
+        format: sent.format,
+        ownedOnly: sent.ownedOnly,
+        cards: sent.cards,
       });
       queryClient.setQueryData(keys.decks.detail(deck.id), result);
+      // Invalidated counts still answer from the cache at once; the verdict needs fresh ones.
+      queryClient.removeQueries({ queryKey: keys.inventory.ownedAll });
       if (thenLeave) {
         thenLeave();
         return;
       }
-      reset(result, result.validation);
+      commit(result, result.validation, sent);
       toastSuccess(
         result.validation.valid
           ? 'Saved'

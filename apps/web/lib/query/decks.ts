@@ -57,11 +57,13 @@ export function useDeleteDeck() {
   });
 }
 
-export function useDeck(id: string, initial?: DeckDetail) {
+/** `initialAt` is when the server read `initial`: a page restored from the router's cache refetches. */
+export function useDeck(id: string, initial?: DeckDetail, initialAt?: number) {
   return useQuery({
     queryKey: keys.decks.detail(id),
     queryFn: () => api.call(deck(id)),
     initialData: initial,
+    initialDataUpdatedAt: initialAt,
     // A 404 is an answer (gone, or someone's private deck), not a failure to retry.
     retry: (failures, error) =>
       !(error instanceof ApiError && error.statusCode === 404) && failures < 2,

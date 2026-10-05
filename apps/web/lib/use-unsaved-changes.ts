@@ -24,9 +24,14 @@ function pushGuard(): void {
  * a navigation: closing or reloading the tab (`beforeunload`), a click on a link to another
  * page, and Back, through a sentinel history entry that `popstate` puts back. `onAttempt`
  * decides; calling the `leave` it is given goes on. The sentinel is removed when the page
- * stops being dirty, so one Back leaves after a save.
+ * stops being dirty, so one Back leaves after a save. When Back has nowhere to go — the page
+ * opened the tab — leaving goes to `fallback` instead.
  */
-export function useUnsavedChanges(dirty: boolean, onAttempt: (leave: Leave) => void): void {
+export function useUnsavedChanges(
+  dirty: boolean,
+  onAttempt: (leave: Leave) => void,
+  fallback = '/',
+): void {
   const router = useRouter();
   const attempt = useRef(onAttempt);
   useEffect(() => {
@@ -36,6 +41,7 @@ export function useUnsavedChanges(dirty: boolean, onAttempt: (leave: Leave) => v
   useEffect(() => {
     if (!dirty) return;
     let leaving = false;
+    let fallbackTimer: number | undefined;
 
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
       if (!leaving) event.preventDefault();
@@ -61,12 +67,19 @@ export function useUnsavedChanges(dirty: boolean, onAttempt: (leave: Leave) => v
       });
     };
 
-    const onPopState = () => {
-      if (leaving) return;
+    // Only a step back from the sentinel onto the page's own entry is Back. A fragment link (a
+    // skip link) adds an entry with no state, and stepping onto the sentinel stays on the page.
+    const onPopState = (event: PopStateEvent) => {
+      if (leaving || event.state === null || onGuardEntry()) return;
       pushGuard();
       attempt.current(() => {
         leaving = true;
+        const here = window.location.href;
         window.history.go(-2);
+        // Nothing two entries back: go(-2) does nothing, so leave to the fallback.
+        fallbackTimer = window.setTimeout(() => {
+          if (window.location.href === here) router.replace(fallback);
+        }, 500);
       });
     };
 
@@ -78,7 +91,8 @@ export function useUnsavedChanges(dirty: boolean, onAttempt: (leave: Leave) => v
       window.removeEventListener('beforeunload', onBeforeUnload);
       document.removeEventListener('click', onClick, true);
       window.removeEventListener('popstate', onPopState);
+      window.clearTimeout(fallbackTimer);
       if (!leaving && onGuardEntry()) window.history.back();
     };
-  }, [dirty, router]);
+  }, [dirty, router, fallback]);
 }

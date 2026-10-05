@@ -11,8 +11,8 @@ import { createStore } from 'zustand/vanilla';
 import { createStoreContext } from './context';
 
 // The deck being edited, before it is saved: the one place a card list is held outside
-// TanStack Query. Seeded once from the server's copy; later refetches of that copy (the
-// Public switch invalidates every deck query) never touch it. Only a save replaces it.
+// TanStack Query. Seeded from the server's copy; a newer copy replaces it only while it is
+// clean (`reset`), and a save replaces it only if nothing was edited meanwhile (`commit`).
 export type DeckDraft = {
   name: string;
   format: DeckFormat;
@@ -29,6 +29,8 @@ export interface DeckDraftStore {
   available: Record<string, number>;
   /** The server's verdict from the last save, shown until the next change. */
   verdict: DeckValidation | null;
+  /** `updatedAt` of the server copy `saved` came from, in ms. */
+  basis: number;
   add: (card: PlayableCard, available?: number) => void;
   remove: (cardId: CardId) => void;
   setCount: (cardId: CardId, count: number) => void;
@@ -36,7 +38,10 @@ export interface DeckDraftStore {
   setFormat: (format: DeckFormat) => void;
   setOwnedOnly: (ownedOnly: boolean) => void;
   learnAvailable: (counts: Record<string, number>) => void;
-  reset: (deck: DeckDetail, verdict?: DeckValidation) => void;
+  /** Start again from a server copy: the first one, or a newer one while the draft is clean. */
+  reset: (deck: DeckDetail) => void;
+  /** A save answered. `sent` is the draft it sent; edits made since stay, and stay dirty. */
+  commit: (deck: DeckDetail, verdict: DeckValidation, sent: DeckDraft) => void;
 }
 
 export function countIn(cards: DeckCardInput[], cardId: string): number {
@@ -88,6 +93,7 @@ export const [DeckDraftProvider, useDeckDraft] = createStoreContext(
         cardsById: cardsOf(deck),
         available: {},
         verdict: null,
+        basis: deck.updatedAt.getTime(),
         add: (card, available) =>
           set((s) => ({
             draft: {
@@ -108,14 +114,24 @@ export const [DeckDraftProvider, useDeckDraft] = createStoreContext(
         setFormat: (format) => edit(() => ({ format })),
         setOwnedOnly: (ownedOnly) => edit(() => ({ ownedOnly })),
         learnAvailable: (counts) => set((s) => ({ available: { ...s.available, ...counts } })),
-        reset: (next, verdict) =>
+        reset: (next) =>
           set({
             saved: draftOf(next),
             draft: draftOf(next),
             cardsById: cardsOf(next),
             available: {},
-            verdict: verdict ?? null,
+            verdict: null,
+            basis: next.updatedAt.getTime(),
           }),
+        commit: (next, verdict, sent) =>
+          set((s) => ({
+            saved: draftOf(next),
+            draft: s.draft === sent ? draftOf(next) : s.draft,
+            cardsById: { ...s.cardsById, ...cardsOf(next) },
+            available: {},
+            verdict: s.draft === sent ? verdict : null,
+            basis: next.updatedAt.getTime(),
+          })),
       };
     }),
 );
