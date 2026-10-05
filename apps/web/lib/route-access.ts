@@ -4,7 +4,6 @@ const PROTECTED_PREFIXES = [
   '/dashboard',
   '/packs',
   '/inventory',
-  '/sets',
   '/trades',
   '/settings',
   '/wallet',
@@ -12,7 +11,7 @@ const PROTECTED_PREFIXES = [
   '/admin',
 ];
 
-// /decks/:id is public; only the list needs a session. /cards is public entirely.
+// /decks/:id is public; only the list needs a session. /cards and /sets are public entirely.
 const PROTECTED_EXACT = ['/decks'];
 
 export function isProtected(pathname: string): boolean {

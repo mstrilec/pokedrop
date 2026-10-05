@@ -10,6 +10,7 @@ export const keys = {
   catalog: {
     all: ['catalog'],
     facets: ['catalog', 'facets'],
+    sets: ['catalog', 'sets'],
     search: (params: CardSearchParams = {}) => ['catalog', 'search', params],
     browse: (params: CardSearchParams = {}) => ['catalog', 'browse', params],
   },

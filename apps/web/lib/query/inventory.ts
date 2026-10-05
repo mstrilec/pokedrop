@@ -62,9 +62,10 @@ export function useOwnedCounts(pages: readonly (readonly string[])[], enabled: b
   });
 }
 
-export function useInventorySummary() {
+export function useInventorySummary(enabled = true) {
   return useQuery({
     queryKey: keys.inventory.summary,
     queryFn: () => api.call(inventorySummary()),
+    enabled,
   });
 }
