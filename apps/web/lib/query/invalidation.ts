@@ -10,6 +10,8 @@ export const mutationKeys = {
   cloneDeck: ['cloneDeck'],
   deleteDeck: ['deleteDeck'],
   saveDeck: ['saveDeck'],
+  acceptTrade: ['acceptTrade'],
+  declineTrade: ['declineTrade'],
 } as const;
 
 type MutationName = keyof typeof mutationKeys;
@@ -26,6 +28,16 @@ export const INVALIDATES: Record<MutationName, readonly QueryKey[]> = {
   deleteDeck: [keys.decks.all],
   // A save's verdict counts the owner's copies; the builder's counts follow it.
   saveDeck: [keys.decks.all, keys.inventory.ownedAll],
+  // Settlement moves cards and coins both ways; a deck's verdict counts the copies it moved.
+  acceptTrade: [
+    keys.trades.all,
+    keys.inventory.all,
+    keys.wallet.all,
+    keys.me,
+    keys.decks.all,
+    keys.notifications.all,
+  ],
+  declineTrade: [keys.trades.all, keys.notifications.all],
 };
 
 export function invalidatedBy(mutationKey: QueryKey | undefined): readonly QueryKey[] {

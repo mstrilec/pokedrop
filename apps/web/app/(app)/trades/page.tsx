@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
-import { PagePlaceholder } from '@/components/page-placeholder';
+import { TradesInbox } from '@/components/trades/trades-inbox';
 
 export const metadata: Metadata = { title: 'Trades' };
 
-export default function Page() {
-  return <PagePlaceholder title="Trades" ticket="PD-114" />;
+export default function TradesPage() {
+  return <TradesInbox />;
 }

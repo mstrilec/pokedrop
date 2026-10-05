@@ -36,7 +36,11 @@ export const keys = {
     mine: ['decks', 'mine'],
     detail: (id: string) => ['decks', 'detail', id],
   },
-  trades: { all: ['trades'] },
+  trades: {
+    all: ['trades'],
+    list: (tab: string) => ['trades', 'list', tab],
+    count: (tab: string) => ['trades', 'count', tab],
+  },
   notifications: {
     all: ['notifications'],
     unreadCount: ['notifications', 'unread-count'],
