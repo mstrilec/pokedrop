@@ -80,5 +80,7 @@ export function useSaveDeck(id: string) {
     mutationKey: mutationKeys.saveDeck,
     mutationFn: (body: DeckDraftBody) => api.call(updateDeck(id, body)),
     meta: { toast: false },
+    // Offline, fail and say so rather than pause: the builder keeps the draft and Save stays.
+    networkMode: 'always',
   });
 }
