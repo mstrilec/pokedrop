@@ -5,6 +5,10 @@ export const mutationKeys = {
   openPack: ['openPack'],
   markNotificationRead: ['markNotificationRead'],
   markAllNotificationsRead: ['markAllNotificationsRead'],
+  createDeck: ['createDeck'],
+  updateDeck: ['updateDeck'],
+  cloneDeck: ['cloneDeck'],
+  deleteDeck: ['deleteDeck'],
 } as const;
 
 type MutationName = keyof typeof mutationKeys;
@@ -15,6 +19,10 @@ export const INVALIDATES: Record<MutationName, readonly QueryKey[]> = {
   openPack: [keys.me, keys.wallet.all, keys.inventory.all, keys.packs.all],
   markNotificationRead: [keys.notifications.all],
   markAllNotificationsRead: [keys.notifications.all],
+  createDeck: [keys.decks.all],
+  updateDeck: [keys.decks.all],
+  cloneDeck: [keys.decks.all],
+  deleteDeck: [keys.decks.all],
 };
 
 export function invalidatedBy(mutationKey: QueryKey | undefined): readonly QueryKey[] {

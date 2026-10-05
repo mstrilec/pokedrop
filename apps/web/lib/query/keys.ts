@@ -30,7 +30,10 @@ export const keys = {
     history: ['packs', 'history'],
     templates: ['packs', 'templates'],
   },
-  decks: { all: ['decks'] },
+  decks: {
+    all: ['decks'],
+    mine: ['decks', 'mine'],
+  },
   trades: { all: ['trades'] },
   notifications: {
     all: ['notifications'],
