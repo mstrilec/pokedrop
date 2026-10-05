@@ -13,6 +13,7 @@ export const keys = {
     sets: ['catalog', 'sets'],
     search: (params: CardSearchParams = {}) => ['catalog', 'search', params],
     browse: (params: CardSearchParams = {}) => ['catalog', 'browse', params],
+    card: (id: string) => ['catalog', 'card', id],
   },
   prices: { all: ['prices'] },
   inventory: {
@@ -40,13 +41,18 @@ export const keys = {
     all: ['trades'],
     list: (tab: string) => ['trades', 'list', tab],
     count: (tab: string) => ['trades', 'count', tab],
+    detail: (id: string) => ['trades', 'detail', id],
   },
   notifications: {
     all: ['notifications'],
     unreadCount: ['notifications', 'unread-count'],
     list: (params: { unread: boolean }) => ['notifications', 'list', params],
   },
-  profiles: { all: ['profiles'] },
+  profiles: {
+    all: ['profiles'],
+    detail: (id: string) => ['profiles', 'detail', id],
+    search: (q: string) => ['profiles', 'search', q],
+  },
   admin: { all: ['admin'] },
 } as const satisfies Record<
   string,

@@ -1,6 +1,12 @@
 import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api/browser';
-import { type CardSearchParams, facets, searchCards, sets } from '@/lib/api/endpoints/catalog';
+import {
+  card,
+  type CardSearchParams,
+  facets,
+  searchCards,
+  sets,
+} from '@/lib/api/endpoints/catalog';
 import { keys } from './keys';
 
 // Global counts over the whole mirror; the catalog root's 30-minute stale time applies.
@@ -31,5 +37,14 @@ export function useCatalogBrowse(filters: CatalogFilters) {
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
     gcTime: 0,
+  });
+}
+
+export function useCard(id: string | undefined) {
+  return useQuery({
+    queryKey: keys.catalog.card(id ?? ''),
+    queryFn: () => api.call(card(id ?? '')),
+    enabled: id !== undefined,
+    retry: false,
   });
 }

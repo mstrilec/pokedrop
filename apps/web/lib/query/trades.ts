@@ -1,7 +1,16 @@
 import type { TradeTab } from '@pokedrop/shared';
 import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api/browser';
-import { acceptTrade, declineTrade, trades } from '@/lib/api/endpoints/trades';
+import {
+  acceptTrade,
+  counterTrade,
+  declineTrade,
+  type ProposeTradeBody,
+  proposeTrade,
+  trade,
+  trades,
+  type TradeTermsBody,
+} from '@/lib/api/endpoints/trades';
 import { mutationKeys } from './invalidation';
 import { keys } from './keys';
 
@@ -34,5 +43,31 @@ export function useDeclineTrade() {
   return useMutation({
     mutationKey: mutationKeys.declineTrade,
     mutationFn: (id: string) => api.call(declineTrade(id)),
+  });
+}
+
+export function useTrade(id: string | undefined) {
+  return useQuery({
+    queryKey: keys.trades.detail(id ?? ''),
+    queryFn: () => api.call(trade(id ?? '')),
+    enabled: id !== undefined,
+    retry: false,
+  });
+}
+
+export function useProposeTrade() {
+  return useMutation({
+    mutationKey: mutationKeys.proposeTrade,
+    mutationFn: (body: ProposeTradeBody) => api.call(proposeTrade(body)),
+    meta: { toast: false },
+  });
+}
+
+export function useCounterTrade() {
+  return useMutation({
+    mutationKey: mutationKeys.counterTrade,
+    mutationFn: ({ id, body }: { id: string; body: TradeTermsBody }) =>
+      api.call(counterTrade(id, body)),
+    meta: { toast: false },
   });
 }

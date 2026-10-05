@@ -12,6 +12,8 @@ export const mutationKeys = {
   saveDeck: ['saveDeck'],
   acceptTrade: ['acceptTrade'],
   declineTrade: ['declineTrade'],
+  proposeTrade: ['proposeTrade'],
+  counterTrade: ['counterTrade'],
 } as const;
 
 type MutationName = keyof typeof mutationKeys;
@@ -38,6 +40,9 @@ export const INVALIDATES: Record<MutationName, readonly QueryKey[]> = {
     keys.notifications.all,
   ],
   declineTrade: [keys.trades.all, keys.notifications.all],
+  // The offered copies are locked now; the inbox and its counts change.
+  proposeTrade: [keys.trades.all, keys.inventory.all, keys.notifications.all],
+  counterTrade: [keys.trades.all, keys.inventory.all, keys.notifications.all],
 };
 
 export function invalidatedBy(mutationKey: QueryKey | undefined): readonly QueryKey[] {
