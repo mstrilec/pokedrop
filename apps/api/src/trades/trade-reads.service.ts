@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma, TradeStatus } from '@prisma/client';
 import {
   TradeDetailSchema,
@@ -13,6 +13,7 @@ import {
 import { CARD_SUMMARY_SELECT, toCardSummary } from '../common/card-summary.js';
 import { decodeNewestCursor, encodeNewestCursor } from '../common/newest-cursor.js';
 import type { AuthUser } from '../common/request-auth.js';
+import { APP_CONFIG, type AppConfig } from '../config/index.js';
 import { PrismaService } from '../prisma/index.js';
 
 const PARTY_SELECT = { id: true, displayName: true, avatarUrl: true } satisfies Prisma.UserSelect;
@@ -48,7 +49,10 @@ const CLOSED: TradeStatus[] = ['ACCEPTED', 'DECLINED', 'COUNTERED', 'CANCELLED',
 
 @Injectable()
 export class TradeReadsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
+  ) {}
 
   async inbox(user: AuthUser, query: TradeInboxQuery): Promise<TradePage> {
     const cursor = query.cursor === undefined ? null : decodeNewestCursor(query.cursor);
@@ -84,7 +88,7 @@ export class TradeReadsService {
     const last = page.at(-1);
 
     return TradePageSchema.parse({
-      items: page.map((row) => toView(row, user.id)),
+      items: page.map((row) => toView(row, user.id, this.config.trades.expiryDays)),
       pageSize: query.pageSize,
       total,
       nextCursor:
@@ -135,7 +139,11 @@ export class TradeReadsService {
         : [];
     });
 
-    return TradeDetailSchema.parse({ ...toView(row, viewerId), timeline, chain });
+    return TradeDetailSchema.parse({
+      ...toView(row, viewerId, this.config.trades.expiryDays),
+      timeline,
+      chain,
+    });
   }
 
   /** Both directions of the counter list: the trades this one replaced and the ones that replaced it. */
@@ -174,7 +182,9 @@ function tabScope(userId: string, tab: TradeTab): Prisma.TradeWhereInput {
   }
 }
 
-function toView(row: ViewRow, viewerId: string | null) {
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function toView(row: ViewRow, viewerId: string | null, expiryDays: number) {
   const { initiator, recipient, items, ...trade } = row;
   const role =
     viewerId === initiator.id ? 'initiator' : viewerId === recipient.id ? 'recipient' : null;
@@ -184,6 +194,8 @@ function toView(row: ViewRow, viewerId: string | null) {
     recipient,
     role,
     items: items.map((item) => ({ ...item, card: toCardSummary(item.card) })),
+    expiresAt:
+      trade.status === 'PENDING' ? new Date(trade.createdAt.getTime() + expiryDays * DAY_MS) : null,
   };
 }
 

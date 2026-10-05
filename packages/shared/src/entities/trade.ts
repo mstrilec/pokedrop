@@ -130,7 +130,11 @@ export const TradeViewItemSchema = TradeItemSchema.omit({ tradeId: true }).exten
 });
 export type TradeViewItem = z.infer<typeof TradeViewItemSchema>;
 
-/** `role` is the caller's side of the trade; null when an admin reads it. */
+/**
+ * `role` is the caller's side of the trade; null when an admin reads it. `expiresAt` is when a
+ * `PENDING` trade becomes due for the expiry job (`createdAt` + `TRADE_EXPIRY_DAYS`; the hourly
+ * job closes it within the hour after); null once it is closed.
+ */
 export const TradeViewSchema = TradeSchema.omit({
   initiatorId: true,
   recipientId: true,
@@ -140,6 +144,7 @@ export const TradeViewSchema = TradeSchema.omit({
   recipient: TradePartySchema,
   role: z.enum(['initiator', 'recipient']).nullable(),
   items: z.array(TradeViewItemSchema),
+  expiresAt: z.coerce.date().nullable(),
 });
 export type TradeView = z.infer<typeof TradeViewSchema>;
 
