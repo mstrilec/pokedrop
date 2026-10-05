@@ -5,8 +5,12 @@ import {
   type MyProfile,
   type PublicProfile,
   type UpdateMyProfile,
+  USER_SEARCH_LIMIT,
+  UserSearchResultSchema,
+  type UserSearchResult,
 } from '@pokedrop/shared';
 import { CARD_SUMMARY_SELECT, toCardSummary } from '../common/card-summary.js';
+import { escapeLike } from '../common/escape-like.js';
 import { InventoryService } from '../inventory/index.js';
 import { PrismaService } from '../prisma/index.js';
 
@@ -29,6 +33,34 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly inventory: InventoryService,
   ) {}
+
+  /**
+   * Collectors whose display name contains `q`, an exact name first. Never the caller, never a
+   * suspended account, and only the public fields — the trade composer's counterparty search.
+   */
+  async search(viewerId: string, q: string): Promise<UserSearchResult> {
+    const where = { id: { not: viewerId }, suspendedAt: null };
+    const select = { id: true, displayName: true, avatarUrl: true } as const;
+    const [exact, partial] = await Promise.all([
+      this.prisma.user.findMany({
+        // Prisma reads an insensitive `equals` as ILIKE, so its wildcards need escaping too.
+        where: { ...where, displayName: { equals: escapeLike(q), mode: 'insensitive' } },
+        select,
+        orderBy: { id: 'asc' },
+        take: USER_SEARCH_LIMIT,
+      }),
+      this.prisma.user.findMany({
+        where: { ...where, displayName: { contains: escapeLike(q), mode: 'insensitive' } },
+        select,
+        orderBy: [{ displayName: 'asc' }, { id: 'asc' }],
+        take: USER_SEARCH_LIMIT,
+      }),
+    ]);
+    const seen = new Set(exact.map((user) => user.id));
+    return UserSearchResultSchema.parse(
+      [...exact, ...partial.filter((user) => !seen.has(user.id))].slice(0, USER_SEARCH_LIMIT),
+    );
+  }
 
   async me(userId: string): Promise<MyProfile> {
     const user = await this.prisma.user.findUniqueOrThrow({

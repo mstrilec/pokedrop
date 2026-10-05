@@ -3,6 +3,7 @@ import { RoleSchema } from '../enums.js';
 import { CurrencyTransactionIdSchema, UserIdSchema } from '../primitives/id.js';
 import { PaginationQuerySchema, pageOf } from '../primitives/pagination.js';
 import { InventoryCardSchema, InventorySummarySchema } from './inventory.js';
+import { TradePartySchema } from './trade.js';
 
 export const UserSchema = z.object({
   id: UserIdSchema,
@@ -90,6 +91,22 @@ export const PublicProfileSchema = z.object({
   completion: InventorySummarySchema.pick({ uniqueCards: true, setCompletion: true }).optional(),
 });
 export type PublicProfile = z.infer<typeof PublicProfileSchema>;
+
+/** A member's name search for a trade counterparty: only what a public profile shows. */
+export const UserSearchQuerySchema = z.object({
+  q: z
+    .string()
+    .trim()
+    .min(2)
+    .max(64)
+    .refine((value) => !value.includes('\u0000'), 'must not contain a NUL character'),
+});
+export type UserSearchQuery = z.infer<typeof UserSearchQuerySchema>;
+
+export const USER_SEARCH_LIMIT = 10;
+
+export const UserSearchResultSchema = z.array(TradePartySchema).max(USER_SEARCH_LIMIT);
+export type UserSearchResult = z.infer<typeof UserSearchResultSchema>;
 
 export const AdminUserListQuerySchema = z.object({
   q: z.string().trim().min(1).max(100).optional(),
