@@ -734,7 +734,7 @@ All four collections default empty; a trade with nothing in any of them is 400 "
 
 Newest first by a keyset cursor over `(createdAt, id)`, the same opaque cursor as the pack history; one that does not decode is a 400 `Invalid cursor`, an unknown tab a 400. `total` is the tab's count. Each tab is one index-backed query: `incoming` and `sent` are an equality on `(recipientId, status)` / `(initiatorId, status)`, and `completed` and `all` are a `BitmapOr` of both composite indexes — `completed` lists the five closed statuses explicitly rather than `<> 'PENDING'`, so status stays an index condition.
 
-Every row carries both parties as `{ id, displayName, avatarUrl }`, the caller's `role` (`initiator` or `recipient`), the coins on each side, `counteredTradeId`, and the items with the inventory's slim card, so the inbox renders without a request per card:
+Every row carries both parties as `{ id, displayName, avatarUrl }`, the caller's `role` (`initiator` or `recipient`), the coins on each side, `counteredTradeId`, `expiresAt`, and the items with the inventory's slim card, so the inbox renders without a request per card:
 
 ```json
 {
@@ -743,9 +743,11 @@ Every row carries both parties as `{ id, displayName, avatarUrl }`, the caller's
   "recipient": { "id": "…", "displayName": "Misty", "avatarUrl": null },
   "currencyFromInitiator": 0, "currencyFromRecipient": 0, "counteredTradeId": null,
   "items": [{ "id": "…", "side": "OFFERED", "cardId": "base1-4", "quantity": 1, "card": { "name": "Charizard", "…": "…" } }],
-  "createdAt": "…", "resolvedAt": "…"
+  "createdAt": "…", "resolvedAt": "…", "expiresAt": null
 }
 ```
+
+**`expiresAt`** (since PD-114) is when a `PENDING` trade becomes due for the expiry job — `createdAt` + `TRADE_EXPIRY_DAYS` (see *Expiry*), computed by the API so a client never copies the setting; the hourly job closes a due trade within the hour after. It is `null` on every other status. It rides on every trade view: the inbox, the detail, the admin detail. Measured 2026-10-05: three pending trades created `2026-10-05T08:32`, `…08:32` and `2026-10-04T18:15` answered `2026-10-12T08:32`, `…08:32` and `2026-10-11T18:15`; the closed ones `null`.
 
 **`GET /trades/:id`** adds `timeline` and `chain`. A trade the caller is not a party to is 404 `Trade not found`, the same as an id that does not exist. Admins read any trade through **`GET /admin/trades/:id`** — the same body with `role: null` — rather than through a bypass on the member route, which still answers an admin who is not a party with 404.
 

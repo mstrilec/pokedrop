@@ -315,3 +315,20 @@ So the client may show fewer cards than the server will return, never others. **
 - `react-hooks/refs` fails `drag.setNodeRef` on the object `useDraggable` returns; destructure it. `react-hooks/incompatible-library` fires for `useVirtualizer` (not for `useWindowVirtualizer`); the React Compiler is not enabled.
 - A missing or private deck answers the not-found page with `noindex` but HTTP 200: `(public)/loading.tsx` makes every page in the group stream, so the status is sent before the page runs.
 - A TanStack Query mutation pauses while offline by default; a save that should fail visibly needs `networkMode: 'always'`.
+
+## Trades inbox (PD-114)
+
+`/trades` (`components/trades/trades-inbox.tsx`): the member's trades in four tabs — *All*, *Incoming*, *Sent*, *Completed* — kept in `?tab=` (`useUrlTab`), so each is a link and survives a reload. Each tab is `useTrades(tab)`, an infinite query over the API's keyset pages (24 a page, *Show more* beyond); *Incoming* and *Sent* carry their counts (`useTradeCount`, a one-row request read for `total`), which the header repeats: *2 waiting on you · 3 waiting on others*.
+
+- **A row** is the counterparty (avatar, name, *IN* or *OUT*), the age, the two sides in words from the caller's side — *You give* / *You get*: up to two card names with counts, *n more cards*, coins — the status badge, and for a pending trade its expiry. The row links to the trade (`/trades/:id`, PD-116).
+- **The expiry is the server's.** `GET /trades` carries `expiresAt` on a pending trade — `createdAt` + `TRADE_EXPIRY_DAYS`, computed by the API (API.md, *Reading trades*) — so the countdown cannot drift from the window the expiry job uses. It reads *Expires in 6d 14h*, then *5h 12m*, then minutes, updated once a minute by one shared clock; past due it says *Expiring now*, because the hourly job closes a due trade within the hour after.
+- **Accept and decline** sit on incoming pending rows, each behind a dialog that restates both sides (*You give Psychic Energy / You get 30 coins*; the danger tone and *Cancel* first for a decline). Accepting invalidates trades, the inventory, the wallet, the session (`me`, the topbar balance), decks (their verdicts count copies) and notifications; declining invalidates trades and notifications. The API's refusals (a trade no longer pending, coins or cards short) come back through the mutation cache's toast.
+- **Empty states** say what each tab would hold, with *Propose a trade* on *All* and *Sent*.
+
+**Measured 2026-10-05** under `next dev` against the API: the second test member proposed two trades to the first (30 and 50 coins for a *Psychic Energy* and a *Mewtwo*), then:
+
+- `/trades?tab=incoming`: *Incoming 2*, *Sent 3*, the header *2 waiting on you · 3 waiting on others*; both rows *IN · just now · You give Psychic Energy · You get 30 coins · Expires in 7d 0h · Pending · Accept · Decline*; after a reload still *Incoming*; Enter on *Sent* → `/trades?tab=sent`;
+- the three sent trades' countdowns against the API's `expiresAt` at 17:44 UTC: `2026-10-12T08:32` → *Expires in 6d 14h* (twice), `2026-10-11T18:15` → *Expires in 6d 0h*;
+- *Accept* on the *Psychic Energy* row: the dialog restating both sides with focus on *Cancel*; *Accept trade*: the toast, the row gone from *Incoming* (*Incoming 1*), the topbar balance *4,100 → 4,130* without a reload, `/users/me` and `/inventory/owned` refetched; the card was in the other member's inventory; on *Completed* the row reads *Accepted*;
+- *Decline* on the other: Escape closed the dialog with no request; *Decline trade*: the toast, *Nothing waiting on you* on *Incoming*, the row *Declined* on *Completed*; a member with no sent trades: *No offers out*;
+- at 375 px: `scrollWidth` 375, a 64-character display name cut with an ellipsis; no console errors.
