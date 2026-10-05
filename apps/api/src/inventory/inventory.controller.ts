@@ -1,12 +1,12 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import type { InventoryPage, InventorySummary } from '@pokedrop/shared';
+import type { InventoryPage, InventorySummary, OwnedCounts } from '@pokedrop/shared';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../common/request-auth.js';
-import { InventoryQueryDto } from './inventory.dto.js';
+import { InventoryQueryDto, OwnedQueryDto } from './inventory.dto.js';
 import { InventoryService } from './inventory.service.js';
 import { Doc, returns } from '../common/openapi.js';
-import { InventoryPageSchema, InventorySummarySchema } from '@pokedrop/shared';
+import { InventoryPageSchema, InventorySummarySchema, OwnedCountsSchema } from '@pokedrop/shared';
 
 @ApiTags('inventory')
 @Controller('inventory')
@@ -29,5 +29,14 @@ export class InventoryController {
   @Get('summary')
   summary(@CurrentUser() user: AuthUser): Promise<InventorySummary> {
     return this.inventory.summary(user.id);
+  }
+
+  @Doc(
+    'How many of each given card the caller holds; absent ids are not owned',
+    returns('OwnedCounts', OwnedCountsSchema),
+  )
+  @Get('owned')
+  owned(@CurrentUser() user: AuthUser, @Query() query: OwnedQueryDto): Promise<OwnedCounts> {
+    return this.inventory.owned(user.id, query.cardIds);
   }
 }

@@ -8,6 +8,8 @@ import {
   type InventoryPage,
   type InventoryQuery,
   type InventorySummary,
+  OwnedCountsSchema,
+  type OwnedCounts,
 } from '@pokedrop/shared';
 import { domainError } from '../common/errors/domain-error.js';
 import { toNumber } from '../common/decimal.js';
@@ -222,6 +224,22 @@ export class InventoryService {
         WHERE quantity = 0 AND "lockedQuantity" = 0
           AND ("userId", "cardId") IN (${Prisma.join(givers)})`;
     }
+  }
+
+  /** How many of each card the caller holds: one indexed read for a catalog page's badges. */
+  async owned(userId: string, cardIds: string[]): Promise<OwnedCounts> {
+    const rows = await this.prisma.inventoryItem.findMany({
+      where: { userId, cardId: { in: cardIds }, quantity: { gt: 0 } },
+      select: { cardId: true, quantity: true, lockedQuantity: true },
+      orderBy: { cardId: 'asc' },
+    });
+    return OwnedCountsSchema.parse(
+      rows.map((row) => ({
+        cardId: row.cardId,
+        quantity: row.quantity,
+        availableQuantity: availableQuantity(row),
+      })),
+    );
   }
 
   async availableQuantities(

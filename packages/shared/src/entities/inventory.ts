@@ -82,3 +82,26 @@ export type InventoryEntry = z.infer<typeof InventoryEntrySchema>;
 
 export const InventoryPageSchema = cursorPageOf(InventoryEntrySchema);
 export type InventoryPage = z.infer<typeof InventoryPageSchema>;
+
+/** `cardIds` is comma-separated, 1–100 distinct ids: one catalog page's worth. */
+export const OwnedQuerySchema = z.object({
+  cardIds: z
+    .string()
+    .min(1)
+    .transform((value) => [
+      ...new Set(
+        value
+          .split(',')
+          .map((id) => id.trim())
+          .filter(Boolean),
+      ),
+    ])
+    .pipe(z.array(CardIdSchema).min(1).max(100)),
+});
+export type OwnedQuery = z.infer<typeof OwnedQuerySchema>;
+
+/** Only cards the caller holds; an absent id means none owned. */
+export const OwnedCountsSchema = z.array(
+  InventoryItemSchema.pick({ cardId: true, quantity: true, availableQuantity: true }),
+);
+export type OwnedCounts = z.infer<typeof OwnedCountsSchema>;
