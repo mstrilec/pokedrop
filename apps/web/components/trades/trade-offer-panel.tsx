@@ -70,7 +70,7 @@ function Side({
     <section
       aria-labelledby={headingId}
       className={cn(
-        'flex flex-col gap-4 rounded-card border bg-surface p-4',
+        'flex min-w-0 flex-col gap-4 rounded-card border bg-surface p-4',
         give ? 'border-red/25' : 'border-grn/25',
       )}
     >
@@ -84,7 +84,7 @@ function Side({
         >
           <Arrow className="size-4" />
         </span>
-        {data.label}
+        <span className="min-w-0 wrap-anywhere">{data.label}</span>
       </h3>
       <ul className="grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-3">
         {data.cards.map((line) => (
