@@ -10,8 +10,10 @@ import {
   type SortingState,
   useReactTable,
 } from '@tanstack/react-table';
+import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
-import { type KeyboardEvent, type ReactNode, useState } from 'react';
+import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react';
+import { useDocumentTop } from '@/components/collection/layout-metrics';
 import { cn } from '@/lib/utils';
 import { Skeleton } from './skeleton';
 
@@ -41,6 +43,8 @@ type DataTableProps<T> = {
   skeletonRows?: number;
   empty?: ReactNode;
   dense?: boolean;
+  /** Render only the rows in view, for lists of thousands; the window must be what scrolls. */
+  virtualize?: { estimateRowHeight: number; totalRows?: number; onEndReached?: () => void };
   className?: string;
 };
 
@@ -58,6 +62,7 @@ export function DataTable<T>({
   skeletonRows = 5,
   empty,
   dense = false,
+  virtualize,
   className,
 }: DataTableProps<T>) {
   const [localSorting, setLocalSorting] = useState<SortingState>([]);
@@ -80,6 +85,21 @@ export function DataTable<T>({
   const rows = table.getRowModel().rows;
   const cellPad = dense ? 'px-4 py-2' : 'px-5 py-3';
 
+  const body = useRef<HTMLDivElement>(null);
+  const bodyTop = useDocumentTop(body);
+  const virtualizer = useWindowVirtualizer({
+    count: virtualize && !loading ? rows.length : 0,
+    estimateSize: () => virtualize?.estimateRowHeight ?? 48,
+    overscan: 8,
+    scrollMargin: bodyTop,
+  });
+  const virtualRows = virtualize ? virtualizer.getVirtualItems() : [];
+  const lastRendered = virtualRows.at(-1)?.index ?? -1;
+  const onEndReached = virtualize?.onEndReached;
+  useEffect(() => {
+    if (onEndReached && rows.length > 0 && lastRendered >= rows.length - 10) onEndReached();
+  }, [onEndReached, lastRendered, rows.length]);
+
   function activate(event: KeyboardEvent<HTMLDivElement>, row: T) {
     if (event.target !== event.currentTarget) return;
     if (event.key === 'Enter' || event.key === ' ') {
@@ -88,12 +108,48 @@ export function DataTable<T>({
     }
   }
 
+  function renderRow(row: (typeof rows)[number], index: number) {
+    return (
+      <div
+        key={row.id}
+        role="row"
+        aria-rowindex={index + 2}
+        data-index={index}
+        ref={virtualize ? virtualizer.measureElement : undefined}
+        tabIndex={onRowClick ? 0 : undefined}
+        onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+        onKeyDown={onRowClick ? (event) => activate(event, row.original) : undefined}
+        className={cn(
+          'grid items-center gap-3 border-b border-bd transition-colors last:border-b-0 hover:bg-surface-2',
+          onRowClick && 'focus-ring cursor-pointer',
+        )}
+        style={{ gridTemplateColumns: template }}
+      >
+        {row.getVisibleCells().map((cell) => (
+          <div
+            key={cell.id}
+            role="cell"
+            className={cn(
+              'min-w-0 text-small text-tx',
+              cellPad,
+              cell.column.columnDef.meta?.numeric && 'text-right font-mono',
+            )}
+          >
+            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const margin = virtualizer.options.scrollMargin;
+
   return (
     <div
       role="table"
       aria-label={label}
       aria-busy={loading || undefined}
-      aria-rowcount={loading ? -1 : rows.length + 1}
+      aria-rowcount={loading ? -1 : (virtualize?.totalRows ?? rows.length) + 1}
       className={cn('overflow-x-auto rounded-card border border-bd bg-surface', className)}
     >
       <div role="rowgroup" className="min-w-fit">
@@ -143,7 +199,7 @@ export function DataTable<T>({
           </div>
         ))}
       </div>
-      <div role="rowgroup" className="min-w-fit">
+      <div role="rowgroup" ref={body} className="min-w-fit">
         {loading ? (
           Array.from({ length: skeletonRows }, (_, i) => (
             <div
@@ -166,35 +222,22 @@ export function DataTable<T>({
               {empty ?? 'Nothing here yet.'}
             </div>
           </div>
-        ) : (
-          rows.map((row) => (
+        ) : virtualize ? (
+          <>
+            <div aria-hidden style={{ height: (virtualRows[0]?.start ?? margin) - margin }} />
+            {virtualRows.map((item) => {
+              const row = rows[item.index];
+              return row ? renderRow(row, item.index) : null;
+            })}
             <div
-              key={row.id}
-              role="row"
-              tabIndex={onRowClick ? 0 : undefined}
-              onClick={onRowClick ? () => onRowClick(row.original) : undefined}
-              onKeyDown={onRowClick ? (event) => activate(event, row.original) : undefined}
-              className={cn(
-                'grid items-center gap-3 border-b border-bd transition-colors last:border-b-0 hover:bg-surface-2',
-                onRowClick && 'focus-ring cursor-pointer',
-              )}
-              style={{ gridTemplateColumns: template }}
-            >
-              {row.getVisibleCells().map((cell) => (
-                <div
-                  key={cell.id}
-                  role="cell"
-                  className={cn(
-                    'min-w-0 text-small text-tx',
-                    cellPad,
-                    cell.column.columnDef.meta?.numeric && 'text-right font-mono',
-                  )}
-                >
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </div>
-              ))}
-            </div>
-          ))
+              aria-hidden
+              style={{
+                height: virtualizer.getTotalSize() - ((virtualRows.at(-1)?.end ?? margin) - margin),
+              }}
+            />
+          </>
+        ) : (
+          rows.map((row, index) => renderRow(row, index))
         )}
       </div>
     </div>

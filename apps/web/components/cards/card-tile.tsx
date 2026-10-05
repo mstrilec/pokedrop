@@ -12,6 +12,8 @@ type CardTileProps = {
   card: CardView;
   /** Copies owned: omit where ownership is not the question, 0 locks the tile. */
   owned?: number;
+  /** Of `owned`, how many are promised to pending trades. */
+  locked?: number;
   /** Where the tile leads; defaults to the card's page. Ignored with `onSelect`. */
   href?: string;
   /** Makes the tile a toggle button instead of a link (pickers, the trade composer). */
@@ -22,10 +24,19 @@ type CardTileProps = {
   className?: string;
 };
 
-function spokenName(card: CardView, rarity: string, owned: number | undefined): string {
+function spokenName(
+  card: CardView,
+  rarity: string,
+  owned: number | undefined,
+  locked: number,
+): string {
   const parts = [card.name, rarity];
   if (owned === 0) parts.push('not owned');
-  else if (owned !== undefined) parts.push(`${owned} owned`);
+  else if (owned !== undefined && locked >= owned) {
+    parts.push(`${owned} owned, all locked in pending trades`);
+  } else if (owned !== undefined && locked > 0) {
+    parts.push(`${owned} owned, ${locked} locked in pending trades`);
+  } else if (owned !== undefined) parts.push(`${owned} owned`);
   if (card.priceUsd !== null) parts.push(formatUsd(card.priceUsd));
   return parts.join(', ');
 }
@@ -33,6 +44,7 @@ function spokenName(card: CardView, rarity: string, owned: number | undefined): 
 function CardTileImpl({
   card,
   owned,
+  locked = 0,
   href,
   onSelect,
   selected = false,
@@ -42,20 +54,21 @@ function CardTileImpl({
   const tier = rarityTier(card.rarity);
   const style = RARITY_STYLES[tier];
   const rarityLabel = card.rarity ?? tier;
-  const locked = owned === 0;
+  const unavailable = owned === 0 || (owned !== undefined && locked >= owned);
 
   const body: ReactNode = (
     <>
       <div className="relative aspect-[5/7] overflow-hidden">
-        <div className={cn('absolute inset-0', locked && 'grayscale')}>
+        <div className={cn('absolute inset-0', unavailable && 'grayscale')}>
           <CardArt card={card} sizes={sizes} />
         </div>
         {owned !== undefined && owned > 0 ? (
           <span className="absolute top-2 right-2 rounded-tag bg-black/50 px-1.5 py-0.5 font-mono text-[10px] leading-4 font-semibold text-white">
             ×{owned}
+            {locked > 0 && locked < owned ? ` · ${locked} locked` : null}
           </span>
         ) : null}
-        {locked ? (
+        {unavailable ? (
           <div className="absolute inset-0 flex items-center justify-center bg-bg/60">
             <Lock className="size-4.5 text-white/55" />
           </div>
@@ -83,7 +96,7 @@ function CardTileImpl({
     className,
   );
   const rarityVar = { '--rarity': style.color } as CSSProperties;
-  const label = spokenName(card, rarityLabel, owned);
+  const label = spokenName(card, rarityLabel, owned, locked);
 
   return onSelect ? (
     <button

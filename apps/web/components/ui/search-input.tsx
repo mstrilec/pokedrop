@@ -8,6 +8,8 @@ import { Spinner } from './spinner';
 type SearchInputProps = {
   value: string;
   onSearch: (query: string) => void;
+  /** Every text the field holds, typed or adopted, before the debounce. */
+  onInput?: (text: string) => void;
   label?: string;
   placeholder?: string;
   debounceMs?: number;
@@ -27,6 +29,7 @@ function spoken(count: number): string {
 export function SearchInput({
   value,
   onSearch,
+  onInput,
   label = 'Search cards',
   placeholder = 'Search…',
   debounceMs = 300,
@@ -48,8 +51,9 @@ export function SearchInput({
     if (value !== emitted.current) {
       emitted.current = value;
       setText(value);
+      onInput?.(value);
     }
-  }, [value]);
+  }, [value, onInput]);
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
@@ -68,6 +72,7 @@ export function SearchInput({
 
   function clear() {
     setText('');
+    onInput?.('');
     emit('', true);
     input.current?.focus();
   }
@@ -94,6 +99,7 @@ export function SearchInput({
         maxLength={maxLength}
         onChange={(event) => {
           setText(event.target.value);
+          onInput?.(event.target.value);
           emit(event.target.value, false);
         }}
         onKeyDown={(event) => {
