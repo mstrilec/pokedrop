@@ -114,7 +114,7 @@ function PoolResults<T>({
         getKey={getKey}
         renderTile={render}
         label="Card pool"
-        minTileWidth={112}
+        minTileWidth={100}
         hasMore={answer.current && answer.hasMore}
         loadingMore={answer.loadingMore}
         onLoadMore={answer.loadMore}

@@ -17,6 +17,7 @@ import { DeckDraftProvider, isDirty, useDeckDraft } from '@/lib/stores/deck-draf
 import { toastApiError, toastError, toastSuccess } from '@/lib/toast';
 import { useMediaQuery } from '@/lib/use-media-query';
 import { useUnsavedChanges } from '@/lib/use-unsaved-changes';
+import { BuilderDnd, DECK_ZONE, DropZone, POOL_ZONE } from './builder-dnd';
 import { BuilderHeader, failingRules } from './builder-header';
 import { CardPool } from './card-pool';
 import { DeckChecks } from './deck-checks';
@@ -112,7 +113,7 @@ function Builder({ deck }: { deck: DeckDetail }) {
   const pool: ReactNode = <CardPool scrollElement={wide ? poolElement : null} dragEnabled={wide} />;
   const list = (
     <div id="deck-list" tabIndex={-1} className="outline-none">
-      <DeckList />
+      <DeckList dragEnabled={wide} />
     </div>
   );
   const checks = (
@@ -127,57 +128,70 @@ function Builder({ deck }: { deck: DeckDetail }) {
 
   return (
     <div className="flex flex-col gap-4" style={wide ? { height: BUILDER_HEIGHT } : undefined}>
-      <BuilderHeader
-        deck={deck}
-        validation={validation}
-        dirty={dirty}
-        saving={save.isPending}
-        blocker={blocker}
-        onSave={() => void submit()}
-        onShowChecks={showChecks}
-      />
-      {wide ? (
-        <div
-          className="grid min-h-0 flex-1 gap-4"
-          style={{
-            gridTemplateColumns: widest ? 'minmax(0, 1fr) 22.5rem 20rem' : 'minmax(0, 1fr) 22.5rem',
-          }}
-        >
-          <section aria-label="Card pool" ref={setPoolElement} className={column}>
-            {pool}
-          </section>
-          {widest ? (
-            <>
-              <section aria-label="Deck" className={column}>
+      <BuilderDnd enabled={wide}>
+        <BuilderHeader
+          deck={deck}
+          validation={validation}
+          dirty={dirty}
+          saving={save.isPending}
+          blocker={blocker}
+          onSave={() => void submit()}
+          onShowChecks={showChecks}
+        />
+        {wide ? (
+          <div
+            className="grid min-h-0 flex-1 gap-4"
+            style={{
+              gridTemplateColumns: widest
+                ? 'minmax(0, 1fr) 22.5rem 20rem'
+                : 'minmax(0, 1fr) 22.5rem',
+            }}
+          >
+            <DropZone
+              id={POOL_ZONE}
+              label="Card pool"
+              className={column}
+              onElement={setPoolElement}
+            >
+              {pool}
+            </DropZone>
+            {widest ? (
+              <>
+                <DropZone id={DECK_ZONE} label="Deck" className={column}>
+                  {list}
+                </DropZone>
+                <section aria-label="Checks" className={column}>
+                  {checks}
+                </section>
+              </>
+            ) : (
+              <DropZone
+                id={DECK_ZONE}
+                label="Deck and checks"
+                className={`${column} flex flex-col gap-6`}
+              >
                 {list}
-              </section>
-              <section aria-label="Checks" className={column}>
                 {checks}
-              </section>
-            </>
-          ) : (
-            <section aria-label="Deck and checks" className={`${column} flex flex-col gap-6`}>
-              {list}
-              {checks}
-            </section>
-          )}
-        </div>
-      ) : (
-        <Tabs
-          label="Deck builder"
-          value={tab}
-          onValueChange={setTab}
-          tabs={[
-            { value: 'pool', label: 'Pool' },
-            { value: 'deck', label: 'Deck', count: total },
-            { value: 'check', label: 'Check' },
-          ]}
-        >
-          <TabsPanel value="pool">{pool}</TabsPanel>
-          <TabsPanel value="deck">{list}</TabsPanel>
-          <TabsPanel value="check">{checks}</TabsPanel>
-        </Tabs>
-      )}
+              </DropZone>
+            )}
+          </div>
+        ) : (
+          <Tabs
+            label="Deck builder"
+            value={tab}
+            onValueChange={setTab}
+            tabs={[
+              { value: 'pool', label: 'Pool' },
+              { value: 'deck', label: 'Deck', count: total },
+              { value: 'check', label: 'Check' },
+            ]}
+          >
+            <TabsPanel value="pool">{pool}</TabsPanel>
+            <TabsPanel value="deck">{list}</TabsPanel>
+            <TabsPanel value="check">{checks}</TabsPanel>
+          </Tabs>
+        )}
+      </BuilderDnd>
 
       <Dialog
         open={pendingLeave !== null}

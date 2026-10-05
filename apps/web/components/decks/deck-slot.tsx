@@ -1,6 +1,7 @@
 'use client';
 
 import { Lock } from 'lucide-react';
+import type { HTMLAttributes, Ref } from 'react';
 import { RARITY_STYLES, rarityTier } from '@/lib/design/rarity';
 import { cn } from '@/lib/utils';
 import { CardArt } from '../cards/card-art';
@@ -33,16 +34,29 @@ type DeckSlotProps = {
   dragging?: boolean;
   dropTarget?: boolean;
   className?: string;
+  ref?: Ref<HTMLDivElement>;
+  /** Makes the art and name a drag handle: dnd-kit's activator ref, attributes and listeners. */
+  handle?: HTMLAttributes<HTMLDivElement> & { ref?: (element: HTMLElement | null) => void };
 } & (
   | { readOnly?: false; max: number; onChange: (count: number) => void }
   | { readOnly: true; max?: never; onChange?: never }
 );
 
 export function DeckSlot(props: DeckSlotProps) {
-  const { card, count, locked = false, dragging = false, dropTarget = false, className } = props;
+  const {
+    card,
+    count,
+    locked = false,
+    dragging = false,
+    dropTarget = false,
+    className,
+    ref,
+    handle,
+  } = props;
   const tier = rarityTier(card.rarity);
   return (
     <div
+      ref={ref}
       id={deckSlotId(card.id)}
       tabIndex={-1}
       className={cn(
@@ -53,21 +67,29 @@ export function DeckSlot(props: DeckSlotProps) {
         className,
       )}
     >
-      <div className="relative aspect-[5/7] w-10 shrink-0 overflow-hidden rounded-tag">
-        <CardArt card={card} sizes="40px" />
-      </div>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-small font-semibold text-tx">{card.name}</span>
-        <span className="flex items-center gap-2 text-[11px]">
-          <span className="font-mono text-mut">{setNumber(card.id)}</span>
-          <span className={RARITY_STYLES[tier].text}>{card.rarity ?? tier}</span>
-        </span>
-        {locked ? (
-          <span className="mt-0.5 flex items-center gap-1 text-[11px] text-gold">
-            <Lock aria-hidden className="size-3" />
-            Locked in a pending trade
+      <div
+        {...handle}
+        className={cn(
+          'flex min-w-0 flex-1 items-center gap-3 rounded-tag',
+          handle && 'focus-ring cursor-grab touch-none active:cursor-grabbing',
+        )}
+      >
+        <div className="relative aspect-[5/7] w-10 shrink-0 overflow-hidden rounded-tag">
+          <CardArt card={card} sizes="40px" />
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate text-small font-semibold text-tx">{card.name}</span>
+          <span className="flex items-center gap-2 text-[11px]">
+            <span className="font-mono text-mut">{setNumber(card.id)}</span>
+            <span className={RARITY_STYLES[tier].text}>{card.rarity ?? tier}</span>
           </span>
-        ) : null}
+          {locked ? (
+            <span className="mt-0.5 flex items-center gap-1 text-[11px] text-gold">
+              <Lock aria-hidden className="size-3" />
+              Locked in a pending trade
+            </span>
+          ) : null}
+        </div>
       </div>
       {props.readOnly ? (
         <span className="font-mono text-mono text-tx">×{count}</span>

@@ -1,5 +1,6 @@
 'use client';
 
+import { useDraggable } from '@dnd-kit/core';
 import type { PlayableCard } from '@pokedrop/shared';
 import { Plus } from 'lucide-react';
 import { memo, useId, useState } from 'react';
@@ -7,6 +8,7 @@ import { CardArt } from '@/components/cards/card-art';
 import { cardView, setNumber } from '@/components/cards/card-data';
 import type { Owned } from '@/lib/query/inventory';
 import { cn } from '@/lib/utils';
+import { type DragData, POOL_ZONE } from './builder-dnd';
 
 type PoolTileProps = {
   card: PlayableCard;
@@ -26,16 +28,35 @@ function ownedText(owned: Owned): string {
   return locked > 0 ? `×${owned.quantity} · ${locked} locked` : `×${owned.quantity}`;
 }
 
-function PoolTileImpl({ card, owned, inDeck, refusal, onAdd }: PoolTileProps) {
+function PoolTileImpl({ card, owned, inDeck, refusal, onAdd, draggable }: PoolTileProps) {
+  const { setNodeRef, setActivatorNodeRef, attributes, listeners, isDragging } = useDraggable({
+    id: `${POOL_ZONE}:${card.id}`,
+    data: { from: POOL_ZONE, card, available: owned?.available } satisfies DragData,
+    disabled: !draggable,
+  });
   const reasonId = useId();
   const [refused, setRefused] = useState(false);
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-tile border border-bd bg-surface">
-      <div className="relative aspect-[5/7]">
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'flex flex-col overflow-hidden rounded-tile border border-bd bg-surface',
+        isDragging && 'opacity-50',
+      )}
+    >
+      <div
+        ref={setActivatorNodeRef}
+        {...(draggable ? { ...attributes, ...listeners } : {})}
+        aria-label={draggable ? `${card.name} (${setNumber(card.id)})` : undefined}
+        className={cn(
+          'relative aspect-[5/7]',
+          draggable && 'focus-ring cursor-grab touch-none active:cursor-grabbing',
+        )}
+      >
         <CardArt card={cardView(card)} sizes="140px" />
         {inDeck > 0 ? (
-          <span className="absolute top-2 left-2 rounded-tag bg-pri-strong px-1.5 py-0.5 font-mono text-[10px] leading-4 font-semibold text-on-pri">
+          <span className="absolute bottom-2 left-2 rounded-tag bg-pri-strong px-1.5 py-0.5 font-mono text-[10px] leading-4 font-semibold text-on-pri">
             In deck ×{inDeck}
           </span>
         ) : null}
