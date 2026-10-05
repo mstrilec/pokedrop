@@ -522,6 +522,8 @@ An inactive template answers 404 rather than 403: members cannot see inactive te
 | POST | `/decks/:id/clone` | member | Copy a visible deck into a private one the caller owns |
 | POST | `/decks/:id/validate` | member (owner) | The deck's validation verdict; writes nothing |
 
+**`GET /decks` carries `valid` on every deck** (since PD-111): the validator's verdict on the deck as saved, computed when the page is read, never stored — the same verdict `POST /decks/:id/validate` gives. It is the owner's list only (`OwnDeckPageSchema`); a public shelf (`GET /users/:id/decks`) never carries it, because the verdict depends on the owner's copies, which are private. A deck deleted between the page read and its validation is left out of that page. Measured 2026-10-05: a 60-card unlimited deck `true`, a 5-card standard deck `false`; the public shelf of the same user without the key; a page of 23 decks in 25 ms warm (50 ms the first time) through HTTP.
+
 **`POST /decks`** and **`PATCH /decks/:id`**
 
 | Field | Rule |

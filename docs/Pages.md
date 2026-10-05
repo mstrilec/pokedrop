@@ -258,3 +258,23 @@ So the client may show fewer cards than the server will return, never others. **
 - Enter on Base: `/cards?set=base1`, *Showing 100 of 102 cards* (the set's `cardCount` is 102), the catalog's menu reading *Set: Base*;
 - *Oldest first* starts Base, Jungle, Wizards Black Star Promos; *Newest first* 30th Celebration, 30th Celebration: Classic Collection, Pitch Black; *By series* 17 series from Mega Evolution, all 176 sets;
 - at 375 px: `scrollWidth` 375, no broken logo, no console errors.
+
+## Decks list (PD-111)
+
+`/decks`: the member's decks, newest edit first — name (to the builder), format, card count, *Valid* or *Invalid*, and a *Public* switch — with *New deck*, *Clone* and *Delete*. `useMyDecks` is an infinite query over the API's pages (24 decks each, *Show more* beyond); the four deck mutations (`createDeck`, `updateDeck`, `cloneDeck`, `deleteDeck`) each invalidate the `decks` root.
+
+- **Validity comes from the list itself (D3).** `GET /decks` now carries `valid` per deck, the validator's verdict computed when read (API.md, *Decks*), so an invalid deck is flagged here, with *Breaks a deck rule. Fix it in the builder*, without opening it. The header counts how many need fixing.
+- ***New deck*** asks for a name and a format in a dialog — the API's rules (1–64 characters, trimmed; standard, expanded or unlimited) with sentences for people — creates the deck empty and opens it in the builder.
+- ***Clone*** copies the deck (the API names it *… (copy)*, private) and opens the copy.
+- ***Delete*** asks first, in a danger dialog that says the cards stay in the collection; Escape or *Cancel* changes nothing.
+- **The switch** sets `isPublic` at once and says what it means: *Anyone with the link can see it* or *Only you can see it*.
+
+**Measured 2026-10-05** under `next dev` against the API, real key events:
+
+- *2 decks · 1 need fixing*: *Unfinished — Standard · 5 cards — Invalid — Breaks a deck rule* and *Base Sixty — Unlimited · 60 cards — Valid*;
+- Space on Base Sixty's *Public* switch: one `PATCH`, the switch checked, *Anyone with the link can see it*, and the user's public shelf went from *Unfinished* to *Base Sixty, Unfinished*; Space again took it back off;
+- *Clone* on Base Sixty: straight to `/decks/<new id>`, which the API answers as *Base Sixty (copy)*, 60 cards, private;
+- *Delete* on the copy: *Delete Base Sixty (copy)?* with focus on *Cancel*; Escape closed it with no request and the deck still listed; again with *Delete deck*: one `DELETE`, the deck gone from the list, the toast *Deleted Base Sixty (copy)*, and the API answering 404 for it;
+- *New deck* submitted empty: *Name the deck* under the field; *Fire Test*, *Expanded*: `/decks/<id>`, an empty expanded deck, listed first as *Invalid*;
+- a member with no decks: *No decks yet* with *Build your first deck*;
+- at 375 px: `scrollWidth` 375; no console errors.
