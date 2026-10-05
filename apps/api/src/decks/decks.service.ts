@@ -12,6 +12,8 @@ import {
   type DeckSaveResult,
   type DeckStats,
   type DeckValidation,
+  OwnDeckPageSchema,
+  type OwnDeckPage,
   type UpdateDeck,
 } from '@pokedrop/shared';
 import { CARD_SUMMARY_SELECT, toCardSummary } from '../common/card-summary.js';
@@ -50,8 +52,25 @@ export class DecksService {
     private readonly validation: DeckValidationService,
   ) {}
 
-  list(userId: string, query: DeckListQuery): Promise<DeckPage> {
-    return this.page({ userId }, query);
+  /** The owner's decks, each with the verdict on it as saved — computed now, never stored. */
+  async list(userId: string, query: DeckListQuery): Promise<OwnDeckPage> {
+    const page = await this.page({ userId }, query);
+    const verdicts = await Promise.all(
+      page.items.map((deck) =>
+        this.validation.validate(deck.id).catch((error: unknown) => {
+          if (error instanceof NotFoundException) return null;
+          throw error;
+        }),
+      ),
+    );
+    return OwnDeckPageSchema.parse({
+      ...page,
+      items: page.items
+        .map((deck, index) => ({ deck, verdict: verdicts[index] }))
+        // A deck deleted between the page read and its validation is left out, not failed.
+        .filter(({ verdict }) => verdict !== null && verdict !== undefined)
+        .map(({ deck, verdict }) => ({ ...deck, valid: verdict?.valid ?? false })),
+    });
   }
 
   /** Another user's shelf: public decks only, and a 404 for a user that does not exist. */

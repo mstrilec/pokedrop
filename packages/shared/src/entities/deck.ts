@@ -97,6 +97,16 @@ export type DeckListQuery = z.infer<typeof DeckListQuerySchema>;
 export const DeckPageSchema = pageOf(DeckSummarySchema);
 export type DeckPage = z.infer<typeof DeckPageSchema>;
 
+/**
+ * The owner's list: each deck with `valid`, the validator's verdict computed when read. Never
+ * on a public shelf — the verdict depends on the owner's copies, which are private.
+ */
+export const OwnDeckSummarySchema = DeckSummarySchema.extend({ valid: z.boolean() });
+export type OwnDeckSummary = z.infer<typeof OwnDeckSummarySchema>;
+
+export const OwnDeckPageSchema = pageOf(OwnDeckSummarySchema);
+export type OwnDeckPage = z.infer<typeof OwnDeckPageSchema>;
+
 /** One bar or slice, in the `{ name, value }` rows Recharts reads as they are. */
 export const ChartDatumSchema = z.object({
   name: z.string(),

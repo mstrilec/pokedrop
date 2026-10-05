@@ -13,10 +13,10 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import type {
   DeckDetail,
-  DeckPage,
   DeckSaveResult,
   DeckStats,
   DeckValidation,
+  OwnDeckPage,
 } from '@pokedrop/shared';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { Public } from '../common/decorators/public.decorator.js';
@@ -26,10 +26,10 @@ import { DecksService } from './decks.service.js';
 import { Doc, returns } from '../common/openapi.js';
 import {
   DeckDetailSchema,
-  DeckPageSchema,
   DeckSaveResultSchema,
   DeckStatsSchema,
   DeckValidationSchema,
+  OwnDeckPageSchema,
 } from '@pokedrop/shared';
 
 @ApiTags('decks')
@@ -37,9 +37,12 @@ import {
 export class DecksController {
   constructor(private readonly decks: DecksService) {}
 
-  @Doc("The caller's own decks", returns('DeckPage', DeckPageSchema))
+  @Doc(
+    "The caller's own decks, each with whether it is valid",
+    returns('OwnDeckPage', OwnDeckPageSchema),
+  )
   @Get()
-  list(@CurrentUser() user: AuthUser, @Query() query: DeckListQueryDto): Promise<DeckPage> {
+  list(@CurrentUser() user: AuthUser, @Query() query: DeckListQueryDto): Promise<OwnDeckPage> {
     return this.decks.list(user.id, query);
   }
 
