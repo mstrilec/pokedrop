@@ -75,7 +75,8 @@ Line = { card: InventoryCard, count: number, max: number }
 
 `composeProblems(state, me)` names what keeps *Review offer* disabled, the first shown beside the button: no
 counterparty; the counterparty is the caller; nothing on either side (*Add a card or coins to either side*); more than
-20 lines on a side; a card on both sides; coins beyond the balance.
+20 lines on a side; a card on both sides; a give line over its available copies (read from `GET /inventory/owned`,
+ so it follows locks made elsewhere); coins beyond the balance.
 
 From the top:
 
@@ -120,8 +121,9 @@ A step of its own, not a dialog, so it fits a phone:
 
 **Refused** — the draft stays and the step returns to *compose*:
 
-- 409 `CARDS_UNAVAILABLE`: *Some of your copies were locked by another trade meanwhile*; the inventory is refetched and
-  each give line's `max` re-read, a line over it cut down with a note.
+- 409 `CARDS_UNAVAILABLE`: *Some of your copies were locked by another trade meanwhile*; the owned counts are refetched,
+  and a give line now over its available copies is flagged by `composeProblems` (*Charizard: only 1 available*) until
+  the user lowers it.
 - 402: *You don't have that many coins any more*.
 - 409 `TRADE_NOT_PENDING` (counter): *Misty's offer was already answered*, with a link to the inbox.
 - 400 / 404: the server's message.
@@ -132,7 +134,7 @@ A step of its own, not a dialog, so it fits a phone:
 | --- | --- | --- |
 | `?to=<userId>` | `GET /users/:id` | the counterparty and their showcase; the caller's own id is dropped with *You can't trade with yourself*; 404 *That collector doesn't exist* |
 | `?card=<cardId>` | `GET /cards/:id` | one copy on the side the counterparty gives; without `?to=` it waits for a counterparty |
-| `?counter=<tradeId>` | `GET /trades/:id` | when the caller is the recipient of a pending trade: the initiator as the fixed counterparty, its `requested` lines on *You give*, its `offered` lines on *Misty gives*, its coins swapped; give lines capped at the caller's available copies now, a cut line noted. Otherwise an explanation and a link back |
+| `?counter=<tradeId>` | `GET /trades/:id` | when the caller is the recipient of a pending trade: the initiator as the fixed counterparty, its `requested` lines on *You give*, its `offered` lines on *Misty gives*, its coins swapped; a give line over the caller's available copies now is flagged, as above. Otherwise an explanation and a link back |
 
 `?counter=` ignores `?to=` and `?card=`.
 
