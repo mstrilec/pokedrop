@@ -19,6 +19,11 @@ export function useInventory(filters: InventoryFilters) {
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     placeholderData: keepPreviousData,
+    // A refetch of an infinite query requests every loaded page again, one after another:
+    // fifty for a scrolled-through collection. Focus does not refetch, and a list nobody
+    // shows is dropped at once, so coming back starts from the first page.
+    refetchOnWindowFocus: false,
+    gcTime: 0,
   });
 }
 

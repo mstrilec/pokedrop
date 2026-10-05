@@ -22,7 +22,7 @@ import { type FilterDef, FilterBar } from '@/components/ui/filter-bar';
 import { SearchInput } from '@/components/ui/search-input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
-import { narrowToTyped } from '@/lib/name-match';
+import { asciiLower, narrowToTyped } from '@/lib/name-match';
 import { useCatalogFacets } from '@/lib/query/catalog';
 import { type InventoryFilters, useInventory, useInventorySummary } from '@/lib/query/inventory';
 import { useUrlState } from '@/lib/url-state';
@@ -75,6 +75,12 @@ export function InventoryView() {
   const narrowed = narrowToTyped(entries, (entry) => entry.card.name, typed, answeredFor?.q ?? '');
   const stale =
     narrowed.stale || (answeredFor !== undefined && !sameFiltersBesidesQ(answeredFor, filters));
+  // The cards on screen answer exactly what the field and the filters say: only then may the
+  // page claim "nothing matches", and only then is it worth loading more of them.
+  const current =
+    !stale &&
+    !list.isPlaceholderData &&
+    asciiLower(typed.trim()) === asciiLower((answeredFor?.q ?? '').trim());
   const filtered = Boolean(
     filters.q || filters.set || filters.rarity || filters.type || filters.minQuantity,
   );
@@ -127,7 +133,7 @@ export function InventoryView() {
   ];
 
   const loadMore = () => {
-    if (list.hasNextPage && !list.isFetchingNextPage && !list.isFetchNextPageError) {
+    if (current && list.hasNextPage && !list.isFetchingNextPage && !list.isFetchNextPageError) {
       void list.fetchNextPage();
     }
   };
@@ -147,7 +153,17 @@ export function InventoryView() {
     );
   } else if (list.isError && !list.data) {
     content = <ListError error={list.error} onRetry={() => void list.refetch()} />;
-  } else if (total === 0 && !stale) {
+  } else if (total === 0 && !current) {
+    content = (
+      <p
+        role="status"
+        aria-busy="true"
+        className="flex items-center justify-center gap-2 py-16 text-small text-mut"
+      >
+        <Spinner size={16} /> Searching…
+      </p>
+    );
+  } else if (total === 0) {
     content = filtered ? (
       <EmptyState
         icon={SearchX}
@@ -193,7 +209,7 @@ export function InventoryView() {
                 sizes="(min-width: 1024px) 180px, 45vw"
               />
             )}
-            hasMore={list.hasNextPage}
+            hasMore={current && list.hasNextPage}
             loadingMore={list.isFetchingNextPage}
             onLoadMore={loadMore}
           />
