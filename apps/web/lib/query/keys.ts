@@ -7,6 +7,7 @@ import type { WalletParams } from '@/lib/api/endpoints/wallet';
 // stale times and invalidations target; a key under it extends that root.
 export const keys = {
   me: ['me'],
+  sessions: ['sessions'],
   catalog: {
     all: ['catalog'],
     facets: ['catalog', 'facets'],

@@ -15,6 +15,9 @@ export const mutationKeys = {
   proposeTrade: ['proposeTrade'],
   counterTrade: ['counterTrade'],
   cancelTrade: ['cancelTrade'],
+  updateMe: ['updateMe'],
+  revokeOtherSessions: ['revokeOtherSessions'],
+  changePassword: ['changePassword'],
 } as const;
 
 type MutationName = keyof typeof mutationKeys;
@@ -43,6 +46,10 @@ export const INVALIDATES: Record<MutationName, readonly QueryKey[]> = {
   declineTrade: [keys.trades.all, keys.notifications.all],
   // The initiator's offered copies come back.
   cancelTrade: [keys.trades.all, keys.inventory.all, keys.notifications.all],
+  // A name or showcase shows on the public profile, and in the composer's search.
+  updateMe: [keys.me, keys.profiles.all],
+  revokeOtherSessions: [keys.sessions],
+  changePassword: [keys.sessions],
   // The offered copies are locked now; the inbox and its counts change.
   proposeTrade: [keys.trades.all, keys.inventory.all, keys.notifications.all],
   counterTrade: [keys.trades.all, keys.inventory.all, keys.notifications.all],
