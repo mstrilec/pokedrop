@@ -420,3 +420,26 @@ So the client may show fewer cards than the server will return, never others. **
 - A dynamic segment arrives still percent-encoded: `params.id` is `ex10-%3F`. Encoding it again for the API asked for `ex10-%253F` and 404'd; the page decodes it first. Every link to a card page now encodes the id (`CardTile`, the inventory list) — `/cards/ex10-?` is the card `ex10-` with a query string.
 - `preload` on `next/image` only adds a `<link>`; the request stayed *Low* priority until `fetchPriority="high"`.
 - `TaskStop` on `npx next start` stops the shell, not the server: the next start failed on the port, and Lighthouse measured the old process against a new `.next`. Stop the process that owns the port.
+
+## Profile (PD-117)
+
+`/profile/[id]` (`components/profile/`): one route, two audiences. The server renders the public profile — the same HTML for every visitor, signed in or not — and the owner's private sections are added in the owner's own browser.
+
+- **Public, server-rendered** — `GET /users/:id` and the first page of `GET /users/:id/decks` with the visitor's cookies; an unknown id is a real 404 (no loading boundary above it since PD-110). The header (avatar, name, *Joined October 2026*), stat cards (*Showcased cards*, *Public decks*, and only when their owner turned them on, *Collection value* and *Different cards*), the showcase as card tiles, *Set completion* — the four sets furthest along, only with `showSetCompletion` — and the public decks. Title is the name; description, `canonical`, Open Graph `profile` and a Twitter card; `og:image` is the first showcased card.
+- **Privacy is the API's** — `collection` and `completion` are absent from `GET /users/:id` unless their toggles are on, and the page renders only what the answer carries, so *hidden* means not in the HTML at all. The toggles themselves are set on Settings (PD-118); until then, through `PATCH /users/me`.
+- **The owner's sections** (`OwnProfile`) — rendered only when the session is the profile's owner, from the owner's own endpoints (`/users/me`, `/inventory/summary`, `/trades`, `/decks`): balance, collection value and card counts, which of the two figures visitors see (*hidden from visitors*, *Change what visitors see* → Settings), the five latest trades with links, and the private decks. Another member's page, and the server HTML for anyone, never holds them.
+- **The action** (`ProfileActions`) — the owner gets *Edit profile* (→ `/settings`); another member *Propose trade* → `/trades/new?to=<id>`, which opens the composer with them chosen (PD-115); a visitor *Propose trade* → *Sign in to trade with Misty* with `next` straight to the composer.
+
+**Measured 2026-10-06** with the API and `next dev`, the first test member as owner with three cards showcased for the run (restored afterwards):
+
+- signed out: *Showcased cards 3*, *Public decks 1*, sections *Showcase* and *Public decks* only, *Propose trade* → *Sign in to trade with PD102 Tester*, `next=%2Ftrades%2Fnew%3Fto%3D<id>`; the browser made no request to `/users/me`, `/inventory/summary`, `/trades` or `/decks`; `curl` of the page: no *Only you see this*, *Balance*, email or `currency` in the HTML; `/profile/nope` **404**;
+- the second member: the same page and *Propose trade* → `/trades/new?to=<id>`, the composer showing *PD102 Tester* with *Change*; no private section;
+- the owner: *Edit profile*, and *Only you see this* — *Balance 4,128*, *Collection value $237,060.36*, *10,077 · 4,999 different*, both figures *hidden from visitors*, five recent trades, the private decks *Base Sixty* and *Guard Two*;
+- the toggles through `PATCH /users/me`, the page fetched without a session after each: value on → *Collection value* in the HTML and `collection` in the API; both on → also *Set completion* and *Different cards*, `completion` in the API; both off → none of the three strings in the HTML and neither key in the API;
+- 375 px (device emulation): `scrollWidth` 375 for the owner and for the 64-character name; no console errors.
+
+**Traps:**
+
+- The empty-showcase sentence carries the name: a 64-character name without spaces widened the layout viewport to 535 px under mobile emulation while no element measured wider than 375 — the layout had been settled at load. Hiding candidates with a style injected before load (`Page.addScriptToEvaluateOnNewDocument`) found it; the sentence is `wrap-anywhere` now.
+- A page's own `openGraph` replaces the group's file-based `opengraph-image`, and a file-based image in the segment would override the showcase card: a profile with an empty showcase is shared without an image.
+
