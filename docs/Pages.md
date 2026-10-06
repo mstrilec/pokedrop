@@ -18,6 +18,7 @@ The tickets were written before the API, and a few of them asked for what the AP
 | D7 | Settings shows the email read-only and has no theme choice: dark is the only theme | PD-118 |
 | D9 | The card page's Pokédex section reads PokéAPI from the web server (`lib/pokeapi.ts`) — a day's cache, a two-second timeout, nothing on failure; the API is not involved | PD-110 |
 | D10 | *Add to deck* on a card page picks one of the member's decks (or creates one) and opens the builder with `?add=<cardId>`: one more copy as an unsaved change, saved by the member | PD-110 |
+| D11 | The dashboard checklist comes from a new `GET /users/me/progress` — four existence checks — rather than from the first pages of lists the page already reads, which miss an old deck or trade | PD-103 |
 
 ## Landing (PD-101)
 
@@ -465,4 +466,24 @@ So the client may show fewer cards than the server will return, never others. **
 
 - Under zod 4 a union of `''` and a URL reports the URL branch's own message, not the union's: the readable message belongs on the shared URL rule.
 - A settings save changes what the server rendered into the shell (the name in the account menu): `router.refresh()`, not only the query cache.
+
+## Dashboard (PD-103)
+
+`/dashboard` (`components/dashboard/`): the first page after sign-in.
+
+- **Header** — *Welcome, Fresh Collector* until the first pack, *Welcome back, …* after; the trades waiting on the member (a link to *Incoming*) or *No trades waiting on you*; the date, rendered in the browser.
+- **Checklist** (`OnboardingChecklist`, D11) — *Get started · 1 of 4*, a progress bar and four chips: *Verify your email*, *Open your first pack*, *Build a full deck*, *Complete a trade*, each ticked by `GET /users/me/progress`. The first open step is the primary button (*Open your first pack*, *Build a deck*, *Propose a trade*). It disappears once all four are done. Its key sits under `me`, so opening a pack and settling a trade (which already refresh the profile) refresh it, and saving a deck invalidates it too. Email verification is required to sign in, so a new member always starts at *1 of 4*, with the pack as the first action.
+- **Stats** — total cards, different cards, collection value (`GET /inventory/summary`) and balance, each `StatCard` with its own loading state.
+- **Featured packs** — the first three templates, linking `/packs`; *No packs on sale right now* without any.
+- **Recent activity** — the newest pack openings and trades merged by date, six at most: *Opened Base Set Booster · 8 cards · best pull Dragonair* (→ the opening in the history), *Trade with Misty · Accepted · You give … · you get …* (→ the trade, dated by when it closed); empty: *Nothing here yet* with *Open a pack*.
+- **Set completion** — the four sets furthest along as `CompletionMeter`s, linking `/sets`; empty: *No sets started* with *Browse sets*.
+- **Loading** — skeletons in the place and size of each widget, except the checklist: most visits end without one, and a placeholder that vanished would shift the page up for every member past onboarding.
+
+**Measured 2026-10-06** with a member created for the run (signed up, verified through Mailpit, signed in through the page) and the API:
+
+- brand new: *Welcome, Fresh Collector*, *Get started · 1 of 4* with *Verify your email* done and *Open your first pack* as the button, stats *0 · 0 · $0.00 · 1,000*, *Base Set Booster 300*, and the empty states of *Recent activity* and *Set completion*;
+- after a pack: *Welcome back*, *2 of 4*, *Build a deck* as the button, *8 cards · $32.41 · 700*, *Opened Base Set Booster · 8 cards · best pull Dragonair*, *Base 7/102*, *Jungle 1/64*;
+- a 59-card deck: `builtDeck` false; the same deck at 60: *3 of 4*;
+- a trade declined by the other member: `madeTrade` false; one accepted: the checklist gone, the activity listing both trades;
+- under 2.5 s of added latency: the skeletons in each widget's place, the balance already shown from the topbar's query; 375 px: `scrollWidth` 375; no console errors.
 

@@ -173,6 +173,7 @@ Any other client must do the same, and must do it before any `/api/v1` call spen
 |---|---|---|---|
 | GET | `/users/me` | member | Own profile + currency |
 | PATCH | `/users/me` | member | Edit profile / privacy toggles |
+| GET | `/users/me/progress` | member | The dashboard checklist, derived on every read |
 | GET | `/users?q=` | member | Collectors by display name, for a trade counterparty — throttled |
 | GET | `/users/:id` | public | Public profile |
 | GET | `/users/:id/decks` | public | That user's public decks, page-paged — see [Decks](#decks) |
@@ -198,6 +199,8 @@ Any other client must do the same, and must do it before any `/api/v1` call spen
 - **Never in the public shape:** email, balance, role, the toggles themselves, private decks. Query parameters change nothing about it. An unknown id is 404 `User not found`.
 - **`showcase`** is up to six cards the owner chose, in their order, as the inventory's slim card. Only cards still owned appear — a copy locked in a pending trade is still owned; a card traded away drops out on the next read, with no write needed.
 - **`publicDeckCount`** — the decks themselves are [`GET /users/:id/decks`](#decks), which the deck module owns.
+
+**`GET /users/me/progress`** (PD-103) answers `{ emailVerified, openedPack, builtDeck, madeTrade }` for the caller — the dashboard's onboarding checklist, read from what happened and never stored, so it cannot drift from it: the account's `emailVerified`, any pack opening, a deck whose copies add up to the configured deck size (`DECK_SIZE`; legality is not asked), and a trade `ACCEPTED` with the caller on either side — a declined, cancelled or countered one does not count. Four queries in parallel, each on an index (`pack_openings (userId, createdAt)`, the two trade `(…Id, status)` indexes, `decks (userId)` with `deck_cards (deckId, cardId)`). Measured 2026-10-06 for a new member through each step: `1 of 4` after verification; a pack → `openedPack`; a 59-card deck → still false, 60 → `builtDeck`; a declined trade → still false, an accepted one → `madeTrade`; 6–10 ms warm through HTTP; signed out 401.
 
 **`GET /users?q=`** (PD-115) is the trade composer's counterparty search. `q` is trimmed, 2–64 characters; the answer is at most 10 `{ id, displayName, avatarUrl }` — the public profile's own fields, nothing more — an exact name (case-insensitive) first, then names containing `q`, alphabetically. `%`, `_` and `\` match literally, in the exact match too: Prisma reads an insensitive `equals` as `ILIKE`. Never the caller, never a suspended account — and since PD-115 `POST /trades` refuses a suspended recipient with the same 404 *User not found* as an unknown id, as such an offer could only lock the caller's cards until it expired (measured: 201 before, 404 after). Throttled with `MODERATE_THROTTLE`, because a name search can enumerate members. No index: on the 13-row test table the query is a sequential scan executing in 0.05 ms; a trigram index on `displayName` is the answer when the table grows. Measured 2026-10-05: `nnn` and `NNNN` → the second test member (and only `id`, `displayName`, `avatarUrl`); the caller's own name → `[]`; `%%` and `n_n` → `[]` (before `escapeLike` reached the exact match, `%%` matched everyone); the full 64-character name upper-cased → that member; one character and 65 → 400; signed out → 401.
 
