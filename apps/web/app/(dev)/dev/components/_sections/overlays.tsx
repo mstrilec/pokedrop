@@ -19,6 +19,8 @@ function trade(status: TradeDetail['status'], timeline: TradeDetail['timeline'])
   return {
     status,
     timeline,
+    chain: [],
+    counteredTradeId: null,
     role: 'recipient',
     initiator: party('MistyW'),
     recipient: party('Ash'),

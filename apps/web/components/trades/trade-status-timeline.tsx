@@ -9,6 +9,7 @@ import {
   ShieldAlert,
   X,
 } from 'lucide-react';
+import Link from 'next/link';
 import { dateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -18,6 +19,8 @@ export type TimelineStep = {
   time?: string;
   state: 'done' | 'active' | 'pending';
   icon?: LucideIcon;
+  /** Another trade of the same negotiation, opened from this step. */
+  link?: { href: string; label: string };
 };
 
 const STATE = {
@@ -59,12 +62,20 @@ export function TradeStatusTimeline({
               </span>
               {last ? null : <span className="my-0.5 min-h-5.5 w-0.5 flex-1 bg-bd" />}
             </div>
-            <div className={cn('flex flex-col', last ? 'pb-0' : 'pb-3.5')}>
+            <div className={cn('flex min-w-0 flex-col wrap-anywhere', last ? 'pb-0' : 'pb-3.5')}>
               <span className={cn('text-small font-medium', s.text)}>
                 <span className="sr-only">{s.spoken}: </span>
                 {step.label}
               </span>
               <span className="font-mono text-[11.5px] text-faint">{step.time ?? '—'}</span>
+              {step.link ? (
+                <Link
+                  href={step.link.href}
+                  className="focus-ring mt-1 self-start rounded-tag text-small text-pri hover:underline"
+                >
+                  {step.link.label}
+                </Link>
+              ) : null}
             </div>
           </li>
         );
@@ -87,17 +98,48 @@ const ACTIONS: Record<string, { verb: string; icon: LucideIcon }> = {
 export function tradeTimelineSteps(trade: TradeDetail): TimelineStep[] {
   const name = (side: 'initiator' | 'recipient') =>
     trade.role === side ? 'you' : trade[side].displayName;
+  const here = trade.chain.findIndex((entry) => entry.id === trade.id);
+  const counteredBy = here >= 0 ? trade.chain[here + 1] : undefined;
 
   const steps: TimelineStep[] = trade.timeline.map((entry) => {
     const action = ACTIONS[entry.action] ?? { verb: entry.action, icon: Clock };
     const by = entry.by === 'initiator' || entry.by === 'recipient' ? ` by ${name(entry.by)}` : '';
-    return {
+    const step: TimelineStep = {
       label: `${action.verb}${action.verb.includes('admin') || entry.by === 'system' ? '' : by}`,
       time: dateTime(entry.at),
       state: 'done',
       icon: action.icon,
     };
+    if (entry.action === 'trade.propose' && trade.counteredTradeId !== null) {
+      step.label = `${step.label}, as a counter-offer`;
+      step.link = {
+        href: `/trades/${trade.counteredTradeId}`,
+        label: 'Open the offer it answered',
+      };
+    }
+    if (entry.action === 'trade.counter' && counteredBy) {
+      step.link = { href: `/trades/${counteredBy.id}`, label: 'Open the counter-offer' };
+    }
+    return step;
   });
+
+  // Trades older than the trade core have no audit rows: what the trade itself records.
+  if (steps.length === 0) {
+    steps.push({
+      label: `Proposed by ${name('initiator')}`,
+      time: dateTime(trade.createdAt),
+      state: 'done',
+      icon: Send,
+    });
+    if (trade.status !== 'PENDING') {
+      steps.push({
+        label: `Closed as ${trade.status.toLowerCase()}`,
+        time: trade.resolvedAt ? dateTime(trade.resolvedAt) : undefined,
+        state: 'done',
+        icon: CheckCheck,
+      });
+    }
+  }
 
   if (trade.status === 'PENDING') {
     const waitingOn = trade.role === 'recipient' ? 'your' : `${trade.recipient.displayName}'s`;

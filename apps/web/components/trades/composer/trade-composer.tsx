@@ -192,15 +192,16 @@ function TradeComposer({
   async function send() {
     const body = termsOf(state);
     try {
+      let sent: { id: string } | undefined;
       if (state.mode === 'counter' && state.counteredId) {
-        await counter.mutateAsync({ id: state.counteredId, body });
+        sent = await counter.mutateAsync({ id: state.counteredId, body });
       } else if (state.counterparty) {
-        await propose.mutateAsync({ ...body, recipientId: state.counterparty.id });
+        sent = await propose.mutateAsync({ ...body, recipientId: state.counterparty.id });
       }
       toastSuccess(
         state.mode === 'counter' ? `Counter-offer sent to ${name}` : `Offer sent to ${name}`,
       );
-      leaveTo('/trades?tab=sent');
+      leaveTo(sent ? `/trades/${sent.id}` : '/trades?tab=sent');
     } catch (error) {
       backToCompose.current = true;
       dispatch({ type: 'step', step: 'compose' });
@@ -216,8 +217,8 @@ function TradeComposer({
         setNotice(
           <>
             {name}’s offer was already answered.{' '}
-            <Link href="/trades" className="text-pri hover:underline">
-              Back to your trades
+            <Link href={`/trades/${state.counteredId}`} className="text-pri hover:underline">
+              See what happened to it
             </Link>
           </>,
         );

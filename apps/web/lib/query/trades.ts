@@ -1,8 +1,10 @@
-import type { TradeTab } from '@pokedrop/shared';
+import type { TradeDetail, TradeTab } from '@pokedrop/shared';
 import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api/browser';
+import { ApiError } from '@/lib/api/core';
 import {
   acceptTrade,
+  cancelTrade,
   counterTrade,
   declineTrade,
   type ProposeTradeBody,
@@ -46,12 +48,25 @@ export function useDeclineTrade() {
   });
 }
 
-export function useTrade(id: string | undefined) {
+export function useCancelTrade() {
+  return useMutation({
+    mutationKey: mutationKeys.cancelTrade,
+    mutationFn: (id: string) => api.call(cancelTrade(id)),
+  });
+}
+
+export function useTrade(id: string | undefined, initial?: TradeDetail, initialAt?: number) {
   return useQuery({
     queryKey: keys.trades.detail(id ?? ''),
     queryFn: () => api.call(trade(id ?? '')),
     enabled: id !== undefined,
-    retry: false,
+    initialData: initial,
+    initialDataUpdatedAt: initialAt,
+    // A 404 is an answer (not a party, or no such trade), not a failure to retry.
+    retry: (failures, error) =>
+      initial !== undefined &&
+      !(error instanceof ApiError && error.statusCode === 404) &&
+      failures < 2,
   });
 }
 

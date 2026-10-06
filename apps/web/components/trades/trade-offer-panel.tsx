@@ -65,6 +65,7 @@ function Side({
   const Arrow = give ? ArrowUpRight : ArrowDownLeft;
   const value = marketValue(data.cards);
   const count = data.cards.reduce((n, l) => n + l.count, 0);
+  const coins = `${data.coins.toLocaleString('en-US')} ${data.coins === 1 ? 'coin' : 'coins'}`;
 
   return (
     <section
@@ -86,71 +87,75 @@ function Side({
         </span>
         <span className="min-w-0 wrap-anywhere">{data.label}</span>
       </h3>
-      <ul className="grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-3">
-        {data.cards.map((line) => (
-          <li key={line.card.id} className="flex flex-col gap-1.5">
-            <CardTile card={line.card} sizes="120px" />
-            <div className="flex items-center justify-between gap-1 text-[11.5px]">
-              {editable && !line.locked && onCountChange ? (
-                <span className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    aria-label={`One fewer ${line.card.name}`}
-                    disabled={line.count <= 1}
-                    onClick={() => onCountChange(side, line.card.id, line.count - 1)}
-                    className="focus-ring flex size-6 cursor-pointer items-center justify-center rounded-tag border border-bd-2 text-mut hover:text-tx disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <Minus aria-hidden className="size-3" />
-                  </button>
-                  <span aria-live="polite" className="min-w-6 text-center font-mono text-tx">
-                    <span className="sr-only">{line.card.name}: </span>×{line.count}
+      {editable || data.cards.length > 0 ? (
+        <ul className="grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-3">
+          {data.cards.map((line) => (
+            <li key={line.card.id} className="flex flex-col gap-1.5">
+              <CardTile card={line.card} sizes="120px" />
+              <div className="flex items-center justify-between gap-1 text-[11.5px]">
+                {editable && !line.locked && onCountChange ? (
+                  <span className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      aria-label={`One fewer ${line.card.name}`}
+                      disabled={line.count <= 1}
+                      onClick={() => onCountChange(side, line.card.id, line.count - 1)}
+                      className="focus-ring flex size-6 cursor-pointer items-center justify-center rounded-tag border border-bd-2 text-mut hover:text-tx disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Minus aria-hidden className="size-3" />
+                    </button>
+                    <span aria-live="polite" className="min-w-6 text-center font-mono text-tx">
+                      <span className="sr-only">{line.card.name}: </span>×{line.count}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label={`One more ${line.card.name}`}
+                      disabled={line.max !== undefined && line.count >= line.max}
+                      onClick={() => onCountChange(side, line.card.id, line.count + 1)}
+                      className="focus-ring flex size-6 cursor-pointer items-center justify-center rounded-tag border border-bd-2 text-mut hover:text-tx disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Plus aria-hidden className="size-3" />
+                    </button>
                   </span>
+                ) : (
+                  <span className="font-mono text-mut">×{line.count}</span>
+                )}
+                {line.locked ? (
+                  <span className="flex items-center gap-1 text-gold">
+                    <Lock aria-hidden className="size-3" />
+                    Locked in escrow
+                  </span>
+                ) : null}
+                {editable && !line.locked ? (
                   <button
                     type="button"
-                    aria-label={`One more ${line.card.name}`}
-                    disabled={line.max !== undefined && line.count >= line.max}
-                    onClick={() => onCountChange(side, line.card.id, line.count + 1)}
-                    className="focus-ring flex size-6 cursor-pointer items-center justify-center rounded-tag border border-bd-2 text-mut hover:text-tx disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label={`Remove ${line.card.name} from ${data.label.toLowerCase()}`}
+                    onClick={() => onRemoveCard?.(side, line.card.id)}
+                    className="focus-ring flex size-6 cursor-pointer items-center justify-center rounded-tag text-mut hover:bg-surface-2 hover:text-tx"
                   >
-                    <Plus aria-hidden className="size-3" />
+                    <X aria-hidden className="size-3.5" />
                   </button>
-                </span>
-              ) : (
-                <span className="font-mono text-mut">×{line.count}</span>
-              )}
-              {line.locked ? (
-                <span className="flex items-center gap-1 text-gold">
-                  <Lock aria-hidden className="size-3" />
-                  Locked in escrow
-                </span>
+                ) : null}
+              </div>
+              {line.problem ? (
+                <p className="text-[11px] leading-4 text-red">{line.problem}</p>
               ) : null}
-              {editable && !line.locked ? (
-                <button
-                  type="button"
-                  aria-label={`Remove ${line.card.name} from ${data.label.toLowerCase()}`}
-                  onClick={() => onRemoveCard?.(side, line.card.id)}
-                  className="focus-ring flex size-6 cursor-pointer items-center justify-center rounded-tag text-mut hover:bg-surface-2 hover:text-tx"
-                >
-                  <X aria-hidden className="size-3.5" />
-                </button>
-              ) : null}
-            </div>
-            {line.problem ? <p className="text-[11px] leading-4 text-red">{line.problem}</p> : null}
-          </li>
-        ))}
-        {editable ? (
-          <li>
-            <button
-              type="button"
-              onClick={() => onAddCard?.(side)}
-              className="focus-ring flex aspect-[5/7] w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-tile border border-dashed border-bd-2 text-small text-mut transition hover:border-pri hover:text-pri"
-            >
-              <Plus aria-hidden className="size-5" />
-              {give ? 'Add a card you give' : 'Add a card you get'}
-            </button>
-          </li>
-        ) : null}
-      </ul>
+            </li>
+          ))}
+          {editable ? (
+            <li>
+              <button
+                type="button"
+                onClick={() => onAddCard?.(side)}
+                className="focus-ring flex aspect-[5/7] w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-tile border border-dashed border-bd-2 text-small text-mut transition hover:border-pri hover:text-pri"
+              >
+                <Plus aria-hidden className="size-5" />
+                {give ? 'Add a card you give' : 'Add a card you get'}
+              </button>
+            </li>
+          ) : null}
+        </ul>
+      ) : null}
       {editable ? (
         <CurrencyInput
           label={give ? 'Coins you give' : 'Coins you get'}
@@ -159,16 +164,26 @@ function Side({
           onChange={(coins) => onCoinsChange?.(side, coins)}
         />
       ) : data.coins > 0 ? (
-        <p className="flex items-center gap-2 font-mono text-mono text-gold">
-          <Coins aria-hidden className="size-4" />
-          {data.coins.toLocaleString('en-US')} coins
+        <p
+          className={cn(
+            'flex items-center gap-2 font-mono text-mono',
+            give ? 'text-red' : 'text-grn',
+          )}
+        >
+          <Coins aria-hidden className="size-4 text-gold" />
+          {give ? '−' : '+'}
+          {coins}
+        </p>
+      ) : count === 0 ? (
+        <p className="text-body text-mut">Nothing</p>
+      ) : null}
+      {editable || count > 0 ? (
+        <p className="border-t border-bd pt-3 text-small text-mut">
+          {count} {count === 1 ? 'card' : 'cards'}
+          {value !== null ? <> · market value {formatUsd(value)}</> : null}
+          {data.coins > 0 ? <> · {coins}</> : null}
         </p>
       ) : null}
-      <p className="border-t border-bd pt-3 text-small text-mut">
-        {count} {count === 1 ? 'card' : 'cards'}
-        {value !== null ? <> · market value {formatUsd(value)}</> : null}
-        {data.coins > 0 ? <> · {data.coins.toLocaleString('en-US')} coins</> : null}
-      </p>
     </section>
   );
 }

@@ -31,3 +31,5 @@ export const counterTrade = (id: string, body: TradeTermsBody) =>
 export const acceptTrade = (id: string) => post(`/trades/${id}/accept`, TradeSchema);
 
 export const declineTrade = (id: string) => post(`/trades/${id}/decline`, TradeSchema);
+
+export const cancelTrade = (id: string) => post(`/trades/${id}/cancel`, TradeSchema);
