@@ -443,3 +443,26 @@ So the client may show fewer cards than the server will return, never others. **
 - The empty-showcase sentence carries the name: a 64-character name without spaces widened the layout viewport to 535 px under mobile emulation while no element measured wider than 375 — the layout had been settled at load. Hiding candidates with a style injected before load (`Page.addScriptToEvaluateOnNewDocument`) found it; the sentence is `wrap-anywhere` now.
 - A page's own `openGraph` replaces the group's file-based `opengraph-image`, and a file-based image in the segment would override the showcase card: a profile with an empty showcase is shared without an image.
 
+## Account settings (PD-118)
+
+`/settings` (`components/settings/`): four sections, each saving on its own. No theme choice — dark is the only theme (D7).
+
+- **Profile** — *Display name* and *Avatar image address* against `ProfileIdentitySchema`, the rules `PATCH /users/me` and sign-up use (an empty avatar field means none, sent as `null`); the avatar preview follows the field. *Email* is shown read-only (D7). *Save profile* is enabled once something changed; after the save `router.refresh()` re-renders the shell, whose name and avatar come from the server. Since PD-118 the shared schema says *Use an https:// address* instead of zod's *Invalid URL*, and the API answers with the same words.
+- **Privacy** — *Show my collection value* and *Show my set completion*, each a `PATCH` of its own the moment it flips, with a toast saying what visitors now see; the public profile reads the toggle on its next request.
+- **Password** — current, new and repeated, against `ChangePasswordSchema` (shared: the current one only non-empty, the new one `NewPasswordSchema`, the two equal), and *Sign out of every other device*, on by default, sent as Better Auth's `revokeOtherSessions`. A wrong current password lands on its field: *That isn’t your current password*. `change-password` joined the strict throttle tier: it checks the current password, so with a stolen session it was an unthrottled oracle for guessing it.
+- **Sessions** — `GET /api/auth/list-sessions` with `get-session` for *This device*: browser and system read from the user agent (*Chrome on Windows*), IP, when it signed in and was last active. *Sign out other devices* confirms *Sign out 15 other sessions?* and then says what it did — *Signed out 15 other sessions. This device is still signed in.* — in a status line that stays after the list refreshes. The list's answer also carries every session's token (Better Auth revokes by token); the schema drops it unread.
+
+**Measured 2026-10-06** with the API and `next dev`, headless Chrome with real key events:
+
+- *Display name* emptied: `aria-invalid`, *Enter a display name*; `http://example.com/a.png`: *Use an https:// address*; *PD102 Tester Renamed* saved: the toast, the account menu *Account menu for PD102 Tester Renamed* without a reload, `GET /users/me` the same; renamed back;
+- *Show my collection value* on: the toast *Visitors now see your collection value*, and the very next `GET /users/:id` without a session carried `collection` and `/profile/<id>` showed *Collection value*; off: both gone;
+- the second member with two more sessions from `curl`: 16 listed, *This device* first; *Sign out other devices* → *Sign out 15 other sessions?* → *Signed out 15 other sessions. This device is still signed in.*, one row left, both `curl` sessions' `get-session` `null`, the page still signed in;
+- *Repeat the new password* different: *The passwords do not match*; a wrong current password: *That isn’t your current password* with the focus on it; the right one with *Sign out of every other device*: *Password changed. Every other device was signed out.*, a fourth `curl` session `null`, this page still signed in (the password set back afterwards);
+- eleven `change-password` calls from one address within the window: the eleventh and later 429;
+- 375 px (device emulation): `scrollWidth` 375; no console errors.
+
+**Traps:**
+
+- Under zod 4 a union of `''` and a URL reports the URL branch's own message, not the union's: the readable message belongs on the shared URL rule.
+- A settings save changes what the server rendered into the shell (the name in the account menu): `router.refresh()`, not only the query cache.
+

@@ -37,7 +37,7 @@
 
   | Policy | Default | Applies to | Variables |
   |---|---|---|---|
-  | strict | 10 per 15 min | `sign-in/email`, `sign-up/email`, `reset-password`, `request-password-reset`, `send-verification-email` | `THROTTLE_AUTH_LIMIT` / `THROTTLE_AUTH_WINDOW` |
+  | strict | 10 per 15 min | `sign-in/email`, `sign-up/email`, `reset-password`, `request-password-reset`, `send-verification-email`, `change-password` (since PD-118: it checks the current password) | `THROTTLE_AUTH_LIMIT` / `THROTTLE_AUTH_WINDOW` |
   | default | 100 per min | every other route | `THROTTLE_DEFAULT_LIMIT` / `THROTTLE_DEFAULT_WINDOW` |
   | moderate | 30 per min | pack-open and trade creation, when those routes exist | `THROTTLE_MODERATE_LIMIT` / `THROTTLE_MODERATE_WINDOW` |
 
@@ -149,6 +149,7 @@ Sign-*in* does not leak either: a wrong password and an unknown address return b
 | POST | `/auth/send-verification-email` | Resend. Enumeration-safe by the provider; strict rate limit plus a per-recipient cooldown |
 | POST | `/auth/request-password-reset` | Always answers identically. Single-use token, `AUTH_RESET_TTL` (15 min) |
 | POST | `/auth/reset-password` | Consumes the token, sets the password, revokes every session |
+| POST | `/auth/change-password` | `{ currentPassword, newPassword, revokeOtherSessions }`; a wrong current password is 400 `INVALID_PASSWORD`. Strict tier since PD-118 |
 | GET | `/auth/get-session` | Current session/user |
 
 These are **not** under `/api/v1`. They are Better Auth's contract, and versioning someone else's URLs buys nothing. The handler owns everything under `/api/auth/*` and answers 404 for anything it does not recognise.
