@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
-import { PagePlaceholder } from '@/components/page-placeholder';
+import { AdminPacks } from '@/components/admin/packs/admin-packs';
 
 export const metadata: Metadata = { title: 'Pack templates' };
 
 export default function Page() {
-  return <PagePlaceholder title="Pack templates" ticket="PD-121" />;
+  return <AdminPacks />;
 }

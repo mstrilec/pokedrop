@@ -10,6 +10,11 @@ export const keys = {
   // Under `me`: whatever refreshes the profile (a pack, a settled trade) refreshes the checklist.
   progress: ['me', 'progress'],
   sessions: ['sessions'],
+  admin: {
+    all: ['admin'],
+    metrics: (days: number) => ['admin', 'metrics', days],
+    packTemplates: ['admin', 'pack-templates'],
+  },
   catalog: {
     all: ['catalog'],
     facets: ['catalog', 'facets'],
@@ -56,7 +61,6 @@ export const keys = {
     detail: (id: string) => ['profiles', 'detail', id],
     search: (q: string) => ['profiles', 'search', q],
   },
-  admin: { all: ['admin'] },
 } as const satisfies Record<
   string,
   QueryKey | Record<string, QueryKey | ((...args: never[]) => QueryKey)>
