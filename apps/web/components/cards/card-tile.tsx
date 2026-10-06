@@ -111,7 +111,7 @@ function CardTileImpl({
     </button>
   ) : (
     <Link
-      href={href ?? `/cards/${card.id}`}
+      href={href ?? `/cards/${encodeURIComponent(card.id)}`}
       aria-label={label}
       className={classes}
       style={rarityVar}

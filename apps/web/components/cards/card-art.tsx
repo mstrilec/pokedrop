@@ -77,6 +77,7 @@ export function CardArt({
           sizes={sizes}
           unoptimized={!isOptimizable(card.image)}
           preload={preload}
+          fetchPriority={preload ? 'high' : undefined}
           onError={() => setFailed(true)}
           className="object-cover"
         />

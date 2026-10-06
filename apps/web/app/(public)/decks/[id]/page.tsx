@@ -23,9 +23,16 @@ export async function generateMetadata({ params }: PageProps<'/decks/[id]'>): Pr
   return { title: found?.deck.name ?? 'Deck' };
 }
 
-export default async function Page({ params }: PageProps<'/decks/[id]'>) {
-  const { id } = await params;
+export default async function Page({ params, searchParams }: PageProps<'/decks/[id]'>) {
+  const [{ id }, { add }] = await Promise.all([params, searchParams]);
   const found = await loadDeck(id);
   if (!found) notFound();
-  return <DeckPage id={id} initial={found.deck} initialAt={found.at} />;
+  return (
+    <DeckPage
+      id={id}
+      initial={found.deck}
+      initialAt={found.at}
+      addCardId={typeof add === 'string' && add !== '' ? add : undefined}
+    />
+  );
 }

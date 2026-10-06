@@ -30,10 +30,12 @@ export function DeckPage({
   id,
   initial,
   initialAt,
+  addCardId,
 }: {
   id: string;
   initial: DeckDetail;
   initialAt: number;
+  addCardId?: string;
 }) {
   const session = useSession();
   const deck = useDeck(id, initial, initialAt);
@@ -59,7 +61,7 @@ export function DeckPage({
     );
   }
   return deck.data.userId === session?.id ? (
-    <DeckBuilder deck={deck.data} />
+    <DeckBuilder deck={deck.data} addCardId={addCardId} />
   ) : (
     <PublicDeck deck={deck.data} />
   );

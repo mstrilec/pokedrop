@@ -1,16 +1,17 @@
 'use client';
 
-import type { DeckDetail } from '@pokedrop/shared';
+import { type DeckDetail, PlayableCardSchema } from '@pokedrop/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { Trash2, TriangleAlert } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { type ReactNode, useEffect, useState } from 'react';
-import { saveBlocker } from '@/components/decks/deck-rules';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { addRefusal, saveBlocker } from '@/components/decks/deck-rules';
 import { focusDeckSlot } from '@/components/decks/deck-slot';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { Tabs, TabsPanel } from '@/components/ui/tabs';
 import { ApiError } from '@/lib/api/core';
+import { useCard } from '@/lib/query/catalog';
 import { useSaveDeck } from '@/lib/query/decks';
 import { keys } from '@/lib/query/keys';
 import { DeckDraftProvider, isDirty, useDeckDraft } from '@/lib/stores/deck-draft';
@@ -29,16 +30,19 @@ type Tab = 'pool' | 'deck' | 'check';
 // Below the 60 px topbar and the main element's 2 × 32 px padding.
 const BUILDER_HEIGHT = 'calc(100dvh - 3.75rem - 4rem)';
 
-/** The store takes the first `deck` only; later answers (a Public flip refetches) never reset it. */
-export function DeckBuilder({ deck }: { deck: DeckDetail }) {
+/**
+ * The store takes the first `deck` only; later answers (a Public flip refetches) never reset it.
+ * `addCardId` (`?add=`, from a card page) arrives as one more copy, unsaved.
+ */
+export function DeckBuilder({ deck, addCardId }: { deck: DeckDetail; addCardId?: string }) {
   return (
     <DeckDraftProvider key={deck.id} deck={deck}>
-      <Builder deck={deck} />
+      <Builder deck={deck} addCardId={addCardId} />
     </DeckDraftProvider>
   );
 }
 
-function Builder({ deck }: { deck: DeckDetail }) {
+function Builder({ deck, addCardId }: { deck: DeckDetail; addCardId?: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const wide = useMediaQuery('(min-width: 1024px)');
@@ -53,6 +57,8 @@ function Builder({ deck }: { deck: DeckDetail }) {
   const reset = useDeckDraft((s) => s.reset);
   const commit = useDeckDraft((s) => s.commit);
   const basis = useDeckDraft((s) => s.basis);
+  const add = useDeckDraft((s) => s.add);
+  const cardsById = useDeckDraft((s) => s.cardsById);
   const { validation, stats, checkingCopies } = useDeckChecks(deck.rules.deckSize);
   const save = useSaveDeck(deck.id);
   const blocker = saveBlocker(draft, dirty);
@@ -65,6 +71,27 @@ function Builder({ deck }: { deck: DeckDetail }) {
   useEffect(() => {
     if (!dirty && deck.updatedAt.getTime() > basis) reset(deck);
   }, [deck, dirty, basis, reset]);
+
+  // Once, and the parameter dropped first, so a reload or Back cannot add the copy again.
+  const adding = useCard(addCardId);
+  const added = useRef(false);
+  useEffect(() => {
+    if (added.current || addCardId === undefined || (!adding.data && !adding.isError)) return;
+    added.current = true;
+    window.history.replaceState(null, '', `/decks/${deck.id}`);
+    if (!adding.data) {
+      toastError('That card isn’t in the catalog');
+      return;
+    }
+    const card = PlayableCardSchema.parse(adding.data);
+    const refusal = addRefusal(card, draft.cards, cardsById);
+    if (refusal) {
+      toastError(`${card.name} not added: ${refusal}`);
+      return;
+    }
+    add(card);
+    toastSuccess(`Added ${card.name} — save the deck to keep it`);
+  }, [addCardId, adding.data, adding.isError, deck.id, draft.cards, cardsById, add]);
 
   async function submit(thenLeave?: () => void) {
     if (blocker !== null || save.isPending) return;

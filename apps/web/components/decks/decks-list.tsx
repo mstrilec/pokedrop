@@ -43,7 +43,16 @@ const NewDeckSchema = z.object({
 });
 type NewDeck = z.infer<typeof NewDeckSchema>;
 
-function NewDeckDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+/** With `addCardId`, the new deck opens with that card added as an unsaved change. */
+export function NewDeckDialog({
+  open,
+  onClose,
+  addCardId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  addCardId?: string;
+}) {
   const router = useRouter();
   const create = useCreateDeck();
   const formatId = useId();
@@ -56,7 +65,9 @@ function NewDeckDialog({ open, onClose }: { open: boolean; onClose: () => void }
   const submit = form.handleSubmit(async (values) => {
     try {
       const deck = await create.mutateAsync(values);
-      router.push(`/decks/${deck.id}`);
+      router.push(
+        addCardId ? `/decks/${deck.id}?add=${encodeURIComponent(addCardId)}` : `/decks/${deck.id}`,
+      );
     } catch (error) {
       applyApiError(form, error);
     }

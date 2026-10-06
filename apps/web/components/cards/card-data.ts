@@ -42,3 +42,9 @@ const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' 
 export function formatUsd(price: number | null): string {
   return price === null ? '—' : usd.format(price);
 }
+
+const eur = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'EUR' });
+
+export function formatEur(price: number | null): string {
+  return price === null ? '—' : eur.format(price);
+}

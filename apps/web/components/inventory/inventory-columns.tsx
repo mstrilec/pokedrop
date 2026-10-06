@@ -25,7 +25,7 @@ export const INVENTORY_COLUMNS = [
           </span>
           <span className="flex min-w-0 flex-col">
             <Link
-              href={`/cards/${entry.cardId}`}
+              href={`/cards/${encodeURIComponent(entry.cardId)}`}
               className="focus-ring truncate rounded-tag font-semibold hover:text-pri"
             >
               {entry.card.name}
