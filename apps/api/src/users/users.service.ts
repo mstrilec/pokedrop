@@ -1,6 +1,7 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import {
   MyProfileSchema,
+  type OnboardingProgress,
   PublicProfileSchema,
   type MyProfile,
   type PublicProfile,
@@ -11,6 +12,7 @@ import {
 } from '@pokedrop/shared';
 import { CARD_SUMMARY_SELECT, toCardSummary } from '../common/card-summary.js';
 import { escapeLike } from '../common/escape-like.js';
+import { APP_CONFIG, type AppConfig } from '../config/index.js';
 import { InventoryService } from '../inventory/index.js';
 import { PrismaService } from '../prisma/index.js';
 
@@ -32,7 +34,36 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly inventory: InventoryService,
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
+
+  /** Four existence checks, each on an index; nothing about the checklist is stored. */
+  async progress(userId: string): Promise<OnboardingProgress> {
+    const [user, opening, trade, decks] = await Promise.all([
+      this.prisma.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { emailVerified: true },
+      }),
+      this.prisma.packOpening.findFirst({ where: { userId }, select: { id: true } }),
+      this.prisma.trade.findFirst({
+        where: { status: 'ACCEPTED', OR: [{ initiatorId: userId }, { recipientId: userId }] },
+        select: { id: true },
+      }),
+      this.prisma.deckCard.groupBy({
+        by: ['deckId'],
+        where: { deck: { userId } },
+        having: { count: { _sum: { gte: this.config.decks.size } } },
+        orderBy: { deckId: 'asc' },
+        take: 1,
+      }),
+    ]);
+    return {
+      emailVerified: user.emailVerified,
+      openedPack: opening !== null,
+      builtDeck: decks.length > 0,
+      madeTrade: trade !== null,
+    };
+  }
 
   /**
    * Collectors whose display name contains `q`, an exact name first. Never the caller, never a

@@ -1,7 +1,12 @@
 import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import type { MyProfile, PublicProfile, UserSearchResult } from '@pokedrop/shared';
+import type {
+  MyProfile,
+  OnboardingProgress,
+  PublicProfile,
+  UserSearchResult,
+} from '@pokedrop/shared';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { Public } from '../common/decorators/public.decorator.js';
 import type { AuthUser } from '../common/request-auth.js';
@@ -9,7 +14,12 @@ import { MODERATE_THROTTLE } from '../common/throttle.js';
 import { UpdateMyProfileDto, UserSearchQueryDto } from './users.dto.js';
 import { UsersService } from './users.service.js';
 import { Doc, returns } from '../common/openapi.js';
-import { MyProfileSchema, PublicProfileSchema, UserSearchResultSchema } from '@pokedrop/shared';
+import {
+  MyProfileSchema,
+  OnboardingProgressSchema,
+  PublicProfileSchema,
+  UserSearchResultSchema,
+} from '@pokedrop/shared';
 
 /** `me` is declared before `:id` so it is never read as a user id. */
 @ApiTags('users')
@@ -35,6 +45,15 @@ export class UsersController {
   @Get('me')
   me(@CurrentUser() user: AuthUser): Promise<MyProfile> {
     return this.users.me(user.id);
+  }
+
+  @Doc(
+    "The caller's onboarding checklist, derived from what they have done",
+    returns('OnboardingProgress', OnboardingProgressSchema),
+  )
+  @Get('me/progress')
+  progress(@CurrentUser() user: AuthUser): Promise<OnboardingProgress> {
+    return this.users.progress(user.id);
   }
 
   @Doc(

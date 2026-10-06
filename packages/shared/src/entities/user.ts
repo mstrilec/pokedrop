@@ -170,3 +170,15 @@ export type GrantResult = z.infer<typeof GrantResultSchema>;
 
 export const SuspendUserSchema = z.strictObject({ reason: z.string().trim().min(1).max(500) });
 export type SuspendUser = z.infer<typeof SuspendUserSchema>;
+
+/**
+ * The dashboard's checklist, read from what happened rather than stored: an email verified,
+ * a pack opened, a deck holding the configured deck size, a trade accepted with either role.
+ */
+export const OnboardingProgressSchema = z.object({
+  emailVerified: z.boolean(),
+  openedPack: z.boolean(),
+  builtDeck: z.boolean(),
+  madeTrade: z.boolean(),
+});
+export type OnboardingProgress = z.infer<typeof OnboardingProgressSchema>;
