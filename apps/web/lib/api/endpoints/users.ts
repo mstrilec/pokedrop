@@ -1,8 +1,18 @@
-import { MyProfileSchema, PublicProfileSchema, UserSearchResultSchema } from '@pokedrop/shared';
+import {
+  DeckPageSchema,
+  MyProfileSchema,
+  PublicProfileSchema,
+  UserSearchResultSchema,
+} from '@pokedrop/shared';
 import { get } from '../core';
 
 export const me = () => get('/users/me', MyProfileSchema);
 
-export const publicProfile = (id: string) => get(`/users/${id}`, PublicProfileSchema);
+export const publicProfile = (id: string) =>
+  get(`/users/${encodeURIComponent(id)}`, PublicProfileSchema);
+
+/** Only the decks the user made public, newest first. */
+export const userDecks = (id: string, page = 1) =>
+  get(`/users/${encodeURIComponent(id)}/decks`, DeckPageSchema, { page });
 
 export const userSearch = (q: string) => get('/users', UserSearchResultSchema, { q });
