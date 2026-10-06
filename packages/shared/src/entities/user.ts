@@ -41,7 +41,7 @@ export const ProfileIdentitySchema = z.object({
     .min(1, 'Enter a display name')
     .max(64, 'Use at most 64 characters'),
   avatarUrl: z
-    .url({ protocol: /^https$/ })
+    .url({ protocol: /^https$/, error: 'Use an https:// address' })
     .max(2048)
     .nullable(),
 });

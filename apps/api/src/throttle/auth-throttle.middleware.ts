@@ -11,6 +11,8 @@ const CREDENTIAL_PATHS = new Set([
   `${AUTH_BASE_PATH}/sign-in/email`,
   `${AUTH_BASE_PATH}/sign-up/email`,
   `${AUTH_BASE_PATH}/reset-password`,
+  // It checks the current password: with a stolen session, an oracle for guessing it.
+  `${AUTH_BASE_PATH}/change-password`,
   `${AUTH_BASE_PATH}/request-password-reset`,
   `${AUTH_BASE_PATH}/send-verification-email`,
 ]);

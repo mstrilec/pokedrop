@@ -37,3 +37,16 @@ export const ResetPasswordSchema = z
     message: 'The passwords do not match',
   });
 export type ResetPassword = z.infer<typeof ResetPasswordSchema>;
+
+/** Settings: the current password is only checked by the server; the new one meets the rules. */
+export const ChangePasswordSchema = z
+  .object({
+    current: z.string().min(1, 'Enter your current password'),
+    password: NewPasswordSchema,
+    confirm: z.string(),
+  })
+  .refine((value) => value.password === value.confirm, {
+    path: ['confirm'],
+    message: 'The passwords do not match',
+  });
+export type ChangePassword = z.infer<typeof ChangePasswordSchema>;
