@@ -19,6 +19,9 @@ export const mutationKeys = {
   revokeOtherSessions: ['revokeOtherSessions'],
   changePassword: ['changePassword'],
   savePackTemplate: ['savePackTemplate'],
+  triggerSync: ['triggerSync'],
+  resetBreaker: ['resetBreaker'],
+  adminUserAction: ['adminUserAction'],
 } as const;
 
 type MutationName = keyof typeof mutationKeys;
@@ -53,6 +56,10 @@ export const INVALIDATES: Record<MutationName, readonly QueryKey[]> = {
   changePassword: [keys.sessions],
   // Members see an active template's odds and price.
   savePackTemplate: [keys.admin.packTemplates, keys.packs.all],
+  triggerSync: [keys.admin.sync],
+  resetBreaker: [keys.admin.sync],
+  // A grant moves a balance, a suspension voids trades: the overview's figures too.
+  adminUserAction: [keys.admin.users, keys.admin.all],
   // The offered copies are locked now; the inbox and its counts change.
   proposeTrade: [keys.trades.all, keys.inventory.all, keys.notifications.all],
   counterTrade: [keys.trades.all, keys.inventory.all, keys.notifications.all],

@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
-import { PagePlaceholder } from '@/components/page-placeholder';
+import { AdminUsers } from '@/components/admin/users/admin-users';
 
 export const metadata: Metadata = { title: 'Users' };
 
 export default function Page() {
-  return <PagePlaceholder title="Users" ticket="PD-122" />;
+  return <AdminUsers />;
 }

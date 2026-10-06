@@ -14,6 +14,9 @@ export const keys = {
     all: ['admin'],
     metrics: (days: number) => ['admin', 'metrics', days],
     packTemplates: ['admin', 'pack-templates'],
+    users: ['admin', 'users'],
+    userList: (params: object) => ['admin', 'users', params],
+    sync: ['admin', 'sync'],
   },
   catalog: {
     all: ['catalog'],

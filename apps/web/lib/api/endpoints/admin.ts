@@ -1,4 +1,15 @@
 import {
+  type AdminUserListQuerySchema,
+  AdminUserPageSchema,
+  AdminUserRowSchema,
+  type ChangeRole,
+  type GrantCurrency,
+  GrantResultSchema,
+  ProviderBreakerStateSchema,
+  type SuspendUser,
+  SyncStatusResponseSchema,
+  type SyncTriggerKind,
+  SyncTriggerResultSchema,
   AdminMetricsSchema,
   type CreatePackTemplate,
   type MetricsWindow,
@@ -19,3 +30,30 @@ export const createPackTemplate = (body: CreatePackTemplate) =>
 
 export const updatePackTemplate = (id: string, body: UpdatePackTemplate) =>
   patch(`/admin/pack-templates/${encodeURIComponent(id)}`, PackTemplateSchema, body);
+
+export type AdminUserParams = z.input<typeof AdminUserListQuerySchema>;
+
+export const adminUsers = (params: AdminUserParams) =>
+  get('/admin/users', AdminUserPageSchema, params);
+
+const userPath = (id: string, action: string) => `/admin/users/${encodeURIComponent(id)}/${action}`;
+
+export const grantCurrency = (id: string, body: GrantCurrency) =>
+  post(userPath(id, 'currency'), GrantResultSchema, body);
+
+export const changeRole = (id: string, body: ChangeRole) =>
+  patch(userPath(id, 'role'), AdminUserRowSchema, body);
+
+export const suspendUser = (id: string, body: SuspendUser) =>
+  post(userPath(id, 'suspend'), AdminUserRowSchema, body);
+
+export const unsuspendUser = (id: string) => post(userPath(id, 'unsuspend'), AdminUserRowSchema);
+
+export const syncStatus = () => get('/admin/sync/status', SyncStatusResponseSchema);
+
+/** 202 `{ jobId, kind }`; 409 `SYNC_IN_PROGRESS` while either kind holds the key. */
+export const triggerSync = (kind: SyncTriggerKind) =>
+  post(kind === 'CATALOG' ? '/admin/sync/catalog' : '/admin/sync/prices', SyncTriggerResultSchema);
+
+export const resetBreaker = (provider: string) =>
+  post(`/admin/sync/breakers/${encodeURIComponent(provider)}/reset`, ProviderBreakerStateSchema);
