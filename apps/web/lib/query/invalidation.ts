@@ -33,7 +33,7 @@ export const INVALIDATES: Record<MutationName, readonly QueryKey[]> = {
   cloneDeck: [keys.decks.all],
   deleteDeck: [keys.decks.all],
   // A save's verdict counts the owner's copies; the builder's counts follow it.
-  saveDeck: [keys.decks.all, keys.inventory.ownedAll],
+  saveDeck: [keys.decks.all, keys.inventory.ownedAll, keys.progress],
   // Settlement moves cards and coins both ways; a deck's verdict counts the copies it moved.
   acceptTrade: [
     keys.trades.all,

@@ -7,6 +7,8 @@ import type { WalletParams } from '@/lib/api/endpoints/wallet';
 // stale times and invalidations target; a key under it extends that root.
 export const keys = {
   me: ['me'],
+  // Under `me`: whatever refreshes the profile (a pack, a settled trade) refreshes the checklist.
+  progress: ['me', 'progress'],
   sessions: ['sessions'],
   catalog: {
     all: ['catalog'],

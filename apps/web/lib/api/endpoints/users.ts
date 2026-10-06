@@ -1,6 +1,7 @@
 import {
   DeckPageSchema,
   MyProfileSchema,
+  OnboardingProgressSchema,
   PublicProfileSchema,
   type UpdateMyProfile,
   UserSearchResultSchema,
@@ -8,6 +9,8 @@ import {
 import { get, patch } from '../core';
 
 export const me = () => get('/users/me', MyProfileSchema);
+
+export const progress = () => get('/users/me/progress', OnboardingProgressSchema);
 
 export const updateMe = (body: UpdateMyProfile) => patch('/users/me', MyProfileSchema, body);
 
