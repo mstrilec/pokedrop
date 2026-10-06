@@ -520,3 +520,30 @@ Both behind the admin layout and the proxy: a member who opens `/admin` or `/adm
 - `0.1 × 100` is `9.999…`: a percentage formatter that switches precision at 10 printed *10%* beside *30.0%*. The preview switches at 1%.
 - Radix tabs do not answer a scripted `.click()`; drive them with the keyboard (ArrowRight) as a user would.
 
+## Sync control and users (PD-122)
+
+**`/admin/sync`** (`components/admin/sync/sync-control.tsx`) reads `GET /admin/sync/status`, polled every 2 s while a catalog sync or price sweep is queued or running and every 15 s otherwise (`useSyncStatus`, `syncBusy`).
+
+- **The provider** — the header names the one the next run uses, and why when it is not the primary (its breaker open, or every breaker open).
+- **Catalog sync** and **Price sweep** — the last run of each: status (*Stalled* for a run nothing will close), provider, when it started, how long it ran or has been running (a one-second clock only while something runs), processed and failed. While it runs the count moves with every page the processor records (`recordProgress`).
+- **Run now** — one trigger mutation for both cards, so both buttons are disabled while it is in flight, while either queue holds a job, while a catalog or price run is open, and while the job this page queued has not yet become a run; the reason stands beside the button (*A catalog sync is running; one run at a time.*). The click answers at once — a toast with the job id and *Queued — waiting for a worker to start it (job …)*. A 409 `SYNC_IN_PROGRESS` that still gets through (another admin) shows under the button.
+- **Active-card prices** — the last run of the four-times-a-day refresh, which has no button; **Providers** — each breaker's failures and when it will be retried, *Reset* behind a confirmation; **Queues** — waiting, active, delayed, failed.
+
+**`/admin/users`** (`components/admin/users/`): `GET /admin/users` as a `DataTable` — name and email (linking the profile), role, balance, status (*Suspended since …*, or *email not verified*), joined — with a search over email and name, role and status filters, and pages of 25.
+
+- **Row actions** (a menu per row), each behind its own dialog: *Grant or take coins* (amount, reason, and *Balance 4,129 → 4,379* before anything is sent; more than the balance is refused in the dialog), *Make admin / Make member* (what the role changes), *Suspend* (reason; what it does: signed out everywhere, pending trades voided) and *Unsuspend*. The admin's own row cannot change its role or suspend itself, as the API refuses.
+- **Optimistic, with rollback** (`useAdminUserAction`) — on confirm the dialog closes and the row shows the result at once (balance, role, status); the server's answer replaces it, or a refusal restores every cached page as it was and the API's message is the toast. A grant's `grantId` is made once per dialog, so a retried confirm is the same grant.
+
+**Measured 2026-10-06** with the API, `next dev` and the test admin:
+
+- both sync queues paused (BullMQ), *Run now* on the catalog: the toast *Catalog sync queued (job a54c31ed)* 170 ms after the click, *Queued — waiting for a worker…*, both buttons disabled with *A run is queued; one run at a time.*; the API called directly for a price sweep and for a second catalog sync: 409 *A catalog sync is already queued or running (job a54c31ed-…)* both, one job in the queue;
+- the catalog queue resumed, a real run watched on the page every 5 s: *running · 0 processed* at 5 s, *250* at 15 s, *1,000* at 40 s, *5,000 · 1 failed* at 3 min, *14,000 · 4 failed* at 8 min; both buttons disabled throughout with *A catalog sync is running*; it closed *partial*, *19,670 processed · 4 failed*, *took 10m 35s*, the run's `jobId` the trigger's, and both buttons came back. Both queues resumed afterwards;
+- users: *Page 1 of 1 · 14 users*; `pd102` → one row; a grant of 250 → *Balance 4,129 → 4,379*, refused without a reason, then *Granted 250 coins to PD102 Tester* and the row at 4,379; −99,999 → *Balance 4,379 → −95,620* and *PD102 Tester has only 4,379 coins*, nothing sent; −250 back to 4,129;
+- *Make admin* answered 409 (the response replaced through CDP `Fetch`, 1.5 s late): the row read *Admin* at once, then *Member* again with the server's message as the toast, the database `MEMBER`;
+- *Suspend* refused without a reason, then the member *Suspended since Oct 6* (they had no pending trades); *Unsuspend* → *Active*; audit rows `user.currency_grant` ×2, `user.suspend`, `user.unsuspend`; the admin's own row: *Make member…* and *Suspend…* disabled; no console errors.
+
+**Traps:**
+
+- The topbar's card search is also an `input[type=search]`: a script that types into "the search field" must scope to `main`.
+- Pausing a BullMQ queue for a measurement leaves it paused for the nightly cron: resume both queues afterwards.
+
