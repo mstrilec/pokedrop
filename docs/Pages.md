@@ -16,6 +16,8 @@ The tickets were written before the API, and a few of them asked for what the AP
 | D4 | The deck builder validates its draft in the browser with the API's own validator, from `@pokedrop/shared`; rule failures never block a save — only what the API would refuse with a 400 does | PD-112, PD-113 |
 | D5 | The trade composer asks for any catalog card (the counterparty's showcase first) — inventories stay private and settlement checks; counterparties come from a member name search, `GET /users?q=`; counter-offers use the same composer | PD-115, PD-116 |
 | D7 | Settings shows the email read-only and has no theme choice: dark is the only theme | PD-118 |
+| D9 | The card page's Pokédex section reads PokéAPI from the web server (`lib/pokeapi.ts`) — a day's cache, a two-second timeout, nothing on failure; the API is not involved | PD-110 |
+| D10 | *Add to deck* on a card page picks one of the member's decks (or creates one) and opens the builder with `?add=<cardId>`: one more copy as an unsaved change, saved by the member | PD-110 |
 
 ## Landing (PD-101)
 
@@ -314,7 +316,7 @@ So the client may show fewer cards than the server will return, never others. **
 - Keying the draft store by `updatedAt` would wipe it whenever *Public* is flipped: that mutation invalidates the deck query, and a new answer would mean a new store.
 - dnd-kit fires *over* for the zone a drag starts in at once, which replaced the pick-up instructions in the live region before a screen reader finished them; the builder announces nothing for the origin zone.
 - `react-hooks/refs` fails `drag.setNodeRef` on the object `useDraggable` returns; destructure it. `react-hooks/incompatible-library` fires for `useVirtualizer` (not for `useWindowVirtualizer`); the React Compiler is not enabled.
-- A missing or private deck answers the not-found page with `noindex` but HTTP 200: `(public)/loading.tsx` makes every page in the group stream, so the status is sent before the page runs.
+- A missing or private deck answered the not-found page with `noindex` but HTTP 200 while `(public)/loading.tsx` made every page in the group stream; since PD-110 removed it, the answer is a real 404.
 - A TanStack Query mutation pauses while offline by default; a save that should fail visibly needs `networkMode: 'always'`.
 
 ## Trades inbox (PD-114)
@@ -391,3 +393,30 @@ So the client may show fewer cards than the server will return, never others. **
 - The not-found page answers HTTP **200**, not 404: `(app)/loading.tsx` starts streaming before the page's read finishes, and Next cannot change the status afterwards, so it adds `<meta name="robots" content="noindex">` instead (`node_modules/next/dist/docs/01-app/02-guides/streaming.md`, *The HTTP contract*). The page is private; a real 404 would need the read before any Suspense boundary.
 - Headless Chrome's window is never narrower than 500 px: `--window-size=375` measures a 485-px page. Phone widths take `Emulation.setDeviceMetricsOverride`.
 - A timeline label with a long name widened the page until its text column got `min-w-0` with `wrap-anywhere`; the page grid needs an explicit `minmax(0,1fr)` column below `lg`.
+
+## Card detail (PD-110)
+
+`/cards/[id]` (`components/cards/detail/`): a Server Component, public and indexable — everything but the owned badge and the quick actions is in the first HTML response, for a visitor or a crawler with no session.
+
+- **What it shows** — the large art (`CardArt` over the design's card face, which stays if the art fails; `fetchPriority="high"`, the page's LCP), name, rarity and type badges, supertype · subtypes · HP · set and printed number; *Abilities and attacks* with energy costs as icons and words; *Combat data* (weakness, resistance, retreat cost — *Card data* for a trainer or energy) and the formats it is legal in; *Set* with logo, symbol, series, release date, `number/printedTotal` and a link to browse the set.
+- **Prices** — the card's latest TCGplayer USD and Cardmarket EUR, each with its 30-day history (`GET /cards/:id/price/history`) as a server-drawn SVG sparkline with a spoken summary, 30-day low/high and the change. The age is always shown — *Updated 3 weeks ago* from `priceUpdatedAt`, with *— may be out of date* past 7 days — and a card never priced says *Not priced yet*, so a stale price is never hidden.
+- **Pokédex (D9)** — for a Pokémon, `lib/pokeapi.ts` reads `pokemon-species` and `pokemon` for its first national number: genus, the latest English flavour text, height, weight and base stats. It streams inside its own `Suspense` after the page has decided its status, and any failure — timeout, HTTP error, a shape `zod` refuses — is one server warning and no section.
+- **Owned and quick actions** — a client island (`CardActions`). Signed in: *Owned: 3 · 1 locked in trades* or *Not in your collection* from `GET /inventory/owned` (D2); *Add to deck* opens a dialog of the member's decks and *New deck with Charizard* (the decks page's `NewDeckDialog`), and either opens the builder with `?add=` (D10); *Propose trade* links `/trades/new?card=<id>` (PD-115's pre-fill). Signed out, both buttons open *Sign in to add Charizard to a deck* / *Sign in to trade for Charizard* with *Sign in* (`next` back to the card, or straight on to the composer) and *Create an account*.
+- **`?add=` in the builder** — read by the server page and passed down; once the deck has loaded, the builder drops the parameter from the URL (`history.replaceState`, so a reload or Back cannot add again), runs `addRefusal` and either adds one copy as an unsaved change (*Added Charmander — save the deck to keep it*) or says why not (*Charizard not added: Charizard is at the 4-copy limit*).
+- **Metadata** — title *Charizard · Base 4/102*, a description with rarity, type, HP and the market price, `canonical`, Open Graph and Twitter cards with the large art; an unknown card is *Card not found*.
+
+**Measured 2026-10-06** with the API and `next dev`, then Lighthouse 13 against `next build && next start`:
+
+- `curl`, no session: `/cards/base1-4` 200 with the title, description, `canonical`, `og:*` and `twitter:*` above, and *Fire Spin*, the market price, *Weakness*, *Flame Pokémon*, *Add to deck* in the HTML; `/cards/nope-nope` **404**; `/cards/ex10-%3F` and `/cards/ex10-!` 200 (*Unown · Unseen Forces ?/115*); `/decks/nope-nope` now 404 too;
+- signed out in the browser: no owned line; *Add to deck* → *Sign in to add Charizard to a deck*, *Sign in* → `/sign-in?next=%2Fcards%2Fbase1-4`; *Propose trade* → `next=%2Ftrades%2Fnew%3Fcard%3Dbase1-4`;
+- signed in: *Owned: 3* on Charmander, *Propose trade* → `/trades/new?card=base1-46`; *Add to deck* listed three decks; choosing *Base Sixty* opened `/decks/<id>` with *Charmander ×1* added, *Save* enabled, the toast, and the URL without `?add=`; a reload added nothing; Charizard into a deck already holding four: *not added … 4-copy limit*; *New deck with Unown* → named, created, the builder with `ex10-?` added, saved as `ex10-?×1` (the deck deleted afterwards);
+- prices: Charizard *Updated 7 days ago*, two sparklines (Cardmarket *€1,531.00 to €741.93*); Gardevoir ex (`sv1-245`) *Updated 3 weeks ago — may be out of date*, *$21.80*, *No price history in the last 30 days*; Koga's Ninja Trick (`gym2-115`) *Not priced yet*, no Pokédex section, *Card data*;
+- PokéAPI pointed at an unroutable host: the page 200 in 0.2 s, everything but the Pokédex section, one server line *Species 6 unavailable: fetch failed*;
+- 375 px (device emulation): `scrollWidth` 375 on Charizard and on the trainer; no console errors;
+- Lighthouse: desktop 99 · 100 · 100 · 100 (LCP 0.9 s); mobile performance 81–83, accessibility, best practices and SEO 100, simulated LCP 4.6 s — the observed LCP is 235 ms. The simulation queues the card art behind the page's scripts (372 KB, 37 KB more than the landing's); the landing itself measures 86 on mobile today against 90 at PD-101, so the gap is the shared bundle, not this page.
+
+**Traps:**
+
+- A dynamic segment arrives still percent-encoded: `params.id` is `ex10-%3F`. Encoding it again for the API asked for `ex10-%253F` and 404'd; the page decodes it first. Every link to a card page now encodes the id (`CardTile`, the inventory list) — `/cards/ex10-?` is the card `ex10-` with a query string.
+- `preload` on `next/image` only adds a `<link>`; the request stayed *Low* priority until `fetchPriority="high"`.
+- `TaskStop` on `npx next start` stops the shell, not the server: the next start failed on the port, and Lighthouse measured the old process against a new `.next`. Stop the process that owns the port.

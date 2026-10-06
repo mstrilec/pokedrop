@@ -52,7 +52,7 @@
 |---|---|
 | **PostgreSQL** | Source of truth: users, roles, mirrored card catalog, inventory, decks, trades, pack config, price history. |
 | **Redis** | Cache of hot reads (card detail, sets, facets, latest price), rate-limit counters, BullMQ queues, idempotency locks. |
-| **External API** | Reached only by scheduled background jobs (catalog sync, price refresh). |
+| **External API** | Reached only by scheduled background jobs (catalog sync, price refresh) — with one exception: the card page's Pokédex section reads PokéAPI from the web server at request time (D9 in `Pages.md`), cached a day, two-second timeout, absent on any failure. |
 
 ## 3. External API strategy
 

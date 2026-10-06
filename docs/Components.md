@@ -172,7 +172,7 @@ After the review fixes, the same way:
 | Piece | File | Notes |
 | --- | --- | --- |
 | CardView | `components/cards/card-data.ts` | what card components take: `id`, `name`, `image`, `rarity`, `types`, `hp`, `priceUsd`; `cardView(card)` and `inventoryCardView(entry)` build it from the catalog and inventory shapes |
-| CardFace, CardArt | `components/cards/card-art.tsx` | the design's abstract face (energy gradient, type glyph, name, HP, set and number) under the card's art through `next/image`; the face is the placeholder while the art loads and what stays when it fails |
+| CardFace, CardArt | `components/cards/card-art.tsx` | the design's abstract face (energy gradient, type glyph, name, HP, set and number) under the card's art through `next/image`; the face is the placeholder while the art loads and what stays when it fails. `preload` also sets `fetchPriority="high"` (since PD-110: `preload` alone left the request at *Low*) |
 | CardTile | `components/cards/card-tile.tsx` | 5 : 7 art, rarity text in its tier's color, USD price; `owned` (omitted, `0` = locked, `N` = ×N), `href` (default `/cards/:id`) or `onSelect` + `selected` (a toggle button); memoized |
 | RevealCard | `components/cards/reveal-card.tsx` | a back and a face; `revealed` flips it over in 650 ms; `highlight` adds the tier-colored glow, pulsing for Ultra and Secret; `appear` + `index` flip it in 80 ms after the previous card |
 | rarityTier | `lib/design/rarity.ts` | the provider's rarity strings folded into the five tiers |
