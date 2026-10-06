@@ -392,7 +392,7 @@ The budget was 100 ms; the worst case is 19.1 ms, so no index was added. Over HT
 
 **The randomness is HMAC-SHA256 in counter mode over a 32-byte random seed.** `crypto.randomInt` cannot be seeded, and a stored seed has to reproduce the pack. Integers come from rejection sampling (`limit = 2³² − 2³² mod max`), so there is no modulo bias. Measured over 1 000 000 draws in 64 bins: χ² 65.0 at `max = 3·2³⁰` (about 25% of raw draws rejected) and 81.5 at `max = 2³¹ + 1` (about 50%), against a limit of 103.5 at α = 0.001.
 
-**Each slot's rarities form a ladder: weights above zero, weight descending, ties by name.** It is computed, never read from the order of `weights`, which `jsonb` does not keep. A weight of 0 takes no part — it is never rolled and never a fallback.
+**Each slot's rarities form a ladder: weights above zero, weight descending, ties by name.** It is computed, never read from the order of `weights`, which `jsonb` does not keep. Since PD-121 `ladderOf` lives in `@pokedrop/shared` (`packs/odds.ts`) beside `slotOdds` and `packRates`, so the generator, the members' `odds` and the admin editor's preview compute from one function. A weight of 0 takes no part — it is never rolled and never a fallback.
 
 **Every card is two draws**: a rarity by cumulative weight, then a card uniformly from that rarity's bucket. Draws are independent, so duplicates within a pack are allowed — four Commons from the seed template's 48 contain a pair in about 12% of packs.
 

@@ -487,3 +487,36 @@ So the client may show fewer cards than the server will return, never others. **
 - a trade declined by the other member: `madeTrade` false; one accepted: the checklist gone, the activity listing both trades;
 - under 2.5 s of added latency: the skeletons in each widget's place, the balance already shown from the topbar's query; 375 px: `scrollWidth` 375; no console errors.
 
+## Admin overview and pack templates (PD-121)
+
+Both behind the admin layout and the proxy: a member who opens `/admin` or `/admin/packs` lands on `/dashboard` and never receives the page, and the API answers them 403.
+
+**`/admin`** (`components/admin/admin-overview.tsx`) reads `GET /admin/metrics?days=` (7 · 14 · 30 as tabs in `?days=`):
+
+- **Yesterday** — the last complete UTC day against the day before, as the API's `summary` gives it: active users, packs opened, trades settled (trade volume) and the server error rate, each with its change (*−33% on Oct 4*, *Up from 0 on Oct 4*, *Same as Oct 4*).
+- **The trend** — one metric over the window (`?chart=`: packs opened, active users, trades settled, trades proposed) as a Recharts bar chart, today's bar faded because it is still counting; the chart is `aria-hidden`, with the same numbers in a visually hidden table. Recharts loads only on this page (`next/dynamic`).
+- **Catalog and prices** — the oldest price's age, cards without a price, and the last sync runs (*Stalled* for a stale run), linking Sync control; **Queues** — waiting, active, delayed and failed per queue, failures in red.
+- A section the API could not read (`null`) says so (*Queue depth unavailable: Redis could not be read.*); the header says when the figures were computed. Quick links: grant currency, run a sync, review trades.
+
+**`/admin/packs`** (`components/admin/packs/`): the templates (on sale or off) beside an editor for the chosen one or a new one.
+
+- **The form** — name, price, sets (chips, added by searching `GET /sets` by name or id), and slots: a card count and rows of rarity (suggested from the catalog's rarity facet) and weight. *Add a slot*, *Add a rarity*, remove either.
+- **Validation is the API's schema** — `problemsOf` runs `CreatePackTemplateSchema` from `@pokedrop/shared` on every change and puts each issue beside its field (*Name the pack*, *Choose 1 to 50 sets*, *Cards in a slot: a whole number from 1 to 20*, *A slot needs at least one rarity with a positive weight*, *A pack holds at most 20 cards*), plus what a form row can say that a record cannot — *Rare is already in this slot*. While any is open, *Save* is disabled with *Can’t save yet — …*. The pool check stays on the server — a rarity the chosen sets do not print — and its 400 shows inline above *Save* (*No cards in base1 for rarity: "Rare Ultra", "Rare Secret"*).
+- **The preview** — *Expected pull rates*: per rarity, copies in an average pack and the chance of at least one, then each slot's shares. It is `packRates` / `slotOdds` from `@pokedrop/shared`, built on the generator's own `ladderOf` (moved there from the API, as D4 moved the deck validator), so the preview is the draw's arithmetic, not a copy of it.
+- **Saving** — a new template is created on or off sale (*Put it on sale when created*, off by default); an edit sends only the fields that changed, so a rename does not re-run the pool check. *On sale* / *Off sale* is its own toggle, saved at once. Every save is audited by the API (`pack_template.create` / `.update`); the members' `/packs/templates` refreshes.
+
+**Measured 2026-10-06** with the API, `next dev` and an admin made for the run (the PD-103 test member, promoted with SQL):
+
+- a member: `/admin` and `/admin/packs` → `/dashboard`, nothing of either page in the body; `GET /admin/metrics` and `/admin/pack-templates` 403;
+- the overview: *Yesterday, Oct 5 (UTC)*, *Active users 2 · −33% on Oct 4*, *Trades settled 1 · Up from 0 on Oct 4*, *Server error rate 0.00%*; 14 rows in the chart's table; *Oldest price updated 3 weeks ago*, *15,974* cards without a price, the catalog run *Stalled*; four queues, *price-sweep* with 2 failed; ArrowRight across the window tabs → `?days=7`, 7 rows;
+- the editor, a new template on `base1`: empty → *Name the pack* and *Choose 1 to 50 sets*, *Create template* disabled; every weight of a slot 0, a slot of 25, a pack of 21, *Rare* twice in a slot, the name cleared — each disabled *Save* with its reason beside the field; a pack of 19 enabled it;
+- the preview of *5 Common · 3 of Uncommon 70 / Common 30 · 1 of Rare 60 / Rare Holo 30 / Rare Ultra 10 / Rare Secret 0*: *Common 5.90 100.0% · Uncommon 2.10 97.3% · Rare 0.60 60.0% · Rare Holo 0.30 30.0% · Rare Ultra 0.10 10.0%*;
+- **the generator itself** (`apps/api/dist/packs/pack-generator.js` with `SeededRng`), 100 000 packs of that configuration from a fresh seed, twice: copies per pack 5.9016 / 2.0984 / 0.6041 / 0.2964 / 0.0996 against the preview's 5.90 / 2.10 / 0.60 / 0.30 / 0.10; at least one 100.00 / 97.28 / 60.41 / 29.64 / 9.96% against 100 / 97.30 / 60 / 30 / 10%; the rare slot's χ² 0.21 and 0.18 against 13.82 (df 2, α 0.001); *Rare Secret* (weight 0) drawn 0 times;
+- saving that configuration: the server's *No cards in base1 for rarity: "Rare Ultra", "Rare Secret"* inline, no audit row; without those two rows: *Created PD121 Test Booster*, listed *Off*, one `pack_template.create` row; *On sale*: members' templates listed it and a `pack_template.update` row with `{ "active": true }`; off again: gone for members. The template stays (there is no delete), off sale;
+- no console errors.
+
+**Traps:**
+
+- `0.1 × 100` is `9.999…`: a percentage formatter that switches precision at 10 printed *10%* beside *30.0%*. The preview switches at 1%.
+- Radix tabs do not answer a scripted `.click()`; drive them with the keyboard (ArrowRight) as a user would.
+
