@@ -1,10 +1,10 @@
 import {
+  ladderOf,
   PackTemplateViewSchema,
   type PackTemplate,
   type PackTemplateContents,
   type PackTemplateView,
 } from '@pokedrop/shared';
-import { ladderOf } from './pack-generator.js';
 
 export function toTemplateView(template: PackTemplate): PackTemplateView {
   const slots = template.slotConfig.slots.map((slot) => {

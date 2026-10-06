@@ -1,4 +1,4 @@
-import type { SlotConfig } from '@pokedrop/shared';
+import { ladderOf, type Rung, type SlotConfig } from '@pokedrop/shared';
 import type { Rng } from './pack-rng.js';
 
 export type CardPool = ReadonlyMap<string, readonly string[]>;
@@ -12,8 +12,6 @@ export class EmptySlotError extends Error {
     this.name = 'EmptySlotError';
   }
 }
-
-export type Rung = { rarity: string; weight: number };
 
 export function generatePack(slotConfig: SlotConfig, pool: CardPool, rng: Rng): GeneratedPack {
   const cards: PulledCard[] = [];
@@ -37,19 +35,6 @@ export function generatePack(slotConfig: SlotConfig, pool: CardPool, rng: Rng): 
   }
 
   return { cards, fallbacks };
-}
-
-// Index 0 is the most common rarity. Computed, never read from key order:
-// jsonb stores object keys in its own order.
-export function ladderOf(weights: Record<string, number>): Rung[] {
-  return Object.entries(weights)
-    .filter(([, weight]) => weight > 0)
-    .map(([rarity, weight]) => ({ rarity, weight }))
-    .sort((a, b) => b.weight - a.weight || compare(a.rarity, b.rarity));
-}
-
-function compare(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 function roll(ladder: readonly Rung[], r: number): { index: number; rarity: string } {
