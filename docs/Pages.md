@@ -567,6 +567,8 @@ Design: `docs/superpowers/specs/2026-10-07-pd-123-trade-moderation-audit-design.
 - an unknown `/admin/trades/<id>`: *Page not found* with `noindex`;
 - 375 px (device emulation): `scrollWidth` 375 on all three pages; no console errors.
 
+**After the final review, 2026-10-07** (reproduced first, then measured fixed): with one of the refetches a void triggers held back 2.5 s (CDP `Fetch`), a successful void showed *This trade can't be voided now: This trade is already VOIDED* before its toast — the void's invalidation of `['admin']` re-ran the still-open check — and sent a second dry run. The check is now enabled only while no void has been sent (`useVoidCheck(id, open && voiding.isIdle)`): the dialog went from the reason straight to closed with *Voided the trade…*, and no `void-check` request followed the void.
+
 **Traps:**
 
 - `/admin/trades/[id]` for an unknown id answers the not-found page with HTTP 200, as `/trades/[id]` does (PD-116): `(app)/loading.tsx` streams first. Admin-only and never indexed.
