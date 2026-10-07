@@ -58,6 +58,7 @@ export class PackTemplatesService {
   create(actorId: string, input: CreatePackTemplate): Promise<PackTemplate> {
     return this.prisma.withTransaction(async (tx) => {
       await assertPool(tx, input.setFilter, input.slotConfig);
+      await assertCover(tx, input.setFilter, input.coverCardId ?? null);
 
       const row = await tx.packTemplate.create({
         data: {
@@ -66,6 +67,8 @@ export class PackTemplatesService {
           cost: input.cost,
           slotConfig: input.slotConfig,
           active: input.active,
+          coverCardId: input.coverCardId ?? null,
+          imageUrl: input.imageUrl ?? null,
         },
       });
 
@@ -90,12 +93,19 @@ export class PackTemplatesService {
 
       // Only a change to what a pack can contain is checked against the pool,
       // so a template whose sets later lost a rarity can still be deactivated.
+      const current = toTemplate(existing);
       if (patch.setFilter !== undefined || patch.slotConfig !== undefined) {
-        const current = toTemplate(existing);
         await assertPool(
           tx,
           patch.setFilter ?? current.setFilter,
           patch.slotConfig ?? current.slotConfig,
+        );
+      }
+      if (patch.setFilter !== undefined || patch.coverCardId !== undefined) {
+        await assertCover(
+          tx,
+          patch.setFilter ?? current.setFilter,
+          patch.coverCardId === undefined ? current.coverCardId : patch.coverCardId,
         );
       }
 
@@ -107,6 +117,8 @@ export class PackTemplatesService {
           ...(patch.active === undefined ? {} : { active: patch.active }),
           ...(patch.setFilter === undefined ? {} : { setFilter: patch.setFilter }),
           ...(patch.slotConfig === undefined ? {} : { slotConfig: patch.slotConfig }),
+          ...(patch.coverCardId === undefined ? {} : { coverCardId: patch.coverCardId }),
+          ...(patch.imageUrl === undefined ? {} : { imageUrl: patch.imageUrl }),
         },
       });
 
@@ -149,6 +161,21 @@ async function assertPool(
     throw new BadRequestException(
       `No cards in ${setIds.join(', ')} for rarity: ${absent.map((r) => `"${r}"`).join(', ')}`,
     );
+  }
+}
+
+async function assertCover(
+  tx: TransactionClient,
+  setFilter: SetFilter,
+  coverCardId: string | null,
+): Promise<void> {
+  if (coverCardId === null) return;
+  const card = await tx.card.findFirst({
+    where: { id: coverCardId, setId: { in: setFilter.setIds } },
+    select: { id: true },
+  });
+  if (card === null) {
+    throw new BadRequestException("The featured card is not in this pack's sets");
   }
 }
 

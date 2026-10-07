@@ -399,7 +399,7 @@ async function seed(): Promise<void> {
   await prisma.packTemplate.create({
     data: {
       id: 'seed-template-base',
-      name: 'Base Set Booster',
+      name: 'Base Set Booster Pack',
       setFilter: { setIds: ['base1', 'base2'] },
       cost: 300,
       // The shape documented in docs/UserFlows.md section 5.
