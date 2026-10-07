@@ -87,6 +87,8 @@ function PackReveal({ templateId, openId }: OpenParams) {
   useEffect(() => replayIfOpened(), []);
 
   const name = template?.name ?? 'Your pack';
+  const art = template?.art ?? null;
+  const cardCount = template?.contents.cardCount;
   const pendingReplay = mounted && openedOnArrival && stage === 'sealed' && error === null;
 
   if (!mounted || pendingReplay || replaying) {
@@ -103,6 +105,8 @@ function PackReveal({ templateId, openId }: OpenParams) {
       return (
         <SealedStage
           name={name}
+          art={art}
+          cardCount={cardCount}
           error={error}
           onOpen={() => {
             started.current = true;
@@ -111,7 +115,7 @@ function PackReveal({ templateId, openId }: OpenParams) {
         />
       );
     case 'opening':
-      return <OpeningStage name={name} slow={slow} />;
+      return <OpeningStage name={name} art={art} cardCount={cardCount} slow={slow} />;
     case 'reveal':
       return result ? (
         <RevealStage

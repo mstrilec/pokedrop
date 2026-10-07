@@ -226,7 +226,7 @@ export function DataDisplaySection() {
               cardCount: 10,
               guarantee: '1 Rare or better',
             }}
-            type="Fire"
+            art={BASE_ART}
             balance={120}
             onOpen={() => setOpened('Base Set Booster')}
           />
@@ -237,7 +237,7 @@ export function DataDisplaySection() {
               cardCount: 10,
               guarantee: '1 Ultra Rare guaranteed',
             }}
-            type="Psychic"
+            art={BROKEN_COVER}
             tag="Latest"
             balance={120}
             onOpen={() => setOpened('Astral Eclipse')}
@@ -249,7 +249,7 @@ export function DataDisplaySection() {
               cardCount: 20,
               guarantee: '2 Secret Rares',
             }}
-            type="Dragon"
+            art={null}
             tag="Premium"
             balance={120}
             onOpen={() => setOpened('Premium Collection')}

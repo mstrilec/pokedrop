@@ -15,6 +15,7 @@ import {
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { formatUsd } from '@/components/cards/card-data';
+import { BoosterPack } from '@/components/packs/booster-pack';
 import { sides, useMinute } from '@/components/trades/trade-summary';
 import { CompletionMeter } from '@/components/ui/completion-meter';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -74,7 +75,7 @@ function FeaturedPacks() {
       {templates.isPending ? (
         <div className="grid gap-3 sm:grid-cols-3">
           {Array.from({ length: FEATURED }, (_, i) => (
-            <Skeleton key={i} shape="block" height="5.5rem" />
+            <Skeleton key={i} shape="block" height="13rem" />
           ))}
         </div>
       ) : featured.length === 0 ? (
@@ -90,9 +91,9 @@ function FeaturedPacks() {
             <li key={template.id}>
               <Link
                 href="/packs"
-                className="focus-ring flex h-full flex-col gap-2 rounded-control border border-bd bg-bg p-4 transition hover:-translate-y-0.5 hover:border-pri"
+                className="focus-ring flex h-full flex-col items-center gap-2 rounded-control border border-bd bg-bg p-4 text-center transition hover:-translate-y-0.5 hover:border-pri"
               >
-                <PackageOpen aria-hidden className="size-6 text-pri" />
+                <BoosterPack art={template.art} name={template.name} size="sm" />
                 <span className="font-semibold text-tx">{template.name}</span>
                 <span className="flex items-center gap-1 font-mono text-small text-gold">
                   <Coins aria-hidden className="size-3.5" />

@@ -1,6 +1,17 @@
-import { PackArt } from './pack-art';
+import type { PackArt } from '@pokedrop/shared';
+import { BoosterPack } from '../booster-pack';
 
-export function OpeningStage({ name, slow }: { name: string; slow: boolean }) {
+export function OpeningStage({
+  name,
+  art,
+  cardCount,
+  slow,
+}: {
+  name: string;
+  art: PackArt | null;
+  cardCount: number | undefined;
+  slow: boolean;
+}) {
   return (
     <div className="flex flex-col items-center gap-11">
       <div className="relative">
@@ -9,7 +20,7 @@ export function OpeningStage({ name, slow }: { name: string; slow: boolean }) {
             aria-hidden
             className="absolute -inset-17.5 animate-pulse-glow rounded-pill bg-pri/60 blur-2xl"
           />
-          <PackArt name={name} />
+          <BoosterPack art={art} name={name} cardCount={cardCount} size="xl" sheen="loop" />
         </div>
         <span
           aria-hidden

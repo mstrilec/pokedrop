@@ -144,7 +144,7 @@ function DrawnWrapper({
             'absolute inset-y-0 w-1/4 bg-linear-90 from-transparent via-booster-sheen to-transparent',
             sheen === 'loop'
               ? 'animate-sweep'
-              : '-translate-x-[140%] -skew-x-18 transition-transform duration-700 group-hover/pack:translate-x-[420%]',
+              : '-translate-x-[140%] -skew-x-18 transition-transform duration-700 motion-safe:group-hover/pack:translate-x-[420%]',
           )}
         />
       )}

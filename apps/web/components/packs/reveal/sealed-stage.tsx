@@ -6,7 +6,8 @@ import { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api/core';
 import { apiErrorMessage } from '@/lib/toast';
-import { PackArt } from './pack-art';
+import type { PackArt } from '@pokedrop/shared';
+import { BoosterPack } from '../booster-pack';
 
 const ARMING_MS = 500;
 
@@ -24,10 +25,14 @@ function failureOf(error: unknown): Failure {
 
 export function SealedStage({
   name,
+  art,
+  cardCount,
   error,
   onOpen,
 }: {
   name: string;
+  art: PackArt | null;
+  cardCount: number | undefined;
   error: unknown;
   onOpen: () => void;
 }) {
@@ -51,7 +56,7 @@ export function SealedStage({
         className="relative animate-float-pack cursor-pointer"
       >
         <span className="absolute -inset-17.5 animate-pulse-glow rounded-pill bg-pri/40 blur-2xl" />
-        <PackArt name={name} />
+        <BoosterPack art={art} name={name} cardCount={cardCount} size="xl" sheen="loop" />
       </div>
       <div ref={actions} className="contents">
         {failure ? (

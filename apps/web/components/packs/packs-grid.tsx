@@ -62,6 +62,7 @@ export function PacksGrid() {
                 cardCount: template.contents.cardCount,
                 guarantee: template.guarantee,
               }}
+              art={template.art}
               balance={balance}
               onOpen={() => setChosen(template)}
             />
