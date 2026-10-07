@@ -4,6 +4,7 @@ import type { AdminUserRow } from '@pokedrop/shared';
 import { createColumnHelper } from '@tanstack/react-table';
 import { ChevronLeft, ChevronRight, MoreHorizontal, Users } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { ListError } from '@/components/list-states';
 import { PageHeader } from '@/components/page-header';
@@ -50,7 +51,9 @@ const column = createColumnHelper<AdminUserRow>();
 
 export function AdminUsers() {
   const session = useSession();
-  const [q, setQ] = useState('');
+  const params = useSearchParams();
+  // `?q=` from the audit log's and the trade page's links.
+  const [q, setQ] = useState(() => params.get('q')?.trim() ?? '');
   const [role, setRole] = useState<RoleFilter>('all');
   const [status, setStatus] = useState<StatusFilter>('all');
   const [page, setPage] = useState(1);

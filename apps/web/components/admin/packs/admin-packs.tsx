@@ -2,6 +2,7 @@
 
 import type { PackTemplate } from '@pokedrop/shared';
 import { Coins, PackageOpen, Plus } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { ListError } from '@/components/list-states';
 import { PageHeader } from '@/components/page-header';
@@ -20,7 +21,11 @@ const cardsIn = (template: PackTemplate) =>
 export function AdminPacks() {
   const templates = useAdminPackTemplates();
   // `null` is a new template; undefined, nothing chosen yet (the first one shows).
-  const [chosen, setChosen] = useState<string | null | undefined>(undefined);
+  const params = useSearchParams();
+  // `?template=` from the audit log's links.
+  const [chosen, setChosen] = useState<string | null | undefined>(
+    () => params.get('template') ?? undefined,
+  );
   const list = templates.data ?? [];
   const selectedId = chosen === undefined ? (list[0]?.id ?? null) : chosen;
   const selected = list.find((t) => t.id === selectedId) ?? null;
