@@ -1,12 +1,13 @@
 import {
   ladderOf,
   PackTemplateViewSchema,
+  type PackArt,
   type PackTemplate,
   type PackTemplateContents,
   type PackTemplateView,
 } from '@pokedrop/shared';
 
-export function toTemplateView(template: PackTemplate): PackTemplateView {
+export function toTemplateView(template: PackTemplate, art: PackArt): PackTemplateView {
   const slots = template.slotConfig.slots.map((slot) => {
     const ladder = ladderOf(slot.weights);
     const total = ladder.reduce((sum, rung) => sum + rung.weight, 0);
@@ -23,7 +24,12 @@ export function toTemplateView(template: PackTemplate): PackTemplateView {
     slots,
   };
 
-  return PackTemplateViewSchema.parse({ ...template, contents, guarantee: guaranteeOf(contents) });
+  return PackTemplateViewSchema.parse({
+    ...template,
+    contents,
+    guarantee: guaranteeOf(contents),
+    art,
+  });
 }
 
 // A slot's most common rarity is its floor, the same ladder the generator

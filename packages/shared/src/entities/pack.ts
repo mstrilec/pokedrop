@@ -9,6 +9,7 @@ import {
   UserIdSchema,
 } from '../primitives/id.js';
 import { PaginationQuerySchema, cursorPageOf } from '../primitives/pagination.js';
+import { HttpsUrlSchema } from '../primitives/url.js';
 
 export const MAX_CARDS_PER_PACK = 20;
 
@@ -45,6 +46,8 @@ export const PackTemplateSchema = z.object({
   cost: z.number().int().min(0),
   slotConfig: SlotConfigSchema,
   active: z.boolean(),
+  coverCardId: CardIdSchema.nullable(),
+  imageUrl: z.string().nullable(),
 });
 export type PackTemplate = z.infer<typeof PackTemplateSchema>;
 
@@ -54,6 +57,8 @@ export const CreatePackTemplateSchema = z.strictObject({
   cost: z.number().int().min(0).max(1_000_000),
   slotConfig: SlotConfigSchema,
   active: z.boolean().default(true),
+  coverCardId: CardIdSchema.nullable().optional(),
+  imageUrl: HttpsUrlSchema.nullable().optional(),
 });
 export type CreatePackTemplate = z.infer<typeof CreatePackTemplateSchema>;
 
@@ -112,10 +117,33 @@ export const PackTemplateContentsSchema = z.object({
 });
 export type PackTemplateContents = z.infer<typeof PackTemplateContentsSchema>;
 
+/** What a booster wrapper is drawn from; resolved by the API, the same for every surface. */
+export const PackArtSchema = z.object({
+  set: z.object({
+    id: SetIdSchema,
+    name: z.string(),
+    series: z.string(),
+    logoUrl: z.string().nullable(),
+  }),
+  cover: z
+    .object({
+      id: CardIdSchema,
+      name: z.string(),
+      image: z.string(),
+      type: z.string().nullable(),
+      rarity: z.string().nullable(),
+    })
+    .nullable(),
+  coverIsDefault: z.boolean(),
+  imageUrl: z.string().nullable(),
+});
+export type PackArt = z.infer<typeof PackArtSchema>;
+
 /** A template as `GET /packs/templates` shows it to a member. */
 export const PackTemplateViewSchema = PackTemplateSchema.extend({
   contents: PackTemplateContentsSchema,
   guarantee: z.string().min(1),
+  art: PackArtSchema,
 });
 export type PackTemplateView = z.infer<typeof PackTemplateViewSchema>;
 

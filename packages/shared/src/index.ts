@@ -3,6 +3,7 @@ export * from './enums.js';
 export * from './primitives/id.js';
 export * from './primitives/pagination.js';
 export * from './primitives/error.js';
+export * from './primitives/url.js';
 
 export * from './entities/user.js';
 export * from './entities/auth.js';
@@ -25,3 +26,4 @@ export * from './decks/validate.js';
 export * from './decks/stats.js';
 
 export * from './packs/odds.js';
+export * from './cards/rarity.js';

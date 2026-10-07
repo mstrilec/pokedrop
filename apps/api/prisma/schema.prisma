@@ -266,11 +266,12 @@ model Card {
   /// catalog row. A mirrored set should never be deleted anyway; sync upserts.
   set CardSet @relation(fields: [setId], references: [id], onDelete: Restrict)
 
-  priceSnapshots   PriceSnapshot[]
-  inventoryItems   InventoryItem[]
-  packOpeningCards PackOpeningCard[]
-  deckCards        DeckCard[]
-  tradeItems       TradeItem[]
+  priceSnapshots     PriceSnapshot[]
+  inventoryItems     InventoryItem[]
+  packOpeningCards   PackOpeningCard[]
+  deckCards          DeckCard[]
+  tradeItems         TradeItem[]
+  packTemplateCovers PackTemplate[]
 
   @@index([name])
   @@index([setId])
@@ -355,14 +356,17 @@ model InventoryItem {
 }
 
 model PackTemplate {
-  id         String  @id @default(cuid())
-  name       String
-  setFilter  Json
-  cost       Int
-  slotConfig Json
-  active     Boolean @default(true)
+  id          String  @id @default(cuid())
+  name        String
+  setFilter   Json
+  cost        Int
+  slotConfig  Json
+  active      Boolean @default(true)
+  coverCardId String?
+  imageUrl    String?
 
-  openings PackOpening[]
+  coverCard Card?         @relation(fields: [coverCardId], references: [id], onDelete: SetNull)
+  openings  PackOpening[]
 
   @@map("pack_templates")
 }

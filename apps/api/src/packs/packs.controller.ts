@@ -7,7 +7,6 @@ import type { AuthUser } from '../common/request-auth.js';
 import { MODERATE_THROTTLE } from '../common/throttle.js';
 import { PackHistoryService } from './pack-history.service.js';
 import { PackOpeningService } from './pack-opening.service.js';
-import { toTemplateView } from './pack-template.view.js';
 import { PackTemplatesService } from './pack-templates.service.js';
 import { OpenPackRequestDto, PackHistoryQueryDto } from './packs.dto.js';
 import { Doc, returns } from '../common/openapi.js';
@@ -33,7 +32,7 @@ export class PacksController {
   )
   @Get('templates')
   async listTemplates(): Promise<PackTemplateView[]> {
-    return (await this.templates.listActive()).map(toTemplateView);
+    return this.templates.viewsOf(await this.templates.listActive());
   }
 
   @Doc("Page the caller's pack openings", returns('PackHistoryPage', PackHistoryPageSchema))

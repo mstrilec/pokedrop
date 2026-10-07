@@ -3,12 +3,15 @@ import {
   PackTemplateSchema,
   type CreatePackTemplate,
   type PackTemplate,
+  type PackTemplateView,
   type SetFilter,
   type SlotConfig,
   type UpdatePackTemplate,
 } from '@pokedrop/shared';
 import { AuditService } from '../audit/index.js';
 import { PrismaService, type TransactionClient } from '../prisma/index.js';
+import { packArtOf } from './pack-art.js';
+import { toTemplateView } from './pack-template.view.js';
 
 const ENTITY = 'PackTemplate';
 
@@ -33,6 +36,16 @@ export class PackTemplatesService {
       throw new NotFoundException('Pack template not found');
     }
     return toTemplate(row);
+  }
+
+  async viewsOf(templates: PackTemplate[]): Promise<PackTemplateView[]> {
+    const arts = await packArtOf(this.prisma, templates);
+    return templates.map((template) => toTemplateView(template, arts.get(template.id)!));
+  }
+
+  async viewOf(template: PackTemplate): Promise<PackTemplateView> {
+    const [view] = await this.viewsOf([template]);
+    return view!;
   }
 
   async listAll(): Promise<PackTemplate[]> {

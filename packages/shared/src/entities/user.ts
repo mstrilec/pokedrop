@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { RoleSchema } from '../enums.js';
 import { CurrencyTransactionIdSchema, UserIdSchema } from '../primitives/id.js';
 import { PaginationQuerySchema, pageOf } from '../primitives/pagination.js';
+import { HttpsUrlSchema } from '../primitives/url.js';
 import { InventoryCardSchema, InventorySummarySchema } from './inventory.js';
 import { TradePartySchema } from './trade.js';
 
@@ -40,10 +41,7 @@ export const ProfileIdentitySchema = z.object({
     .trim()
     .min(1, 'Enter a display name')
     .max(64, 'Use at most 64 characters'),
-  avatarUrl: z
-    .url({ protocol: /^https$/, error: 'Use an https:// address' })
-    .max(2048)
-    .nullable(),
+  avatarUrl: HttpsUrlSchema.nullable(),
 });
 
 /**
