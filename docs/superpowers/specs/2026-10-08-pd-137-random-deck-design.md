@@ -205,7 +205,8 @@ No automated tests in v1. A throwaway script in the session scratchpad, not comm
 with the pack generator.
 
 - **G1** 200 generations × standard, expanded, unlimited × *Any card* and *Owned only* (1,200 decks), seeds
-  `pd137-<n>`: each passes `validateDeck` with no error and no warning.
+  `pd137-<n>`: each passes `validateDeck` with no error, and no warning except `OWNERSHIP` in *Any card* mode (the member
+  need not own those cards).
 - **G2** *Owned only*: every count ≤ the card's available copies. The test member's collection is topped up in the dev
   database with `psql` so that each format can make a deck, and one member is left too small to get the shortfalls.
 - **G3** Every card with an `evolvesFrom` in a deck has a card of that name in the same deck.
