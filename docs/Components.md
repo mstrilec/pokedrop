@@ -256,6 +256,24 @@ After the review fixes, the same way:
 
 Measured 2026-10-07 on `/cards` signed out (the FilterBar menus): the open content runs `enter 0.18s cubic-bezier(0.2, 0.7, 0.2, 1)` from 96% and 8 px; rows lay out at 36 px; the focused row is `rgba(76, 141, 255, 0.14)` on `rgb(34, 38, 47)`; at 375 px the sort menu spans 45–269 px with `scrollWidth` 375; no console errors. The account and admin menus were not opened in the browser.
 
+## Booster wrapper (PD-136)
+
+`components/packs/booster-pack.tsx`: `BoosterPack({ art, name, cardCount?, size, sheen?, className? })` draws a pack from the template view's `art` (API.md *Pack art*). It only draws; float, shake, tilt and flash stay with the callers.
+
+| Size | Width | Where |
+| --- | --- | --- |
+| `sm` | 72 px (name and count hidden) | the dashboard's featured packs |
+| `md` | 150 px | the `/packs` card |
+| `lg` | 220 px | the admin editor's preview |
+| `xl` | 300 px | the reveal's sealed and opening stages |
+
+- **Drawn**: a 5:8 pouch, `bg-booster` in the cover's energy colour and `booster-crimp`, darker seal bands; the set logo; a 4:3 window of the cover art (cropped at 50% 15%, the art under the card's name bar) framed in its rarity colour; the name and *{n} cards*. `sheen`: `loop` (the reveal, the `sweep` animation), `hover` (under a `group/pack` ancestor, `motion-safe:` only), `none`.
+- **The photo**: `art.imageUrl` replaces the drawing, `object-contain` in the same box; `next/image` with `unoptimized` for a host outside `CARD_IMAGE_HOSTS`, which would otherwise throw.
+- **Fallbacks**, each image on its own: a failed photo → the drawing; a failed or missing logo → the set name; a failed cover → the energy icon on the card face; no `art` at all → a Colorless pack with the name. The box has its size before anything loads.
+- **Accessibility**: one `role="img"` named *{name} booster pack*; the images inside are `alt=""`.
+
+The gallery's *BoosterPack* specimen shows the four sizes, no art, and a broken logo, cover and photo.
+
 ## TCG domain (PD-99)
 
 | Component | File | Notes |

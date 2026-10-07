@@ -71,6 +71,8 @@ Each rarity has a solid color, a glow (for high-rarity emphasis), a ~14% tint (c
 
 Card face gradient: `linear-gradient(155deg, <energyColor>, #0d0f14)`.
 
+Booster foil (`bg-booster`, PD-136): `linear-gradient(165deg, <energyColor> 10%, #0d0f14 95%)`, crimped top and bottom by the `booster-crimp` mask. On it: `--booster-ink` `#fff` (text and icons), `--booster-shade` `rgba(0, 0, 0, 0.28)` (the seal bands, the tag), `--booster-sheen` `rgba(255, 255, 255, 0.5)` (the sweep).
+
 **Accessibility:** text sits at AA+ contrast on the near-black canvas. Color is never the sole carrier of meaning — rarity, status, and ownership are always paired with text or an icon.
 
 ---

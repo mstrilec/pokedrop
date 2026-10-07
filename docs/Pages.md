@@ -138,6 +138,8 @@ Five pages in `(auth)`, each an `AuthCard` (`components/auth/auth-card.tsx`: ico
 
 `/packs`: a `PackTemplateCard` per active template (`usePackTemplates`, `GET /packs/templates`, keyed `['packs', 'templates']`), the member's balance from `useMe()`. A pack above the balance is disabled and says how many coins are missing, and *Short of coins? See your wallet* appears under the grid. *Open* asks through `ConfirmOpenDialog` (`components/packs/confirm-open-dialog.tsx`): *Open {name}?*, the template's `guarantee` and *This action can't be undone.*, and *Open pack · {cost}*.
 
+**The booster wrapper (PD-136).** Each card's art is a `BoosterPack md` (`components/packs/booster-pack.tsx`) drawn from the template's `art` (API.md *Pack art*): the set logo, the featured card's art in a window framed in its rarity colour, the product name and *8 cards*, on foil in the cover's energy colour — or the admin's photo. It sits tilted; on hover it lifts, straightens and a sheen passes (`motion-safe:` only). Above the name, the set and series (*Base*, or *Chaos Rising · Mega Evolution*); the meta line is the guarantee alone, which already counts the cards. Design: `docs/superpowers/specs/2026-10-07-pd-136-booster-packs-design.md`.
+
 **Confirming sends nothing.** It creates an `openId` and navigates to `/packs/open?template=<id>&open=<openId>` (`openUrl` in `lib/pack-open-flow.ts`); the tap on the sealed pack is the request. The design is `docs/superpowers/specs/2026-10-04-pd-104-pd-105-pack-opening-flow-design.md`: posting on confirm would have made the opening animation two seconds of theatre with the cards already known. The dialog holds itself busy once confirmed, so a second click finds nothing to do.
 
 **Measured 2026-10-04** with a fresh headless Chrome profile against `next dev`, real key events, the database checked:
@@ -147,14 +149,25 @@ Five pages in `(auth)`, each an `AuthCard` (`components/auth/auth-card.tsx`: ico
 - at 100 coins: the button disabled, *You need 200 more coins.*, *Short of coins? See your wallet*;
 - `/packs/open`, `?template=x` and `?template=x&open=nope` each redirected to `/packs` from the server.
 
+**Measured 2026-10-08 (PD-136)** in headless Chrome over CDP against `next dev` and the API, signed in as a test admin (promoted with SQL for the run):
+
+- the API: Base Set's default cover `base1-4` Charizard (`coverIsDefault: true`), `me4`'s `me4-116`; a `base1-2` cover saved and audited; a card of another set, an unknown id, and `setFilter` → `base2` under a `base1` cover each 400 *The featured card is not in this pack's sets*; `http://` → 400 *Use an https:// address*; `null` clears; a member 403, no cookie 401;
+- `/packs`, the dashboard and the sealed stage: the same wrapper (the `base1` logo and the `base1-4` cover) at 1440 and 375 px, `scrollWidth` equal to the viewport, no console errors; *Tap to open*: the wrapper shakes and flashes, then *1 / 8*;
+- the editor: *Choose…* → *Blastoise* → the preview turns to it (a Water-blue foil) before saving; saved → `/packs` shows `base1-2`; *Use default* and an https photo → `/packs` shows the photo; `http://…` → the error under the field and *Save* disabled; cleared → Charizard again;
+- a photo on a host that does not answer (`https://example.invalid/pack.png`): the drawn wrapper on `/packs`; the gallery's broken logo, cover and photo each render a complete pack at the same size before and after loading;
+- reduced motion: the float and the sweep run 0.01 ms;
+- Lighthouse 13 on `/packs` against `next build && next start`, signed in (cookies set in the Chrome profile, `--disable-storage-reset`), three runs each, before (the web files of `d70e11b`) and after: desktop 99–100 · 98 · 100 · 100 both; mobile performance 98–99 before and 97–98 after (LCP 1.3–1.4 s both, TBT 120–170 ms before and 170–190 ms after), accessibility 98 both (the card's `h3` under the page's `h1` and *Open*'s `aria-label`, both older than PD-136), best practices and SEO 100, CLS 0.
+
+**Trap.** `lighthouse --extra-headers` with a `Cookie` header authenticates the document only: the page's own `fetch`es go out without it, get 401, and the run measures an error state with a console error (best practices 96). Set the cookies in the browser and pass `--port` with `--disable-storage-reset`.
+
 ## Pack reveal (PD-105)
 
 `/packs/open` renders `PackRevealScreen` (`components/packs/reveal/pack-reveal.tsx`), which provides the reveal store, keyed by the `openId`, and drives `usePackReveal` and `useOpenPack` through four stage components in the same folder.
 
 | Stage | What happens |
 | --- | --- |
-| sealed | the pack floating with its sweep; *Tap to open* focused; a tap on the pack works too |
-| opening | shake and flash; the request is in flight; *Still opening…* after 6 s |
+| sealed | the template's `BoosterPack xl` floating with its sweep (PD-136; plain Colorless while the template list is still loading); *Tap to open* focused; a tap on the pack works too |
+| opening | the same wrapper shakes and flashes; the request is in flight; *Still opening…* after 6 s |
 | reveal | one large `RevealCard`: *Reveal card* flips it, *Next card* brings the next; *3 / 8* and *Skip all →*; Ultra and Secret pulls add rays, a burst and *Ultra Rare pull*; a polite live region reads *Card 3 of 8: Charizard, Rare Holo* |
 | summary | *{name} opened*, cards, *Rare or better*, market value, balance; every card as a `CardTile`; *View in collection* and *Open another · {cost}* |
 
@@ -476,7 +489,7 @@ So the client may show fewer cards than the server will return, never others. **
 - **Header** — *Welcome, Fresh Collector* until the first pack, *Welcome back, …* after; the trades waiting on the member (a link to *Incoming*) or *No trades waiting on you*; the date, rendered in the browser.
 - **Checklist** (`OnboardingChecklist`, D11) — *Get started · 1 of 4*, a progress bar and four chips: *Verify your email*, *Open your first pack*, *Build a full deck*, *Complete a trade*, each ticked by `GET /users/me/progress`. The first open step is the primary button (*Open your first pack*, *Build a deck*, *Propose a trade*). It disappears once all four are done. Its key sits under `me`, so opening a pack and settling a trade (which already refresh the profile) refresh it, and saving a deck invalidates it too. Email verification is required to sign in, so a new member always starts at *1 of 4*, with the pack as the first action.
 - **Stats** — total cards, different cards, collection value (`GET /inventory/summary`) and balance, each `StatCard` with its own loading state.
-- **Featured packs** — the first three templates, linking `/packs`; *No packs on sale right now* without any.
+- **Featured packs** — the first three templates as a `BoosterPack sm`, name and price (PD-136), linking `/packs`; *No packs on sale right now* without any. The skeletons are the card's height (13 rem).
 - **Recent activity** — the newest pack openings and trades merged by date, six at most: *Opened Base Set Booster · 8 cards · best pull Dragonair* (→ the opening in the history), *Trade with Misty · Accepted · You give … · you get …* (→ the trade, dated by when it closed); empty: *Nothing here yet* with *Open a pack*.
 - **Set completion** — the four sets furthest along as `CompletionMeter`s, linking `/sets`; empty: *No sets started* with *Browse sets*.
 - **Loading** — skeletons in the place and size of each widget, except the checklist: most visits end without one, and a placeholder that vanished would shift the page up for every member past onboarding.
@@ -505,6 +518,7 @@ Both behind the admin layout and the proxy: a member who opens `/admin` or `/adm
 - **The form** — name, price, sets (chips, added by searching `GET /sets` by name or id), and slots: a card count and rows of rarity (suggested from the catalog's rarity facet) and weight. *Add a slot*, *Add a rarity*, remove either.
 - **Validation is the API's schema** — `problemsOf` runs `CreatePackTemplateSchema` from `@pokedrop/shared` on every change and puts each issue beside its field (*Name the pack*, *Choose 1 to 50 sets*, *Cards in a slot: a whole number from 1 to 20*, *A slot needs at least one rarity with a positive weight*, *A pack holds at most 20 cards*), plus what a form row can say that a record cannot — *Rare is already in this slot*. While any is open, *Save* is disabled with *Can’t save yet — …*. The pool check stays on the server — a rarity the chosen sets do not print — and its 400 shows inline above *Save* (*No cards in base1 for rarity: "Rare Ultra", "Rare Secret"*).
 - **The preview** — *Expected pull rates*: per rarity, copies in an average pack and the chance of at least one, then each slot's shares. It is `packRates` / `slotOdds` from `@pokedrop/shared`, built on the generator's own `ladderOf` (moved there from the API, as D4 moved the deck validator), so the preview is the draw's arithmetic, not a copy of it.
+- **Pack art (PD-136)** — a `BoosterPack lg` preview beside *Featured card* (the cover's name, *Default — highest rarity* or *Chosen*; *Choose…* opens `CoverCardPicker`, the template's sets as chips and a search over `GET /cards?set=&q=`; *Use default*) and *Pack image address* (empty for none, `https://` only, the field's error under it). The preview shows the saved art until the cover or the sets change, then the picked card. Changing the sets clears a chosen cover (and sends `coverCardId: null` with the new sets), and brings the saved default back when the sets return to the saved ones; a new template shows *The featured card is chosen when you save*.
 - **Saving** — a new template is created on or off sale (*Put it on sale when created*, off by default); an edit sends only the fields that changed, so a rename does not re-run the pool check. *On sale* / *Off sale* is its own toggle, saved at once. Every save is audited by the API (`pack_template.create` / `.update`); the members' `/packs/templates` refreshes.
 
 **Measured 2026-10-06** with the API, `next dev` and an admin made for the run (the PD-103 test member, promoted with SQL):

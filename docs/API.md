@@ -369,18 +369,35 @@ The budget was 100 ms; the worst case is 19.1 ms, so no index was added. Over HT
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| GET | `/packs/templates` | member | Active templates, with contents, odds and the confirm-dialog guarantee |
+| GET | `/packs/templates` | member | Active templates, with contents, odds, the confirm-dialog guarantee and the pack art |
 | POST | `/packs/:templateId/open` | member | Body `{ openId }` — **idempotent**, transactional |
 | GET | `/packs/history` | member | The caller's openings with their cards, newest first, keyset-paged |
-| GET | `/admin/pack-templates` | admin | Every template, inactive included |
+| GET | `/admin/pack-templates` | admin | Every template, inactive included, as the same view (`art` included) |
 | POST | `/admin/pack-templates` | admin | Create; validated against the card pool; audited |
 | PATCH | `/admin/pack-templates/:id` | admin | Partial update, including `active`; audited |
 
-**A template is `{ name, setFilter, cost, slotConfig, active }`.** `setFilter` is `{ "setIds": [...] }` (1–50 sets, no other keys). `slotConfig` is the shape in [UserFlows.md](UserFlows.md) §5: `{ "slots": [{ "count", "weights" }] }`, 1–10 slots, at most 20 cards per pack, integer weights ≥ 0 with at least one positive weight per slot. Unknown keys are rejected at every level.
+**A template is `{ name, setFilter, cost, slotConfig, active, coverCardId, imageUrl }`.** `setFilter` is `{ "setIds": [...] }` (1–50 sets, no other keys). `slotConfig` is the shape in [UserFlows.md](UserFlows.md) §5: `{ "slots": [{ "count", "weights" }] }`, 1–10 slots, at most 20 cards per pack, integer weights ≥ 0 with at least one positive weight per slot. Unknown keys are rejected at every level.
 
 **Validation has two layers, and both run on save.** The shape is checked by the Zod pipe — the example in UserFlows §5 passes it unchanged. The **pool** is checked by the service: every set in `setFilter` must exist, and every rarity named in any slot's weights must occur among that set's cards, or the save is a 400 naming the missing rarities. Verified: the UserFlows example saves against `bw4` + `bw5`, and the same config against `base1` + `base2` is refused for `"Rare Holo EX", "Rare Ultra", "Rare Secret"`. A `PATCH` that changes neither `setFilter` nor `slotConfig` skips the pool check, so a template whose sets later lose a rarity can still be renamed or deactivated.
 
 **Weights are an unordered map.** The column is `jsonb`, which stores object keys in its own order (shorter keys first), so `weights` reads back with the same entries in a different order. Slot order is preserved. Nothing may depend on the order of a slot's weights — including a fallback from an empty rarity bucket, which needs its own ordering.
+
+**Pack art (PD-136).** Every template read — the member list and the admin list, create and update — answers the view with an `art` object the booster wrapper is drawn from:
+
+```json
+"art": {
+  "set": { "id": "base1", "name": "Base", "series": "Base", "logoUrl": "https://images.pokemontcg.io/base1/logo.png" },
+  "cover": { "id": "base1-4", "name": "Charizard", "image": "https://images.pokemontcg.io/base1/4_hires.png", "type": "Fire", "rarity": "Rare Holo" },
+  "coverIsDefault": true,
+  "imageUrl": null
+}
+```
+
+- `set` is the first set of `setFilter.setIds`. `cover.image` is the card's large image; `type` its first type (the wrapper's colour); `rarity` frames the art.
+- `coverCardId` (nullable) is the admin's featured card; it must be a card of the template's sets, or the save is a 400 *The featured card is not in this pack's sets* — also when a `setFilter` change would leave the stored cover outside. `null` clears it.
+- With no `coverCardId` the cover is **the default, computed on read, never stored**: among the cards of the template's sets, the highest tier by `rarityTier` (Secret Rare > Ultra Rare > Rare > Uncommon > Common), then the highest `latestPriceUsd` (no price last), then the card id. In the dev mirror Base Set gives Charizard (`base1-4`, every Base holo is tier Rare and the price decides), and `me4`, which has no prices, Mega Greninja ex (`me4-116`, its first Secret-tier id). It follows the next price sync on its own.
+- `imageUrl` (nullable, `https://` only, at most 2,048 characters, *Use an https:// address*) is an admin's own photo; when set, it replaces the drawn wrapper.
+- Both fields land in the audit row's `meta` like any other change.
 
 **There is no delete.** Openings reference their template with `Restrict`, and a player's history has to keep saying which pack they opened. Retire a template with `PATCH { "active": false }`; members stop seeing it at once.
 

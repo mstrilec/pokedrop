@@ -107,8 +107,9 @@ One row per execution of a background sync. Redis and BullMQ job state were both
 **Unique** `(userId, cardId)`. `lockedQuantity` supports trade escrow; `availableQuantity = quantity − lockedQuantity`.
 
 ### PackTemplate — *admin-managed*
-`id, name, setFilter(json), cost, slotConfig(json), active`
+`id, name, setFilter(json), cost, slotConfig(json), active, coverCardId?, imageUrl?`
 `slotConfig` = ordered slots each with a rarity-weight distribution (see [UserFlows.md](UserFlows.md#5-pack-opening--state-machine--algorithm)).
+`coverCardId` → `Card` (`onDelete: SetNull`): the admin's featured card for the booster wrapper; null means the default, which the API computes on read and never stores. `imageUrl`: an admin's own photo of the pack (PD-136, migration `pack_template_art`).
 
 ### PackOpening
 `id, userId, templateId, openId(unique), seed?, createdAt`
@@ -273,6 +274,7 @@ Everything a user owns cascades from the user; nothing cascades from the catalog
 | `InventoryItem.cardId → Card` | Restrict | deleting a catalog row must not empty a collection |
 | `PackOpeningCard.cardId → Card` | Restrict | the same, for pull history |
 | `PackOpening.templateId → PackTemplate` | Restrict | `active` exists so templates are retired, not deleted |
+| `PackTemplate.coverCardId → Card` | SetNull | a lost featured card falls back to the default cover; it blocks nothing |
 | `Card.setId → CardSet` | Restrict | a set delete would reach inventory through its cards |
 | `InventoryItem/PackOpening/CurrencyTransaction.userId → User` | Cascade | the user's own data |
 | `PackOpeningCard → PackOpening`, `PriceSnapshot → Card` | Cascade | derived data |
