@@ -23,8 +23,10 @@ export function VoidDialog({
   /** After a void or a refusal: re-read the trade. */
   onSettled: () => void;
 }) {
-  const check = useVoidCheck(trade.id, open);
   const voiding = useVoidTrade();
+  // Off once a void is sent: the void's own invalidation would re-run the check against the
+  // trade it just closed and announce a refusal for a void that succeeded.
+  const check = useVoidCheck(trade.id, open && voiding.isIdle);
   const [reason, setReason] = useState('');
   const [touched, setTouched] = useState(false);
   const [refused, setRefused] = useState<string | null>(null);
