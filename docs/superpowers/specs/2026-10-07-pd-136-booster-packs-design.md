@@ -71,14 +71,14 @@ cards today, but a removed card must fall back to the default rather than block 
 ```ts
 art: {
   set: { id: string; name: string; series: string; logoUrl: string | null };
-  cover: { id: string; name: string; image: string; type: string | null } | null;
+  cover: { id: string; name: string; image: string; type: string | null; rarity: string | null } | null;
   coverIsDefault: boolean;
   imageUrl: string | null;
 }
 ```
 
 `set` is the first set of `setFilter.setIds`, the order the admin added them in. `cover.image` is the card's
-`imageLarge`; `type` its first type or `null`. `cover` is `null` only when the sets hold no card at all.
+`imageLarge`; `type` its first type or `null`; `rarity` frames the window in its tier's colour. `cover` is `null` only when the sets hold no card at all.
 
 ## API
 
