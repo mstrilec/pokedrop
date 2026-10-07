@@ -4,6 +4,7 @@ import {
   TradeDetailSchema,
   TradePageSchema,
   TradeStatusSchema,
+  type AdminTradeQuery,
   type TradeDetail,
   type TradeInboxQuery,
   type TradePage,
@@ -98,6 +99,48 @@ export class TradeReadsService {
     });
   }
 
+  /** Every trade, newest first; `role` is null on every row because the reader is no party. */
+  async adminList(query: AdminTradeQuery): Promise<TradePage> {
+    const cursor = query.cursor === undefined ? null : decodeNewestCursor(query.cursor);
+    const scope = adminScope(query);
+    const where: Prisma.TradeWhereInput =
+      cursor === null
+        ? scope
+        : {
+            AND: [
+              scope,
+              {
+                OR: [
+                  { createdAt: { lt: cursor.createdAt } },
+                  { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+                ],
+              },
+            ],
+          };
+
+    const [rows, total] = await Promise.all([
+      this.prisma.trade.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: query.pageSize + 1,
+        select: VIEW_SELECT,
+      }),
+      this.prisma.trade.count({ where: scope }),
+    ]);
+
+    const page = rows.slice(0, query.pageSize);
+    const last = page.at(-1);
+    return TradePageSchema.parse({
+      items: page.map((row) => toView(row, null, this.config.trades.expiryDays)),
+      pageSize: query.pageSize,
+      total,
+      nextCursor:
+        rows.length > query.pageSize && last !== undefined
+          ? encodeNewestCursor(last.createdAt, last.id)
+          : null,
+    });
+  }
+
   async detail(user: AuthUser, id: string): Promise<TradeDetail> {
     const row = await this.prisma.trade.findUnique({ where: { id }, select: VIEW_SELECT });
     if (row === null || (row.initiator.id !== user.id && row.recipient.id !== user.id)) {
@@ -183,6 +226,26 @@ function tabScope(userId: string, tab: TradeTab): Prisma.TradeWhereInput {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** The filters as one AND element; a user on either side keeps each side its own index. */
+function adminScope(query: AdminTradeQuery): Prisma.TradeWhereInput {
+  const and: Prisma.TradeWhereInput[] = [];
+  if (query.status !== undefined) and.push({ status: query.status });
+  if (query.user !== undefined) {
+    and.push({ OR: [{ initiatorId: query.user }, { recipientId: query.user }] });
+  }
+  if (query.from !== undefined || query.to !== undefined) {
+    and.push({
+      createdAt: {
+        ...(query.from !== undefined ? { gte: new Date(`${query.from}T00:00:00Z`) } : {}),
+        ...(query.to !== undefined
+          ? { lt: new Date(new Date(`${query.to}T00:00:00Z`).getTime() + DAY_MS) }
+          : {}),
+      },
+    });
+  }
+  return and.length === 0 ? {} : { AND: and };
+}
 
 function toView(row: ViewRow, viewerId: string | null, expiryDays: number) {
   const { initiator, recipient, items, ...trade } = row;

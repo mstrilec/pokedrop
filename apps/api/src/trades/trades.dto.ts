@@ -1,4 +1,5 @@
 import {
+  AdminTradeQuerySchema,
   CounterTradeSchema,
   ProposeTradeSchema,
   TradeInboxQuerySchema,
@@ -13,3 +14,5 @@ export class CounterTradeDto extends createZodDto('CounterTrade', CounterTradeSc
 export class VoidTradeDto extends createZodDto('VoidTrade', VoidTradeSchema) {}
 
 export class TradeInboxQueryDto extends createZodDto('TradeInboxQuery', TradeInboxQuerySchema) {}
+
+export class AdminTradeQueryDto extends createZodDto('AdminTradeQuery', AdminTradeQuerySchema) {}

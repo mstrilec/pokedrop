@@ -1,14 +1,14 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import type { Trade, TradeDetail } from '@pokedrop/shared';
+import type { Trade, TradeDetail, TradePage } from '@pokedrop/shared';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
 import type { AuthUser } from '../common/request-auth.js';
 import { TradeReadsService } from './trade-reads.service.js';
-import { VoidTradeDto } from './trades.dto.js';
+import { AdminTradeQueryDto, VoidTradeDto } from './trades.dto.js';
 import { TradesService } from './trades.service.js';
 import { Doc, returns } from '../common/openapi.js';
-import { TradeDetailSchema, TradeSchema } from '@pokedrop/shared';
+import { TradeDetailSchema, TradePageSchema, TradeSchema } from '@pokedrop/shared';
 
 @ApiTags('admin')
 @Roles(['ADMIN'])
@@ -18,6 +18,12 @@ export class AdminTradesController {
     private readonly trades: TradesService,
     private readonly reads: TradeReadsService,
   ) {}
+
+  @Doc('Every trade, newest first, filtered', returns('TradePage', TradePageSchema))
+  @Get()
+  list(@Query() query: AdminTradeQueryDto): Promise<TradePage> {
+    return this.reads.adminList(query);
+  }
 
   /** An admin reads any trade here rather than through a bypass on the member route. */
   @Doc('Any trade, with its timeline and counter chain', returns('TradeDetail', TradeDetailSchema))
