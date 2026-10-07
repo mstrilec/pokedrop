@@ -1,10 +1,11 @@
 'use client';
 
-import type { NotificationView } from '@pokedrop/shared';
+import type { CardId, NotificationView, PackArt, SetId } from '@pokedrop/shared';
 import { createColumnHelper } from '@tanstack/react-table';
 import { Coins, Layers, PackageOpen, TrendingUp, Users } from 'lucide-react';
 import { useState } from 'react';
 import { NotificationRow } from '@/components/notifications/notification-row';
+import { BoosterPack } from '@/components/packs/booster-pack';
 import { PackTemplateCard } from '@/components/packs/pack-template-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,37 @@ import { DataTable } from '@/components/ui/data-table';
 import { StatCard } from '@/components/ui/stat-card';
 import { formatCoins } from '@/lib/format';
 import { Group, Row, Specimen } from './frame';
+
+const BASE_ART: PackArt = {
+  set: {
+    id: 'base1' as SetId,
+    name: 'Base',
+    series: 'Base',
+    logoUrl: 'https://images.pokemontcg.io/base1/logo.png',
+  },
+  cover: {
+    id: 'base1-4' as CardId,
+    name: 'Charizard',
+    image: 'https://images.pokemontcg.io/base1/4_hires.png',
+    type: 'Fire',
+    rarity: 'Rare Holo',
+  },
+  coverIsDefault: true,
+  imageUrl: null,
+};
+const BROKEN_LOGO: PackArt = {
+  ...BASE_ART,
+  set: { ...BASE_ART.set, logoUrl: 'https://images.pokemontcg.io/nope/logo.png' },
+};
+const BROKEN_COVER: PackArt = {
+  ...BASE_ART,
+  cover: {
+    ...BASE_ART.cover!,
+    image: 'https://images.pokemontcg.io/nope/1_hires.png',
+    type: 'Water',
+  },
+};
+const BROKEN_PHOTO: PackArt = { ...BASE_ART, imageUrl: 'https://example.invalid/pack.png' };
 
 type Member = {
   id: string;
@@ -164,6 +196,25 @@ export function DataDisplaySection() {
           onRowClick={(m) => setOpened(m.name)}
           empty="No members match these filters."
         />
+      </Specimen>
+
+      <Specimen name="BoosterPack (sm, md, lg, xl; no art; broken logo, cover, photo)">
+        <div className="flex flex-wrap items-end gap-6">
+          <BoosterPack art={BASE_ART} name="Base Set Booster Pack" size="sm" />
+          <BoosterPack art={BASE_ART} name="Base Set Booster Pack" cardCount={8} size="md" />
+          <BoosterPack art={BASE_ART} name="Base Set Booster Pack" cardCount={8} size="lg" />
+          <BoosterPack
+            art={BASE_ART}
+            name="Base Set Booster Pack"
+            cardCount={8}
+            size="xl"
+            sheen="loop"
+          />
+          <BoosterPack art={null} name="Your pack" size="md" />
+          <BoosterPack art={BROKEN_LOGO} name="Broken logo" cardCount={8} size="md" />
+          <BoosterPack art={BROKEN_COVER} name="Broken cover" cardCount={8} size="md" />
+          <BoosterPack art={BROKEN_PHOTO} name="Broken photo" cardCount={8} size="md" />
+        </div>
       </Specimen>
 
       <Specimen name="PackTemplateCard (balance 120 coins)">

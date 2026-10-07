@@ -71,6 +71,9 @@
   --e-colorless: #b9bec9;
   --card-face-end: #0d0f14;
   --card-back: linear-gradient(160deg, #233056, #12172a);
+  --booster-ink: #fff;
+  --booster-shade: rgba(0, 0, 0, 0.28);
+  --booster-sheen: rgba(255, 255, 255, 0.5);
 
   --elevation-sm: 0 4px 14px rgba(0, 0, 0, 0.35);
   --elevation-md: 0 16px 34px rgba(0, 0, 0, 0.45);
@@ -183,6 +186,9 @@
   --color-energy-fairy: var(--e-fairy);
   --color-energy-colorless: var(--e-colorless);
   --color-card-face-end: var(--card-face-end);
+  --color-booster-ink: var(--booster-ink);
+  --color-booster-shade: var(--booster-shade);
+  --color-booster-sheen: var(--booster-sheen);
 
   --color-scrim: var(--scrim);
   --color-bar: var(--bar);
@@ -430,6 +436,23 @@
 /* Card face: set --energy to one of the energy tokens. */
 @utility bg-card-face {
   background: linear-gradient(155deg, var(--energy, var(--e-colorless)), var(--card-face-end));
+}
+
+/* A booster's foil: set --energy like bg-card-face. */
+@utility bg-booster {
+  background: linear-gradient(
+    165deg,
+    var(--energy, var(--e-colorless)) 10%,
+    var(--card-face-end) 95%
+  );
+}
+
+/* The crimped seal: small teeth along the top and bottom edges. */
+@utility booster-crimp {
+  mask:
+    conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) top / 8px 51% repeat-x,
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 8px 51%
+      repeat-x;
 }
 
 @layer base {
