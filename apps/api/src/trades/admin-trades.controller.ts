@@ -1,6 +1,6 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import type { Trade, TradeDetail, TradePage } from '@pokedrop/shared';
+import type { Trade, TradeDetail, TradePage, VoidCheck } from '@pokedrop/shared';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
 import type { AuthUser } from '../common/request-auth.js';
@@ -8,7 +8,7 @@ import { TradeReadsService } from './trade-reads.service.js';
 import { AdminTradeQueryDto, VoidTradeDto } from './trades.dto.js';
 import { TradesService } from './trades.service.js';
 import { Doc, returns } from '../common/openapi.js';
-import { TradeDetailSchema, TradePageSchema, TradeSchema } from '@pokedrop/shared';
+import { TradeDetailSchema, TradePageSchema, TradeSchema, VoidCheckSchema } from '@pokedrop/shared';
 
 @ApiTags('admin')
 @Roles(['ADMIN'])
@@ -30,6 +30,15 @@ export class AdminTradesController {
   @Get(':id')
   detail(@Param('id') id: string): Promise<TradeDetail> {
     return this.reads.detailForAdmin(id);
+  }
+
+  @Doc(
+    'Whether a void would succeed: the void run and rolled back, nothing kept',
+    returns('VoidCheck', VoidCheckSchema),
+  )
+  @Get(':id/void-check')
+  voidCheck(@CurrentUser() admin: AuthUser, @Param('id') id: string): Promise<VoidCheck> {
+    return this.trades.voidCheck(admin, id);
   }
 
   @HttpCode(HttpStatus.OK)

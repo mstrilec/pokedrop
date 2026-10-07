@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ForbiddenException,
+  HttpException,
   HttpStatus,
   Injectable,
   NotFoundException,
@@ -13,13 +14,14 @@ import {
   type Trade,
   type TradeLine,
   type TradeNotificationType,
+  type VoidCheck,
 } from '@pokedrop/shared';
 import { AuditService } from '../audit/index.js';
 import { domainError } from '../common/errors/domain-error.js';
 import type { AuthUser } from '../common/request-auth.js';
 import { InventoryService } from '../inventory/index.js';
 import { NotificationsService } from '../notifications/index.js';
-import { PrismaService } from '../prisma/index.js';
+import { PrismaService, type TransactionClient } from '../prisma/index.js';
 import { TradeCloseService } from './trade-close.service.js';
 import { TRADE_SELECT, offeredChanges, toTrade, tradeLines, type TradeRow } from './trade-row.js';
 import { TradeSettlementService } from './trade-settlement.service.js';
@@ -27,6 +29,9 @@ import { TradeSettlementService } from './trade-settlement.service.js';
 type Terms = { offered: TradeLine[]; requested: TradeLine[]; currencyFromInitiator: number };
 
 type Role = 'initiator' | 'recipient';
+
+/** Thrown at the end of a void check so its transaction rolls back whatever it did. */
+class DryRun extends Error {}
 
 /** The trade is visible to both parties, so the wrong one gets an honest 403. */
 function assertRole(trade: TradeRow, user: AuthUser, role: Role): void {
@@ -205,41 +210,74 @@ export class TradesService {
    * nothing changed. Any other status is already over.
    */
   async voidTrade(admin: AuthUser, id: string, reason: string): Promise<Trade> {
-    const trade = await this.prisma.trade.findUnique({ where: { id }, select: TRADE_SELECT });
-    if (trade === null) {
-      throw new NotFoundException('Trade not found');
-    }
-
+    const trade = await this.loadAny(id);
+    await this.prisma.withTransaction((tx) => this.voidIn(tx, admin, trade, reason));
     if (trade.status === 'ACCEPTED') {
-      await this.prisma.withTransaction(async (tx) => {
-        await this.closer.close(tx, trade, {
-          from: 'ACCEPTED',
-          to: 'VOIDED',
-          action: 'trade.void',
-          actorId: admin.id,
-          release: false,
-          meta: { reason },
-        });
-        await this.settlement.reverse(tx, trade);
-      });
       await Promise.all([
         this.inventory.invalidateSummary(trade.initiatorId),
         this.inventory.invalidateSummary(trade.recipientId),
       ]);
-    } else {
-      await this.prisma.withTransaction((tx) =>
-        this.closer.close(tx, trade, {
-          to: 'VOIDED',
-          action: 'trade.void',
-          actorId: admin.id,
-          release: true,
-          meta: { reason },
-        }),
-      );
     }
-
     await this.notify([trade.initiatorId, trade.recipientId], 'trade.voided', trade.id);
     return this.read(id);
+  }
+
+  /**
+   * The void itself, inside a transaction that always rolls back: a refusal is exactly the one
+   * the void would give. Notifications and cache invalidation live in `voidTrade`, after its
+   * commit, so a check never reaches them.
+   */
+  async voidCheck(admin: AuthUser, id: string): Promise<VoidCheck> {
+    const trade = await this.loadAny(id);
+    try {
+      await this.prisma.withTransaction(async (tx) => {
+        await this.voidIn(tx, admin, trade, 'void check');
+        throw new DryRun();
+      });
+    } catch (error) {
+      if (error instanceof DryRun) return { voidable: true };
+      const code = error instanceof HttpException ? codeOf(error.getResponse()) : undefined;
+      if (error instanceof HttpException && code !== undefined) {
+        return { voidable: false, code, reason: error.message };
+      }
+      throw error;
+    }
+    throw new Error('unreachable: a void check always rolls back');
+  }
+
+  private async voidIn(
+    tx: TransactionClient,
+    admin: AuthUser,
+    trade: TradeRow,
+    reason: string,
+  ): Promise<void> {
+    if (trade.status === 'ACCEPTED') {
+      await this.closer.close(tx, trade, {
+        from: 'ACCEPTED',
+        to: 'VOIDED',
+        action: 'trade.void',
+        actorId: admin.id,
+        release: false,
+        meta: { reason },
+      });
+      await this.settlement.reverse(tx, trade);
+    } else {
+      await this.closer.close(tx, trade, {
+        to: 'VOIDED',
+        action: 'trade.void',
+        actorId: admin.id,
+        release: true,
+        meta: { reason },
+      });
+    }
+  }
+
+  private async loadAny(id: string): Promise<TradeRow> {
+    const trade = await this.prisma.trade.findUnique({ where: { id }, select: TRADE_SELECT });
+    if (trade === null) {
+      throw new NotFoundException('Trade not found');
+    }
+    return trade;
   }
 
   private async finish(
@@ -320,4 +358,13 @@ export class TradesService {
       userIds.map((userId) => ({ userId, type, payload: { tradeId } })),
     );
   }
+}
+
+function codeOf(body: unknown): string | undefined {
+  return typeof body === 'object' &&
+    body !== null &&
+    'code' in body &&
+    typeof body.code === 'string'
+    ? body.code
+    : undefined;
 }
