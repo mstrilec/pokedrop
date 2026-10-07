@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
-import { PagePlaceholder } from '@/components/page-placeholder';
+import { AdminTrades } from '@/components/admin/trades/admin-trades';
 
 export const metadata: Metadata = { title: 'Trade moderation' };
 
 export default function Page() {
-  return <PagePlaceholder title="Trade moderation" ticket="PD-123" />;
+  return <AdminTrades />;
 }
