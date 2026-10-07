@@ -268,7 +268,7 @@ Measured 2026-10-07 on `/cards` signed out (the FilterBar menus): the open conte
 | `xl` | 300 px | the reveal's sealed and opening stages |
 
 - **Drawn**: a 5:8 pouch, `bg-booster` in the cover's energy colour and `booster-crimp`, darker seal bands; the set logo; a 4:3 window of the cover art (cropped at 50% 15%, the art under the card's name bar) framed in its rarity colour; the name and *{n} cards*. `sheen`: `loop` (the reveal, the `sweep` animation), `hover` (under a `group/pack` ancestor, `motion-safe:` only), `none`.
-- **The photo**: `art.imageUrl` replaces the drawing, `object-contain` in the same box; `next/image` with `unoptimized` for a host outside `CARD_IMAGE_HOSTS`, which would otherwise throw.
+- **The photo**: `art.imageUrl` replaces the drawing once it has loaded (until then, or for ever on a host that never answers, the drawing shows under it), `object-contain` in the same box; `next/image` with `unoptimized` for a host outside `CARD_IMAGE_HOSTS`, which would otherwise throw.
 - **Fallbacks**, each image on its own: a failed photo → the drawing; a failed or missing logo → the set name; a failed cover → the energy icon on the card face; no `art` at all → a Colorless pack with the name. The box has its size before anything loads.
 - **Accessibility**: one `role="img"` named *{name} booster pack*; the images inside are `alt=""`.
 

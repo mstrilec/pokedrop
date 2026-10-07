@@ -84,6 +84,7 @@ export function BoosterPack({
 }) {
   const s = SIZES[size];
   const [photoFailed, setPhotoFailed] = useState<string | null>(null);
+  const [photoLoaded, setPhotoLoaded] = useState<string | null>(null);
   const photo = art?.imageUrl && photoFailed !== art.imageUrl ? art.imageUrl : null;
 
   return (
@@ -92,6 +93,9 @@ export function BoosterPack({
       aria-label={`${name} booster pack`}
       className={cn('relative aspect-[5/8] shrink-0', s.box, className)}
     >
+      {photo !== null && photoLoaded === photo ? null : (
+        <DrawnWrapper art={art} name={name} cardCount={cardCount} sheen={sheen} s={s} />
+      )}
       {photo ? (
         <Image
           src={photo}
@@ -99,12 +103,11 @@ export function BoosterPack({
           fill
           sizes={`${s.px}px`}
           unoptimized={!isOptimizable(photo)}
+          onLoad={() => setPhotoLoaded(photo)}
           onError={() => setPhotoFailed(photo)}
-          className="object-contain"
+          className={cn('object-contain', photoLoaded !== photo && 'opacity-0')}
         />
-      ) : (
-        <DrawnWrapper art={art} name={name} cardCount={cardCount} sheen={sheen} s={s} />
-      )}
+      ) : null}
     </div>
   );
 }

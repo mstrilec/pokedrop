@@ -99,7 +99,7 @@ export function AdminPacks() {
               <TemplateEditor
                 key={
                   selected
-                    ? `${selected.id}:${selected.cost}:${selected.name}:${JSON.stringify(selected.slotConfig)}:${selected.setFilter.setIds.join()}`
+                    ? `${selected.id}:${selected.cost}:${selected.name}:${JSON.stringify(selected.slotConfig)}:${selected.setFilter.setIds.join()}:${selected.coverCardId}:${selected.imageUrl}`
                     : 'new'
                 }
                 template={selected}

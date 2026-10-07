@@ -413,24 +413,26 @@ export function TemplateEditor({
           />
         </div>
       </section>
-      <CoverCardPicker
-        open={picking}
-        setIds={draft.setIds}
-        onClose={() => setPicking(false)}
-        onPick={(card) => {
-          setPicking(false);
-          edit({
-            coverCardId: card.id,
-            cover: {
-              id: card.id,
-              name: card.name,
-              image: card.imageLarge,
-              type: card.types[0] ?? null,
-              rarity: card.rarity,
-            },
-          });
-        }}
-      />
+      {picking ? (
+        <CoverCardPicker
+          open
+          setIds={draft.setIds}
+          onClose={() => setPicking(false)}
+          onPick={(card) => {
+            setPicking(false);
+            edit({
+              coverCardId: card.id,
+              cover: {
+                id: card.id,
+                name: card.name,
+                image: card.imageLarge,
+                type: card.types[0] ?? null,
+                rarity: card.rarity,
+              },
+            });
+          }}
+        />
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="flex flex-col gap-3">
