@@ -1,5 +1,12 @@
 import {
+  type AdminTradeQuerySchema,
   type AdminUserListQuerySchema,
+  AuditPageSchema,
+  type AuditQuerySchema,
+  TradeDetailSchema,
+  TradePageSchema,
+  TradeSchema,
+  VoidCheckSchema,
   AdminUserPageSchema,
   AdminUserRowSchema,
   type ChangeRole,
@@ -57,3 +64,20 @@ export const triggerSync = (kind: SyncTriggerKind) =>
 
 export const resetBreaker = (provider: string) =>
   post(`/admin/sync/breakers/${encodeURIComponent(provider)}/reset`, ProviderBreakerStateSchema);
+
+export type AdminTradeParams = z.input<typeof AdminTradeQuerySchema>;
+export type AuditParams = z.input<typeof AuditQuerySchema>;
+
+export const adminTrades = (params: AdminTradeParams) =>
+  get('/admin/trades', TradePageSchema, params);
+
+export const adminTrade = (id: string) =>
+  get(`/admin/trades/${encodeURIComponent(id)}`, TradeDetailSchema);
+
+export const voidCheck = (id: string) =>
+  get(`/admin/trades/${encodeURIComponent(id)}/void-check`, VoidCheckSchema);
+
+export const voidTrade = (id: string, reason: string) =>
+  post(`/admin/trades/${encodeURIComponent(id)}/void`, TradeSchema, { reason });
+
+export const auditLog = (params: AuditParams) => get('/admin/audit', AuditPageSchema, params);

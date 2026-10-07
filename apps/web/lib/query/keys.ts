@@ -17,6 +17,11 @@ export const keys = {
     users: ['admin', 'users'],
     userList: (params: object) => ['admin', 'users', params],
     sync: ['admin', 'sync'],
+    trades: ['admin', 'trades'],
+    tradeList: (params: object) => ['admin', 'trades', 'list', params],
+    trade: (id: string) => ['admin', 'trades', 'detail', id],
+    voidCheck: (id: string) => ['admin', 'trades', 'void-check', id],
+    audit: (params: object) => ['admin', 'audit', params],
   },
   catalog: {
     all: ['catalog'],

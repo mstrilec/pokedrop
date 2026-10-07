@@ -7,11 +7,25 @@ import type {
   Role,
   SyncStatusResponse,
   SyncTriggerKind,
+  TradeDetail,
   UpdatePackTemplate,
 } from '@pokedrop/shared';
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { api } from '@/lib/api/browser';
 import {
+  type AdminTradeParams,
+  adminTrade,
+  adminTrades,
+  type AuditParams,
+  auditLog,
+  voidCheck,
+  voidTrade,
   adminMetrics,
   adminPackTemplates,
   type AdminUserParams,
@@ -167,5 +181,52 @@ export function useAdminUserAction() {
       for (const [key, page] of context?.before ?? []) queryClient.setQueryData(key, page);
     },
     onSuccess: (row, action) => patchRow(action.user.id, row),
+  });
+}
+
+export function useAdminTrades(params: Omit<AdminTradeParams, 'cursor'>) {
+  return useInfiniteQuery({
+    queryKey: keys.admin.tradeList(params),
+    queryFn: ({ pageParam }) => api.call(adminTrades({ ...params, cursor: pageParam })),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+  });
+}
+
+export function useAdminTrade(id: string, initial?: TradeDetail, initialAt?: number) {
+  return useQuery({
+    queryKey: keys.admin.trade(id),
+    queryFn: () => api.call(adminTrade(id)),
+    initialData: initial,
+    initialDataUpdatedAt: initialAt,
+  });
+}
+
+/** Fresh every time the dialog opens: a check is only as good as the moment it ran. */
+export function useVoidCheck(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: keys.admin.voidCheck(id),
+    queryFn: () => api.call(voidCheck(id)),
+    enabled,
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
+  });
+}
+
+export function useVoidTrade() {
+  return useMutation({
+    mutationKey: mutationKeys.voidTrade,
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => api.call(voidTrade(id, reason)),
+    meta: { toast: false },
+  });
+}
+
+export function useAuditLog(params: Omit<AuditParams, 'cursor'>) {
+  return useInfiniteQuery({
+    queryKey: keys.admin.audit(params),
+    queryFn: ({ pageParam }) => api.call(auditLog({ ...params, cursor: pageParam })),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
 }

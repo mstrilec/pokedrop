@@ -49,3 +49,11 @@ export function sides(trade: TradeView) {
     ? { give: requested, get: offered }
     : { give: offered, get: requested };
 }
+
+/** Each party's side by name, for a reader who is neither: `Charizard ×2, 50 coins`. */
+export function namedSides(trade: TradeView) {
+  return {
+    initiator: sideText(trade, 'OFFERED', trade.currencyFromInitiator),
+    recipient: sideText(trade, 'REQUESTED', trade.currencyFromRecipient),
+  };
+}
