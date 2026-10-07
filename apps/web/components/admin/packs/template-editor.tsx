@@ -1,14 +1,16 @@
 'use client';
 
-import type { PackTemplate } from '@pokedrop/shared';
+import type { PackArt, PackTemplateView } from '@pokedrop/shared';
 import { CircleAlert, Plus, Save, Trash2, X } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
+import { BoosterPack } from '@/components/packs/booster-pack';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Toggle } from '@/components/ui/toggle';
 import { useAdminPackTemplates, useSavePackTemplate } from '@/lib/query/admin';
 import { useCatalogFacets, useSets } from '@/lib/query/catalog';
 import { apiErrorMessage, toastApiError, toastSuccess } from '@/lib/toast';
+import { CoverCardPicker } from './cover-card-picker';
 import { OddsPreview } from './odds-preview';
 import {
   bodyOf,
@@ -18,6 +20,7 @@ import {
   NEW_DRAFT,
   previewSlots,
   problemsOf,
+  sameSets,
   type TemplateDraft,
 } from './template-draft';
 
@@ -210,8 +213,8 @@ export function TemplateEditor({
   template,
   onSaved,
 }: {
-  template: PackTemplate | null;
-  onSaved: (template: PackTemplate) => void;
+  template: PackTemplateView | null;
+  onSaved: (template: PackTemplateView) => void;
 }) {
   const facets = useCatalogFacets();
   const templates = useAdminPackTemplates();
@@ -227,6 +230,29 @@ export function TemplateEditor({
   const changes = template ? changesOf(template, body) : body;
   const dirty = Object.keys(changes).length > 0;
   const first = [...problems.values()][0];
+  const [picking, setPicking] = useState(false);
+  const sets = useSets();
+  const firstSet = sets.data?.find((set) => set.id === draft.setIds[0]);
+  // The saved default, offered back by "Use default" while the sets are the saved ones.
+  const defaultCover =
+    template?.art.coverIsDefault && sameSets(template.setFilter.setIds, draft.setIds)
+      ? template.art.cover
+      : null;
+  const imageUrl = draft.imageUrl.trim();
+  const previewArt: PackArt | null = firstSet
+    ? {
+        set: {
+          id: firstSet.id,
+          name: firstSet.name,
+          series: firstSet.series,
+          logoUrl: firstSet.logoUrl,
+        },
+        cover: draft.cover,
+        coverIsDefault: draft.coverCardId === null,
+        imageUrl: imageUrl === '' || problems.has('imageUrl') ? null : imageUrl,
+      }
+    : null;
+  const cardTotal = previewSlots(draft).reduce((sum, slot) => sum + slot.count, 0);
 
   const edit = (next: Partial<TemplateDraft>) => {
     setServerError(null);
@@ -318,8 +344,92 @@ export function TemplateEditor({
 
       <SetPicker
         setIds={draft.setIds}
-        onChange={(setIds) => edit({ setIds })}
+        onChange={(setIds) =>
+          edit({
+            setIds,
+            coverCardId: null,
+            cover:
+              template?.art.coverIsDefault && sameSets(template.setFilter.setIds, setIds)
+                ? template.art.cover
+                : null,
+          })
+        }
         problem={problems.get('sets')}
+      />
+
+      <section
+        aria-labelledby="art-heading"
+        className="grid items-start gap-5 sm:grid-cols-[auto_minmax(0,1fr)]"
+      >
+        <BoosterPack
+          art={previewArt}
+          name={draft.name.trim() || 'New pack'}
+          cardCount={cardTotal > 0 ? cardTotal : undefined}
+          size="lg"
+          className="justify-self-center"
+        />
+        <div className="flex flex-col gap-4">
+          <h3 id="art-heading" className="text-h3">
+            Pack art
+          </h3>
+          <div className="flex flex-col gap-2">
+            <span className="text-small text-mut">Featured card</span>
+            <p className="text-body text-tx">
+              {draft.cover ? draft.cover.name : 'The featured card is chosen when you save'}
+              <span className="ml-2 text-small text-faint">
+                {draft.coverCardId ? 'Chosen' : 'Default — highest rarity'}
+              </span>
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={draft.setIds.length === 0}
+                onClick={() => setPicking(true)}
+              >
+                Choose…
+              </Button>
+              {draft.coverCardId ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => edit({ coverCardId: null, cover: defaultCover })}
+                >
+                  Use default
+                </Button>
+              ) : null}
+            </div>
+          </div>
+          <Input
+            label="Pack image address"
+            help="Optional: a photo you may use replaces the drawn wrapper."
+            value={draft.imageUrl}
+            maxLength={2048}
+            inputMode="url"
+            onChange={(event) => edit({ imageUrl: event.target.value })}
+            error={problems.get('imageUrl')}
+          />
+        </div>
+      </section>
+      <CoverCardPicker
+        open={picking}
+        setIds={draft.setIds}
+        onClose={() => setPicking(false)}
+        onPick={(card) => {
+          setPicking(false);
+          edit({
+            coverCardId: card.id,
+            cover: {
+              id: card.id,
+              name: card.name,
+              image: card.imageLarge,
+              type: card.types[0] ?? null,
+              rarity: card.rarity,
+            },
+          });
+        }}
       />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">

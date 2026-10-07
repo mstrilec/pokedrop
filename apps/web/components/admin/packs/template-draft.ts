@@ -1,7 +1,9 @@
 import {
   type CreatePackTemplate,
   CreatePackTemplateSchema,
+  type PackArt,
   type PackTemplate,
+  type PackTemplateView,
   type SlotConfig,
 } from '@pokedrop/shared';
 
@@ -13,6 +15,10 @@ export type TemplateDraft = {
   setIds: string[];
   slots: DraftSlot[];
   active: boolean;
+  coverCardId: string | null;
+  /** The picked card, for the preview; the saved view's cover until something is picked. */
+  cover: PackArt['cover'];
+  imageUrl: string;
 };
 
 export const NEW_DRAFT: TemplateDraft = {
@@ -21,9 +27,12 @@ export const NEW_DRAFT: TemplateDraft = {
   setIds: [],
   slots: [{ count: '1', rows: [{ rarity: 'Common', weight: '100' }] }],
   active: false,
+  coverCardId: null,
+  cover: null,
+  imageUrl: '',
 };
 
-export function draftOf(template: PackTemplate): TemplateDraft {
+export function draftOf(template: PackTemplateView): TemplateDraft {
   return {
     name: template.name,
     cost: String(template.cost),
@@ -36,6 +45,9 @@ export function draftOf(template: PackTemplate): TemplateDraft {
       })),
     })),
     active: template.active,
+    coverCardId: template.coverCardId,
+    cover: template.art.cover,
+    imageUrl: template.imageUrl ?? '',
   };
 }
 
@@ -57,6 +69,8 @@ export function bodyOf(draft: TemplateDraft): CreatePackTemplate {
       })),
     },
     active: draft.active,
+    coverCardId: draft.coverCardId as CreatePackTemplate['coverCardId'],
+    imageUrl: draft.imageUrl.trim() === '' ? null : draft.imageUrl.trim(),
   };
 }
 
@@ -100,6 +114,7 @@ export function problemsOf(draft: TemplateDraft): Problems {
           );
         } else add(`slot.${index}`, issue.message);
       } else if (head === 'slotConfig') add('slots', issue.message);
+      else if (head === 'imageUrl') add('imageUrl', 'Use an https:// address');
       else add('form', issue.message);
     }
   }
@@ -124,14 +139,17 @@ export function changesOf(original: PackTemplate, body: CreatePackTemplate) {
   const changes: Partial<CreatePackTemplate> = {};
   if (body.name !== original.name) changes.name = body.name;
   if (body.cost !== original.cost) changes.cost = body.cost;
-  if (
-    JSON.stringify([...body.setFilter.setIds].sort()) !==
-    JSON.stringify([...original.setFilter.setIds].sort())
-  ) {
+  if (!sameSets(original.setFilter.setIds, body.setFilter.setIds)) {
     changes.setFilter = body.setFilter;
   }
   if (!sameSlots(body.slotConfig, original.slotConfig)) changes.slotConfig = body.slotConfig;
+  if (body.coverCardId !== original.coverCardId) changes.coverCardId = body.coverCardId;
+  if (body.imageUrl !== original.imageUrl) changes.imageUrl = body.imageUrl;
   return changes;
+}
+
+export function sameSets(a: readonly string[], b: readonly string[]): boolean {
+  return JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
 }
 
 function sameSlots(a: SlotConfig, b: SlotConfig): boolean {
