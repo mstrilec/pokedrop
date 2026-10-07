@@ -265,7 +265,7 @@ function TradeComposer({
         />
       ) : (
         <div className="flex flex-col gap-6">
-          <div className="max-w-110">
+          <div className="grid gap-4 md:grid-cols-2">
             <CounterpartyPicker
               value={state.counterparty}
               onChange={(party) => dispatch({ type: 'counterparty', party })}
@@ -297,25 +297,27 @@ function TradeComposer({
             }
             onCoinsChange={(side, coins) => dispatch({ type: 'coins', side, coins })}
           />
-          <div className="flex flex-wrap items-center justify-end gap-3">
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex flex-wrap justify-end gap-3">
+              <Button asChild variant="ghost">
+                <Link href="/trades">Cancel</Link>
+              </Button>
+              <Button
+                ref={reviewButton}
+                icon={ArrowRight}
+                loading={checking}
+                disabled={problems.length > 0}
+                aria-describedby={problems.length > 0 ? 'compose-problem' : undefined}
+                onClick={() => void review()}
+              >
+                Review offer
+              </Button>
+            </div>
             {problems.length > 0 ? (
-              <p id="compose-problem" className="text-small text-mut">
+              <p id="compose-problem" className="text-right text-small text-mut">
                 {problems[0]}
               </p>
             ) : null}
-            <Button asChild variant="ghost">
-              <Link href="/trades">Cancel</Link>
-            </Button>
-            <Button
-              ref={reviewButton}
-              icon={ArrowRight}
-              loading={checking}
-              disabled={problems.length > 0}
-              aria-describedby={problems.length > 0 ? 'compose-problem' : undefined}
-              onClick={() => void review()}
-            >
-              Review offer
-            </Button>
           </div>
         </div>
       )}

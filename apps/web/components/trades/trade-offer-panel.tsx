@@ -67,6 +67,8 @@ function Side({
   const count = data.cards.reduce((n, l) => n + l.count, 0);
   const coins = `${data.coins.toLocaleString('en-US')} ${data.coins === 1 ? 'coin' : 'coins'}`;
 
+  const addLabel = give ? 'Add a card you give' : 'Add a card you get';
+
   return (
     <section
       aria-labelledby={headingId}
@@ -75,20 +77,41 @@ function Side({
         give ? 'border-red/25' : 'border-grn/25',
       )}
     >
-      <h3 id={headingId} className="flex items-center gap-2 text-h3">
-        <span
-          aria-hidden
-          className={cn(
-            'flex size-7 items-center justify-center rounded-control',
-            give ? 'bg-red-dim text-red' : 'bg-grn/14 text-grn',
-          )}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <h3 id={headingId} className="flex min-w-0 items-center gap-2 text-h3">
+          <span
+            aria-hidden
+            className={cn(
+              'flex size-7 shrink-0 items-center justify-center rounded-control',
+              give ? 'bg-red-dim text-red' : 'bg-grn/14 text-grn',
+            )}
+          >
+            <Arrow className="size-4" />
+          </span>
+          <span className="min-w-0 wrap-anywhere">{data.label}</span>
+        </h3>
+        {count > 0 || data.coins > 0 ? (
+          <p className="ml-auto text-small text-mut">
+            {count} {count === 1 ? 'card' : 'cards'}
+            {value !== null ? <> · market value {formatUsd(value)}</> : null}
+            {data.coins > 0 ? <> · {coins}</> : null}
+          </p>
+        ) : null}
+      </div>
+      {editable && data.cards.length === 0 ? (
+        <button
+          type="button"
+          onClick={() => onAddCard?.(side)}
+          className="focus-ring flex min-h-44 w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-tile border border-dashed border-bd-2 p-4 text-center text-mut transition hover:border-pri hover:text-pri"
         >
-          <Arrow className="size-4" />
-        </span>
-        <span className="min-w-0 wrap-anywhere">{data.label}</span>
-      </h3>
-      {editable || data.cards.length > 0 ? (
-        <ul className="grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-3">
+          <Plus aria-hidden className="mb-1 size-5" />
+          <span className="text-small text-tx">{addLabel}</span>
+          <span className="text-small text-faint">
+            {give ? 'From your collection' : 'Any card from the catalog'}
+          </span>
+        </button>
+      ) : data.cards.length > 0 ? (
+        <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(120px,calc(50%-6px)),1fr))] gap-3">
           {data.cards.map((line) => (
             <li key={line.card.id} className="flex flex-col gap-1.5">
               <CardTile card={line.card} sizes="120px" />
@@ -147,10 +170,17 @@ function Side({
               <button
                 type="button"
                 onClick={() => onAddCard?.(side)}
-                className="focus-ring flex aspect-[5/7] w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-tile border border-dashed border-bd-2 text-small text-mut transition hover:border-pri hover:text-pri"
+                className="focus-ring relative flex w-full cursor-pointer flex-col rounded-tile border border-dashed border-bd-2 text-mut transition hover:border-pri hover:text-pri"
               >
-                <Plus aria-hidden className="size-5" />
-                {give ? 'Add a card you give' : 'Add a card you get'}
+                {/* Sized like a CardTile, art and footer, so a row of slots lines up. */}
+                <span aria-hidden className="aspect-[5/7]" />
+                <span aria-hidden className="invisible border-t px-2.5 py-2 font-mono text-[12px]">
+                  0
+                </span>
+                <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-3 text-center text-small text-balance">
+                  <Plus aria-hidden className="size-5 shrink-0" />
+                  {addLabel}
+                </span>
               </button>
             </li>
           ) : null}
@@ -158,6 +188,7 @@ function Side({
       ) : null}
       {editable ? (
         <CurrencyInput
+          className="max-w-50"
           label={give ? 'Coins you give' : 'Coins you get'}
           value={data.coins}
           max={give ? balance : undefined}
@@ -176,13 +207,6 @@ function Side({
         </p>
       ) : count === 0 ? (
         <p className="text-body text-mut">Nothing</p>
-      ) : null}
-      {editable || count > 0 ? (
-        <p className="border-t border-bd pt-3 text-small text-mut">
-          {count} {count === 1 ? 'card' : 'cards'}
-          {value !== null ? <> · market value {formatUsd(value)}</> : null}
-          {data.coins > 0 ? <> · {coins}</> : null}
-        </p>
       ) : null}
     </section>
   );
