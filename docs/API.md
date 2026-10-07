@@ -1168,6 +1168,27 @@ constantly.
 - a member on every new route 403, signed out 401
 - the one real run, triggered from the endpoint: `PARTIAL`, 19 670 processed, 4 failed, its row's `jobId` the trigger's, `stale: false` throughout. The host slept during it, so it lost its BullMQ lock: the processor closed its run, BullMQ refused to mark the job finished (`Missing lock … moveToFinished`) and ran it again under the same job id, which opened a second run from page 1. The key stayed held the whole time, so no trigger or cron could add a third. That run was stopped by hand; with its job removed, its `RUNNING` row read `stale: true`. See `apps/api/src/sync/README.md`, "A run nobody will close"
 
+## Admin / Trades and Audit
+
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| GET | `/admin/trades` | admin | Every trade, newest first — `status`, `user` (either side), `from`/`to`, keyset-paged (PD-123) |
+| GET | `/admin/trades/:id/void-check` | admin | Whether `POST /admin/trades/:id/void` would succeed — the void run and rolled back (PD-123) |
+| GET | `/admin/audit` | admin | The audit log, newest first — `actor` (id or `system`), `action` (group or exact), `entity` + `entityId`, `from`/`to`, keyset-paged; read-only (PD-123) |
+
+**`GET /admin/trades`** answers the inbox's own `TradePage` — the same `TradeView` rows, with `role: null` on every one because the reader is no party — `pageSize` 1–100 (default 24) and the inbox's opaque `(createdAt, id)` cursor. `from` and `to` are UTC days on `createdAt`, `to` inclusive; `from` after `to`, an unknown `status` or a malformed date is 400. The filters are one `AND` element beside the cursor, as in the inbox, so no page of a filtered list can carry a row from outside it; `user` reads both `(…Id, status)` indexes.
+
+**`GET /admin/trades/:id/void-check`** answers `{ voidable: true }` or `{ voidable: false, code, reason }`. It runs the void's own transactional part — the guarded close, then, for an accepted trade, the reversal — and ends its transaction with a private sentinel, so everything it did rolls back: no status change, no released lock, no ledger row, no audit row. Notifications and the inventory-summary invalidation happen only in `POST …/void`, after its commit, so a check never reaches them. A refusal is therefore exactly the void's: `TRADE_NOT_PENDING` (*This trade is already DECLINED*) or `TRADE_NOT_REVERSIBLE` (*Cannot reverse this trade: User … no longer has 1 available base1-1*, or the coins variant), naming the user by id. It takes the void's row locks for the milliseconds it runs. An unknown trade is 404.
+
+**`GET /admin/audit`** — `pageSize` 1–100 (default 50). `action` is a group (`trade`, `user`, `pack_template`, `sync`, matched as a prefix) or one exact action; `entity` is one of `Trade`, `User`, `PackTemplate`, `SyncJob`, `Provider`, and `entityId` only with it (400 otherwise). Each row: `{ id, action, entity, entityId, actor: { id, displayName, email } | null, subject: { label, email } | null, meta, createdAt }` — `actor` null is the system (the expiry job); `subject` names the row's object for its link: a user's name and email, a template's name, null otherwise, read with one query per kind for the whole page. Nothing in the API writes or deletes audit rows outside `AuditService.record`.
+
+**Measured 2026-10-07** through HTTP with the database checked:
+
+- the trades list: `total` equal to `count(*)`; pages of 7 walked to the end — every trade once; `status=ACCEPTED`, `user=<id>` walked at 3 a page, and one UTC day each equal to their SQL count with no row outside the filter; `status=nope`, `from=2026-13-01`, `from` after `to` → 400; a member 403, signed out 401;
+- the void check, with six tables (`trades`, `trade_items`, `inventory_items`, `currency_transactions`, `audit_logs`, `notifications`) and every balance hashed before and after: a fresh pending trade `voidable: true`; a settled gift still held `voidable: true`; the same gift after the receiver locked every copy in a new offer `voidable: false`, `TRADE_NOT_REVERSIBLE`, and `POST …/void` then 409 with the same code and the same message; a declined trade `TRADE_NOT_PENDING` with the void's message — every hash identical after every check; an unknown id 404, a member 403, signed out 401; the real void afterwards: one `trade.void` row and two `trade.voided` notifications;
+- the audit list: pages of 7 walked — every row once; `actor=<admin>`, `actor=system`, `action=user`, `action=trade.void`, one trade's `entity`+`entityId` and one UTC day each equal to SQL; `subject` with a name and an email on a `User` row, a name and `email: null` on a `PackTemplate` row, null on a `Trade` row; `entityId` alone, `action=User.X`, `entity=Card`, `from` after `to` → 400; member 403, signed out 401;
+- `EXPLAIN ANALYZE` over 20 000 extra rows in a rolled-back transaction: the newest 51 were a `Seq Scan` plus a top-N `Sort` in 2.84 ms (4.41 ms for one day) before `audit_logs (createdAt, id)`, an `Index Scan Backward` on it in 0.031 ms (0.051 ms, the day as an index condition) after.
+
 ## Admin / Metrics
 
 `GET /admin/metrics?days=14` — admin only. `days` is `7`, `14` (the default, the dashboard's chart) or `30`; anything else, `90` included, is 400. The answer is always 200: each section is read on its own and is `null` when it cannot be.

@@ -177,7 +177,7 @@ The foreign key is **Restrict**, not SetNull, so that meaning stays honest: dele
 
 Append-only by convention; nothing in application code updates or deletes these rows. The schema cannot enforce that — a trigger could, at the cost of a hand-written object Prisma does not model.
 
-**Indexes:** `(entity, entityId)` for one object's history, `(actorId, createdAt)` for one admin's. Measured over 40 000 rows: an entity lookup is an index scan returning in 0.07 ms.
+**Indexes:** `(entity, entityId)` for one object's history, `(actorId, createdAt)` for one admin's. Measured over 40 000 rows: an entity lookup is an index scan returning in 0.07 ms; and since PD-123 `(createdAt, id)` for the admin audit page, newest first across everyone — measured over 20 000 extra rows, the first page went from a sequential scan and sort (2.8 ms) to a backward index scan (0.03 ms).
 
 **The writer** is `AuditService.record(tx, entry)` (`apps/api/src/audit`, a global module). It takes the caller's transaction, so an action that rolls back leaves no row — measured for a refused pack-template save, a grant and a suspension whose audit insert was made to fail. `TradeCloseService.voidAllPendingOf` writes a suspension's trade rows with one `createMany` in the same transaction. One object's history is `WHERE entity = … AND "entityId" = … ORDER BY "createdAt", id` on the first index; the trade timeline reads it exactly that way.
 

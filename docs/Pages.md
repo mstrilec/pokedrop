@@ -15,6 +15,7 @@ The tickets were written before the API, and a few of them asked for what the AP
 | D3 | The owner's `GET /decks` carries `valid`, computed by the validator on read and never stored | PD-111 |
 | D4 | The deck builder validates its draft in the browser with the API's own validator, from `@pokedrop/shared`; rule failures never block a save — only what the API would refuse with a 400 does | PD-112, PD-113 |
 | D5 | The trade composer asks for any catalog card (the counterparty's showcase first) — inventories stay private and settlement checks; counterparties come from a member name search, `GET /users?q=`; counter-offers use the same composer | PD-115, PD-116 |
+| D6 | Trade moderation and the audit log read through three admin endpoints — `GET /admin/trades`, `GET /admin/trades/:id/void-check` (the void run and rolled back, so the dialog offers only a void the server would accept) and `GET /admin/audit`; the trade gets its own admin page, `/admin/trades/[id]` | PD-123 |
 | D7 | Settings shows the email read-only and has no theme choice: dark is the only theme | PD-118 |
 | D9 | The card page's Pokédex section reads PokéAPI from the web server (`lib/pokeapi.ts`) — a day's cache, a two-second timeout, nothing on failure; the API is not involved | PD-110 |
 | D10 | *Add to deck* on a card page picks one of the member's decks (or creates one) and opens the builder with `?add=<cardId>`: one more copy as an unsaved change, saved by the member | PD-110 |
@@ -547,3 +548,27 @@ Both behind the admin layout and the proxy: a member who opens `/admin` or `/adm
 - The topbar's card search is also an `input[type=search]`: a script that types into "the search field" must scope to `main`.
 - Pausing a BullMQ queue for a measurement leaves it paused for the nightly cron: resume both queues afterwards.
 
+## Trade moderation and audit log (PD-123)
+
+Design: `docs/superpowers/specs/2026-10-07-pd-123-trade-moderation-audit-design.md` (D6).
+
+- **`/admin/trades`** (`components/admin/trades/admin-trades.tsx`) — every trade, newest first, as *Ash gives … → Misty gives …* with the status and dates; status tabs, a *Collector* filter (`UserFilter`, over `GET /admin/users?q=`; the choice a chip named from the rows it produced) and *From* / *To*, all in the URL (`useUrlState`, a bad value falls back on its own); *Load more*.
+- **`/admin/trades/[id]`** — the server reads `GET /admin/trades/:id`; the parties by name (linking `/admin/users?q=`), the read-only `TradeOfferPanel` with *Ash gives* / *Misty gives*, the timeline and the negotiation chain (every link rewritten to `/admin/trades/…`), *View in the audit log*. *Void trade* (pending and accepted only) opens `VoidDialog`, which asks `void-check` as it opens: *Checking…*; voidable — what will happen and a required *Reason* (`VoidTradeSchema`); not voidable — *This trade can't be voided now:* and the server's words, with no reason field and no confirm; a check that failed — *Try again*; a void refused after all (another admin was faster) — *Not voided: …* and the trade re-read. Every state without a confirm has its own *Close*: `Dialog` draws no footer without `onConfirm`.
+- **`/admin/audit`** (`components/admin/audit/`) — every row, newest first: when, who (*System* for the expiry job), the action in words with its name in small type, the object as a link (`Trade` → its admin page, `User` → `/admin/users?q=<email>`, `PackTemplate` → `/admin/packs?template=<id>`, `SyncJob` and `Provider` → sync), a one-line summary of `meta` for the known actions (*+250 coins — …*, *MEMBER → ADMIN*, *PENDING → VOIDED · reason: …*, *2 failures cleared*) and *Details* with the raw JSON. Filters: *Who* (with *System*), *Action* (the groups, then each known action), *Object* (and an `entityId` chip from *View in the audit log*), *From* / *To*. Read-only: inside the list there is no button, input or editable element — only links and `<details>`.
+- `/admin/users` reads `?q=` and `/admin/packs` reads `?template=`, so the links land on the row and the template.
+
+**Measured 2026-10-07** under `next dev`, as the test admin, headless Chrome with real key events (beside the API measurements in `API.md`):
+
+- the list: *Trade moderation* with its rows; `?status=ACCEPTED` — every row *Accepted*; `?status=nope&from=2026-13-40` — the unfiltered list; the *Collector* field, `nnnn`, the first choice → `?user=<id>`, every row naming them, the chip with their name;
+- a fresh pending trade: the dialog said *…locked copies are released…*, refused *Void trade* without a reason (*Say why*), then closed with the header *Voided* and no *Void trade* left;
+- an accepted gift whose receiver had locked every copy in a new offer: *This trade can't be voided now: Cannot reverse this trade: User … no longer has 1 available …*, no reason field, no *Void trade*, *Close*; after that offer was cancelled the dialog offered the void, the trade was voided through the API meanwhile, and *Void trade* answered *Not voided: …* and the page re-read *Voided*;
+- an accepted trade with a card each way and 3 coins, voided from its page: both cards and both balances exactly as before the trade (SQL);
+- the session's admin actions — a grant and its return, a role up and down, a suspension and unsuspension, a template renamed and back, a catalog sync on a paused queue (drained), a breaker reset (two failures seeded), a void — eleven rows in SQL since the start, and every action on `/admin/audit?actor=<admin>` with the chip *Fresh Collector*; *System*, *Users — all* and a bad `from` as expected; a `User` link opened the users page filtered to that address, a `PackTemplate` link the editor on that template, a `Trade` link its page;
+- an unknown `/admin/trades/<id>`: *Page not found* with `noindex`;
+- 375 px (device emulation): `scrollWidth` 375 on all three pages; no console errors.
+
+**Traps:**
+
+- `/admin/trades/[id]` for an unknown id answers the not-found page with HTTP 200, as `/trades/[id]` does (PD-116): `(app)/loading.tsx` streams first. Admin-only and never indexed.
+- A breaker with neither key resets with 200 and writes nothing — to see `sync.breaker_reset` in the log, the breaker must have failures.
+- The query-key object allows two levels: `keys.admin.{trades, tradeList(params), trade(id), voidCheck(id)}`, not a nested `trades` object.
