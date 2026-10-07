@@ -81,6 +81,8 @@
   --scrim-blur: 6px;
   --bar: rgba(10, 11, 14, 0.8);
   --bar-blur: 12px;
+  --menu-in: 180ms;
+  --menu-out: 120ms;
   --skeleton-base: #191c24;
   --skeleton-highlight: #262a34;
   --backdrop: radial-gradient(1000px 500px at 85% -10%, rgba(76, 141, 255, 0.05), transparent 60%);

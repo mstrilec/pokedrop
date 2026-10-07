@@ -79,12 +79,13 @@ export function AvatarMenu() {
       >
         <Avatar name={identity.displayName} src={identity.avatarUrl} size={40} decorative />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>
-          <span className="block truncate text-tx">{identity.displayName}</span>
-          <span className="text-small text-faint">
+      <DropdownMenuContent align="end" className="w-72 max-w-[calc(100vw-16px)]">
+        <DropdownMenuLabel className="flex flex-col gap-0.5 pb-3">
+          <span className="truncate text-body font-semibold text-tx">{identity.displayName}</span>
+          <span className="text-small text-mut">
             {identity.role === 'ADMIN' ? 'Admin' : 'Member'}
           </span>
+          <span className="truncate text-small font-normal text-faint">{identity.email}</span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>

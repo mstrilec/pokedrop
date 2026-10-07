@@ -244,6 +244,18 @@ After the review fixes, the same way:
 - each empty state's first focusable element is its call to action (three links, one button);
 - the pending timeline reads *Done: Proposed by MistyW … / Current step: Awaiting your response / Not yet: Cards swap and the trade settles*; the voided one ends *Done: Voided by an admin*.
 
+## Menus (PD-134)
+
+`components/ui/dropdown-menu.tsx` (shadcn on Radix) is every menu in the app: the account menu, the admin users' row actions and each FilterBar menu. Their look comes from it alone.
+
+- **Open and close are animated**, as `docs/DesignSystem.md` §7 says; the global reduced-motion rule cuts both to nothing, and Radix's Presence still unmounts on the shortened `animationend`.
+- **Rows are 36 px tall**: items, checkbox / radio items and sub-triggers `px-3 py-2`, `gap-2.5` between icon and label, `p-1.5` around them, separators `my-1.5`.
+- **Focus is `pri-dim`**, not shadcn's `accent`: here `--accent` and `--popover` are both `--elev`, so the focused row did not differ from the menu.
+- **`collisionPadding` is 8 px** and the content sits 6 px from its trigger, so a menu at 375 px keeps a margin to the screen edge.
+- **The account menu** is `w-72`: the display name (truncated), the role, and the email (truncated), which `SessionIdentity` carries since PD-134.
+
+Measured 2026-10-07 on `/cards` signed out (the FilterBar menus): the open content runs `enter 0.18s cubic-bezier(0.2, 0.7, 0.2, 1)` from 96% and 8 px; rows lay out at 36 px; the focused row is `rgba(76, 141, 255, 0.14)` on `rgb(34, 38, 47)`; at 375 px the sort menu spans 45–269 px with `scrollWidth` 375; no console errors. The account and admin menus were not opened in the browser.
+
 ## TCG domain (PD-99)
 
 | Component | File | Notes |

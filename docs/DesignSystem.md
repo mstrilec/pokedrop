@@ -153,6 +153,7 @@ Dialog scrim: `rgba(6,7,10,.72)` + 6px blur. Sticky bars (navbar/topbar) use `rg
 ## 7. Motion
 
 - **Hover transitions:** 160–180ms ease. Buttons ~0.16s.
+- **Menus open / close:** fade + scale from 96% + an 8px slide away from the trigger, `--menu-in` 180ms in and `--menu-out` 120ms out, on the reveal easing; they grow from Radix's transform origin.
 - **Card / tile hover ("lift + glow"):** `translateY(-4px)` + border accent + shadow `md`.
 - **Row hover ("row tint"):** background → `--surface2`.
 - **Link / icon hover:** color → `--pri`.
