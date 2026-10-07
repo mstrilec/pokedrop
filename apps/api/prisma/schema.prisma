@@ -575,6 +575,7 @@ model AuditLog {
 
   @@index([entity, entityId])
   @@index([actorId, createdAt])
+  @@index([createdAt, id])
   @@map("audit_logs")
 }
 

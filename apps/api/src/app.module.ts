@@ -10,6 +10,7 @@ import { SessionGuard } from './common/guards/session.guard.js';
 import { ZodValidationPipe } from './common/pipes/zod-validation.pipe.js';
 import { AdminModule } from './admin/index.js';
 import { AdminUsersModule } from './admin-users/index.js';
+import { AdminAuditModule } from './admin-audit/admin-audit.module.js';
 import { AuthModule } from './auth/index.js';
 import { CatalogModule } from './catalog/index.js';
 import { AppConfigModule } from './config/index.js';
@@ -59,6 +60,7 @@ import { WalletModule } from './wallet/index.js';
     SyncModule,
     AdminModule,
     AdminUsersModule,
+    AdminAuditModule,
   ],
   controllers: [AppController],
   providers: [
