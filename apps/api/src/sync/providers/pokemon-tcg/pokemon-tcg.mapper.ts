@@ -77,7 +77,7 @@ export function toCardDTO(raw: RawCard): CardDTO {
     })),
     legalities: raw.legalities ?? {},
     nationalPokedexNumbers: raw.nationalPokedexNumbers ?? [],
-    evolvesFrom: raw.evolvesFrom ?? null,
+    evolvesFrom: raw.evolvesFrom || null,
     imageSmall: raw.images.small,
     imageLarge: raw.images.large,
     // This provider publishes no TCGplayer or Cardmarket identifier - the union
