@@ -129,6 +129,7 @@ export function toCardDTO(raw: RawCard & { image: string }): CardDTO {
             expanded: raw.legal.expanded ? 'Legal' : 'Illegal',
           },
     nationalPokedexNumbers: raw.dexId ?? [],
+    evolvesFrom: raw.evolveFrom ?? null,
     imageSmall: `${raw.image}/low.webp`,
     imageLarge: `${raw.image}/high.webp`,
     // This provider is the stronger source for both. pokemontcg.io publishes

@@ -48,6 +48,7 @@ export const CardSchema = z.object({
   attacks: z.array(AttackSchema),
   abilities: z.array(AbilitySchema),
   nationalPokedexNumbers: z.array(z.number().int().min(1)),
+  evolvesFrom: z.string().nullable().default(null),
   imageSmall: z.url(),
   imageLarge: z.url(),
   legalities: LegalitiesSchema,

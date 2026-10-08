@@ -72,6 +72,7 @@ export const RawCardSchema = z.looseObject({
   hp: z.number().optional(),
   types: z.array(z.string()).optional(),
   stage: z.string().optional(),
+  evolveFrom: z.string().optional(),
   retreat: z.number().int().min(0).optional(),
   dexId: z.array(z.number().int()).optional(),
   attacks: z.array(RawAttackSchema).optional(),

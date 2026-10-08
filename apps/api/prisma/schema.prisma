@@ -245,6 +245,8 @@ model Card {
   legalities  Json
 
   nationalPokedexNumbers Int[]
+  /// The name of the card this one evolves from, as the provider prints it.
+  evolvesFrom            String?
 
   imageSmall String
   imageLarge String
@@ -279,6 +281,7 @@ model Card {
   /// GIN, because a btree on an array cannot serve a containment query.
   @@index([types], type: Gin)
   @@index([priceUpdatedAt])
+  @@index([evolvesFrom])
   @@map("cards")
 }
 

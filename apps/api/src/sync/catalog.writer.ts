@@ -13,7 +13,7 @@ import type { CardDTO, SetDTO } from './providers/index.js';
  * tuple - an unguarded upsert of a byte-identical payload moved it, the guarded
  * form did not.
  *
- * Three rules hold this together, and breaking any of them is silent:
+ * Four rules hold this together, and breaking any of them is silent:
  *
  * - Column names are quoted. They are camelCase in the database, so unquoted
  *   PostgreSQL folds them and looks for `setid`.
@@ -22,6 +22,8 @@ import type { CardDTO, SetDTO } from './providers/index.js';
  * - `"updatedAt"` is NOT in the comparison tuple. Including it would make every
  *   row differ from itself, restoring the churn this exists to remove while the
  *   SQL still looks guarded.
+ * - A column written by the upsert is in the comparison tuple too; one left out
+ *   is never updated on an existing row.
  */
 @Injectable()
 export class CatalogWriter {
@@ -74,7 +76,7 @@ export class CatalogWriter {
           ${c.hp}, ${c.types}, ${c.rarity}, ${c.retreatCost},
           ${this.json(c.weaknesses)}, ${this.json(c.resistances)}, ${this.json(c.attacks)},
           ${this.json(c.abilities)}, ${this.json(c.legalities)},
-          ${c.nationalPokedexNumbers}, ${c.imageSmall}, ${c.imageLarge},
+          ${c.nationalPokedexNumbers}, ${c.evolvesFrom}, ${c.imageSmall}, ${c.imageLarge},
           ${c.tcgplayerId}, ${c.cardmarketId}, now())`,
       ),
     );
@@ -85,8 +87,8 @@ export class CatalogWriter {
     return tx.$executeRaw`
       INSERT INTO cards (id, "setId", name, supertype, subtypes, hp, types, rarity,
         "retreatCost", weaknesses, resistances, attacks, abilities, legalities,
-        "nationalPokedexNumbers", "imageSmall", "imageLarge", "tcgplayerId",
-        "cardmarketId", "updatedAt")
+        "nationalPokedexNumbers", "evolvesFrom", "imageSmall", "imageLarge",
+        "tcgplayerId", "cardmarketId", "updatedAt")
       VALUES ${values}
       ON CONFLICT (id) DO UPDATE SET
         "setId" = excluded."setId",
@@ -103,6 +105,7 @@ export class CatalogWriter {
         abilities = excluded.abilities,
         legalities = excluded.legalities,
         "nationalPokedexNumbers" = excluded."nationalPokedexNumbers",
+        "evolvesFrom" = excluded."evolvesFrom",
         "imageSmall" = excluded."imageSmall",
         "imageLarge" = excluded."imageLarge",
         "tcgplayerId" = excluded."tcgplayerId",
@@ -111,14 +114,14 @@ export class CatalogWriter {
       WHERE (cards."setId", cards.name, cards.supertype, cards.subtypes, cards.hp,
              cards.types, cards.rarity, cards."retreatCost", cards.weaknesses,
              cards.resistances, cards.attacks, cards.abilities, cards.legalities,
-             cards."nationalPokedexNumbers", cards."imageSmall", cards."imageLarge",
-             cards."tcgplayerId", cards."cardmarketId")
+             cards."nationalPokedexNumbers", cards."evolvesFrom", cards."imageSmall",
+             cards."imageLarge", cards."tcgplayerId", cards."cardmarketId")
         IS DISTINCT FROM
             (excluded."setId", excluded.name, excluded.supertype, excluded.subtypes, excluded.hp,
              excluded.types, excluded.rarity, excluded."retreatCost", excluded.weaknesses,
              excluded.resistances, excluded.attacks, excluded.abilities, excluded.legalities,
-             excluded."nationalPokedexNumbers", excluded."imageSmall", excluded."imageLarge",
-             excluded."tcgplayerId", excluded."cardmarketId")
+             excluded."nationalPokedexNumbers", excluded."evolvesFrom", excluded."imageSmall",
+             excluded."imageLarge", excluded."tcgplayerId", excluded."cardmarketId")
     `;
   }
 }

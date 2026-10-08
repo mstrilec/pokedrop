@@ -34,6 +34,7 @@ export const RawCardSchema = z.object({
   rarity: z.string().optional(),
   retreatCost: z.array(z.string()).optional(),
   nationalPokedexNumbers: z.array(z.number().int()).optional(),
+  evolvesFrom: z.string().optional(),
   images: z.object({
     small: z.string().min(1),
     large: z.string().min(1),

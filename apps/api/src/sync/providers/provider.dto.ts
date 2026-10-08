@@ -44,6 +44,7 @@ export const CardDTOSchema = z.object({
   abilities: z.array(AbilitySchema),
   legalities: LegalitiesSchema,
   nationalPokedexNumbers: z.array(z.number().int().min(1)),
+  evolvesFrom: z.string().min(1).nullable(),
   imageSmall: z.url(),
   imageLarge: z.url(),
   tcgplayerId: z.string().nullable(),

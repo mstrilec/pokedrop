@@ -13,6 +13,10 @@ outside this folder knows that pokemontcg.io or TCGdex exist.
 | `providers/index.ts` | the folder's entire public surface |
 | `sync.module.ts` | the registry and the configured default |
 
+`CardDTO.evolvesFrom` is the provider's `evolvesFrom` (pokemontcg.io) or
+`evolveFrom` (TCGdex). `catalog.writer.ts` compares a tuple of every column it
+writes; a column missing from it is never updated on an existing row.
+
 ## The boundary, and how it is held
 
 Nothing outside `providers/` may import a provider-specific type. That is not a
