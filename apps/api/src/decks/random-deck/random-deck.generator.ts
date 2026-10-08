@@ -216,6 +216,23 @@ function build(
     [isTrainer, trainerTarget],
   ]);
   addTrainers(catalog.otherTrainers, draft, rng, [[isTrainer, trainerTarget]]);
+  // A small collection: every copy it holds, so a shortfall states what it can really field.
+  if (draft.total(isTrainer) < trainerTarget) {
+    addTrainers(catalog.otherTrainers, draft, rng, [[isTrainer, trainerTarget]], true);
+    addTrainers(
+      catalog.supporters,
+      draft,
+      rng,
+      [
+        [isSupporter, SUPPORTERS[1]],
+        [isTrainer, trainerTarget],
+      ],
+      true,
+    );
+  }
+  if (draft.total(isTrainer) < TRAINER_MIN) {
+    addTrainers(catalog.supporters, draft, rng, [[isTrainer, TRAINER_MIN]], true);
+  }
   const trainers = draft.total(isTrainer);
   if (trainers < TRAINER_MIN) {
     return {
@@ -240,14 +257,23 @@ function build(
     ]);
   }
 
-  const short = addEnergy(catalog, draft, types, deckSize - draft.total(any), rng);
+  // A pair whose second type got no line plays as one type: Energy and the answer follow the
+  // Pokémon actually in the deck.
+  const used = types.filter((type) =>
+    [...draft.counts].some(([id, count]) => {
+      const card = catalog.byId.get(id);
+      return count > 0 && card !== undefined && isPokemon(card) && card.types[0] === type;
+    }),
+  );
+  const played = used.length > 0 ? used : types;
+  const short = addEnergy(catalog, draft, played, deckSize - draft.total(any), rng);
   if (short !== null) return short;
 
   const cards = [...draft.counts]
     .filter(([, count]) => count > 0)
     .sort(([a], [b]) => compare(a, b))
     .map(([cardId, count]) => ({ cardId, count }));
-  return { result: 'deck', types, cards };
+  return { result: 'deck', types: played, cards };
 }
 
 function pokemonShortfall(types: BasicEnergyType[], have: number): Shortfall {
@@ -272,7 +298,7 @@ function buildPokemon(catalog: Catalog, draft: Draft, types: BasicEnergyType[], 
   const start = draft.mark();
   let best: { total: number; added: Added[] } = { total: 0, added: [] };
   for (let attempt = 0; attempt < POKEMON_ATTEMPTS; attempt++) {
-    const total = drawLines(shuffle(tops, rng), target, catalog, draft, ofTypes, rng);
+    const total = drawLines(interleave(types, tops, rng), target, catalog, draft, ofTypes, rng);
     if (total >= POKEMON_TARGET[0]) return total;
     if (total > best.total) best = { total, added: draft.since(start) };
     draft.rollback(start);
@@ -388,17 +414,39 @@ function placeLine(line: Stage[], shape: number[], draft: Draft, rng: Rng): numb
   return placed;
 }
 
-/** 1–4 copies of each printing in random order, within room and every cap's remaining copies. */
+/**
+ * Each type's tops shuffled, then taken in turn, so a pair's first two lines are one of each
+ * type whenever both types have a line.
+ */
+function interleave(types: BasicEnergyType[], tops: PoolCard[], rng: Rng): PoolCard[] {
+  const queues = types.map((type) =>
+    shuffle(
+      tops.filter((card) => card.types[0] === type),
+      rng,
+    ),
+  );
+  const out: PoolCard[] = [];
+  for (let i = 0; queues.some((queue) => i < queue.length); i++) {
+    for (const queue of queues) if (i < queue.length) out.push(queue[i]!);
+  }
+  return out;
+}
+
+/**
+ * 1–4 copies of each printing in random order (or, with `fill`, as many as it has room for),
+ * within room and every cap's remaining copies.
+ */
 function addTrainers(
   printings: PoolCard[],
   draft: Draft,
   rng: Rng,
   caps: [(card: PoolCard) => boolean, number][],
+  fill = false,
 ): void {
   const [overall] = caps;
   for (const card of shuffle(printings, rng)) {
     if (overall !== undefined && draft.total(overall[0]) >= overall[1]) return;
-    let n = Math.min(1 + rng.int(DECK_MAX_COPIES), draft.room(card));
+    let n = Math.min(fill ? DECK_MAX_COPIES : 1 + rng.int(DECK_MAX_COPIES), draft.room(card));
     for (const [predicate, max] of caps) {
       if (predicate(card)) n = Math.min(n, max - draft.total(predicate));
     }
