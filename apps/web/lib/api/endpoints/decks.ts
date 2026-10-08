@@ -4,6 +4,9 @@ import {
   DeckDetailSchema,
   DeckSaveResultSchema,
   OwnDeckPageSchema,
+  type RandomDeckRequest,
+  RandomDeckResponseSchema,
+  RandomDeckTypesSchema,
   type UpdateDeckSchema,
 } from '@pokedrop/shared';
 import { z } from 'zod';
@@ -23,6 +26,12 @@ export const updateDeck = (id: string, body: z.input<typeof UpdateDeckSchema>) =
   patch(`/decks/${id}`, DeckSaveResultSchema, body);
 
 export const cloneDeck = (id: string) => post(`/decks/${id}/clone`, DeckSaveResultSchema);
+
+/** Nothing is saved: the answer goes into the builder's draft. */
+export const randomDeck = (body: RandomDeckRequest) =>
+  post('/decks/random', RandomDeckResponseSchema, body);
+
+export const randomDeckTypes = () => get('/decks/random/types', RandomDeckTypesSchema);
 
 /** 204, no body. */
 export const deleteDeck = (id: string) => del(`/decks/${id}`, z.undefined());

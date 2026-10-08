@@ -56,6 +56,7 @@ export function NewDeckDialog({
   const router = useRouter();
   const create = useCreateDeck();
   const formatId = useId();
+  const [random, setRandom] = useState(false);
   const form = useForm<NewDeck>({
     resolver: zodResolver(NewDeckSchema),
     mode: 'onTouched',
@@ -66,7 +67,11 @@ export function NewDeckDialog({
     try {
       const deck = await create.mutateAsync(values);
       router.push(
-        addCardId ? `/decks/${deck.id}?add=${encodeURIComponent(addCardId)}` : `/decks/${deck.id}`,
+        addCardId
+          ? `/decks/${deck.id}?add=${encodeURIComponent(addCardId)}`
+          : random
+            ? `/decks/${deck.id}?random=1`
+            : `/decks/${deck.id}`,
       );
     } catch (error) {
       applyApiError(form, error);
@@ -107,6 +112,14 @@ export function NewDeckDialog({
             ))}
           </select>
         </div>
+        {addCardId ? null : (
+          <Toggle
+            label="Start with a random deck"
+            description="A legal deck you can change before saving"
+            checked={random}
+            onCheckedChange={setRandom}
+          />
+        )}
         <FormError />
       </Form>
     </Dialog>

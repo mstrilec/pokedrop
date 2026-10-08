@@ -52,6 +52,7 @@ export const keys = {
     all: ['decks'],
     mine: ['decks', 'mine'],
     detail: (id: string) => ['decks', 'detail', id],
+    randomTypes: ['decks', 'random-types'],
   },
   trades: {
     all: ['trades'],

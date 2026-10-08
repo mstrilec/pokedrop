@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: PageProps<'/decks/[id]'>): Pr
 }
 
 export default async function Page({ params, searchParams }: PageProps<'/decks/[id]'>) {
-  const [{ id }, { add }] = await Promise.all([params, searchParams]);
+  const [{ id }, { add, random }] = await Promise.all([params, searchParams]);
   const found = await loadDeck(id);
   if (!found) notFound();
   return (
@@ -33,6 +33,7 @@ export default async function Page({ params, searchParams }: PageProps<'/decks/[
       initial={found.deck}
       initialAt={found.at}
       addCardId={typeof add === 'string' && add !== '' ? add : undefined}
+      random={random === '1'}
     />
   );
 }

@@ -7,7 +7,7 @@ import {
   type DeckFormat,
   type DeckValidation,
 } from '@pokedrop/shared';
-import { ArrowLeft, CircleCheck, Save, TriangleAlert } from 'lucide-react';
+import { ArrowLeft, CircleCheck, Save, Shuffle, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { useId } from 'react';
 import { FORMAT_LABELS } from '@/components/decks/deck-format';
@@ -37,6 +37,7 @@ export function BuilderHeader({
   blocker,
   onSave,
   onShowChecks,
+  onRandom,
 }: {
   deck: DeckDetail;
   validation: DeckValidation;
@@ -45,6 +46,7 @@ export function BuilderHeader({
   blocker: string | null;
   onSave: () => void;
   onShowChecks: () => void;
+  onRandom: () => void;
 }) {
   const draft = useDeckDraft((s) => s.draft);
   const setName = useDeckDraft((s) => s.setName);
@@ -121,6 +123,9 @@ export function BuilderHeader({
         />
       </button>
       <div className="ml-auto flex flex-wrap items-center gap-3">
+        <Button variant="secondary" size="sm" icon={Shuffle} onClick={onRandom}>
+          Random deck
+        </Button>
         <Toggle
           label="Public"
           checked={deck.isPublic}

@@ -23,6 +23,7 @@ import { BuilderHeader, failingRules } from './builder-header';
 import { CardPool } from './card-pool';
 import { DeckChecks } from './deck-checks';
 import { DeckList } from './deck-list';
+import { RandomDeckDialog } from './random-deck-dialog';
 import { useDeckChecks } from './use-deck-checks';
 
 type Tab = 'pool' | 'deck' | 'check';
@@ -34,15 +35,31 @@ const BUILDER_HEIGHT = 'calc(100dvh - 3.75rem - 4rem)';
  * The store takes the first `deck` only; later answers (a Public flip refetches) never reset it.
  * `addCardId` (`?add=`, from a card page) arrives as one more copy, unsaved.
  */
-export function DeckBuilder({ deck, addCardId }: { deck: DeckDetail; addCardId?: string }) {
+export function DeckBuilder({
+  deck,
+  addCardId,
+  random = false,
+}: {
+  deck: DeckDetail;
+  addCardId?: string;
+  random?: boolean;
+}) {
   return (
     <DeckDraftProvider key={deck.id} deck={deck}>
-      <Builder deck={deck} addCardId={addCardId} />
+      <Builder deck={deck} addCardId={addCardId} random={random} />
     </DeckDraftProvider>
   );
 }
 
-function Builder({ deck, addCardId }: { deck: DeckDetail; addCardId?: string }) {
+function Builder({
+  deck,
+  addCardId,
+  random,
+}: {
+  deck: DeckDetail;
+  addCardId?: string;
+  random: boolean;
+}) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const wide = useMediaQuery('(min-width: 1024px)');
@@ -50,6 +67,7 @@ function Builder({ deck, addCardId }: { deck: DeckDetail; addCardId?: string }) 
   const [tab, setTab] = useState<Tab>('deck');
   const [pendingLeave, setPendingLeave] = useState<(() => void) | null>(null);
   const [gone, setGone] = useState(false);
+  const [randomOpen, setRandomOpen] = useState(false);
   const [poolElement, setPoolElement] = useState<HTMLElement | null>(null);
 
   const draft = useDeckDraft((s) => s.draft);
@@ -92,6 +110,15 @@ function Builder({ deck, addCardId }: { deck: DeckDetail; addCardId?: string }) 
     add(card);
     toastSuccess(`Added ${card.name} — save the deck to keep it`);
   }, [addCardId, adding.data, adding.isError, deck.id, draft.cards, cardsById, add]);
+
+  // `?random=1` from New deck: the dialog opens once, the parameter dropped first.
+  const randomized = useRef(false);
+  useEffect(() => {
+    if (!random || randomized.current) return;
+    randomized.current = true;
+    window.history.replaceState(null, '', `/decks/${deck.id}`);
+    setRandomOpen(true);
+  }, [random, deck.id]);
 
   async function submit(thenLeave?: () => void) {
     if (blocker !== null || save.isPending) return;
@@ -175,6 +202,7 @@ function Builder({ deck, addCardId }: { deck: DeckDetail; addCardId?: string }) 
           blocker={blocker}
           onSave={() => void submit()}
           onShowChecks={showChecks}
+          onRandom={() => setRandomOpen(true)}
         />
         {wide ? (
           <div
@@ -230,6 +258,15 @@ function Builder({ deck, addCardId }: { deck: DeckDetail; addCardId?: string }) 
           </Tabs>
         )}
       </BuilderDnd>
+
+      {randomOpen ? (
+        <RandomDeckDialog
+          open
+          onClose={() => setRandomOpen(false)}
+          format={draft.format}
+          ownedOnly={draft.ownedOnly}
+        />
+      ) : null}
 
       <Dialog
         open={pendingLeave !== null}

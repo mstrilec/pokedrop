@@ -3,6 +3,7 @@ import type {
   DeckCardInput,
   DeckDetail,
   DeckFormat,
+  RandomDeckRequest,
   UpdateDeck,
 } from '@pokedrop/shared';
 import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
@@ -14,6 +15,8 @@ import {
   deck,
   deleteDeck,
   myDecks,
+  randomDeck,
+  randomDeckTypes,
   updateDeck,
 } from '@/lib/api/endpoints/decks';
 import { mutationKeys } from './invalidation';
@@ -40,6 +43,23 @@ export function useUpdateDeck() {
     mutationKey: mutationKeys.updateDeck,
     mutationFn: ({ id, patch }: { id: string; patch: UpdateDeck }) =>
       api.call(updateDeck(id, patch)),
+  });
+}
+
+/** Changes only with the catalog's legalities. */
+export function useRandomDeckTypes() {
+  return useQuery({
+    queryKey: keys.decks.randomTypes,
+    queryFn: () => api.call(randomDeckTypes()),
+    staleTime: 60 * 60_000,
+  });
+}
+
+/** The dialog reports a refusal itself. */
+export function useRandomDeck() {
+  return useMutation({
+    mutationFn: (body: RandomDeckRequest) => api.call(randomDeck(body)),
+    meta: { toast: false },
   });
 }
 

@@ -31,11 +31,13 @@ export function DeckPage({
   initial,
   initialAt,
   addCardId,
+  random,
 }: {
   id: string;
   initial: DeckDetail;
   initialAt: number;
   addCardId?: string;
+  random?: boolean;
 }) {
   const session = useSession();
   const deck = useDeck(id, initial, initialAt);
@@ -61,7 +63,7 @@ export function DeckPage({
     );
   }
   return deck.data.userId === session?.id ? (
-    <DeckBuilder deck={deck.data} addCardId={addCardId} />
+    <DeckBuilder deck={deck.data} addCardId={addCardId} random={random} />
   ) : (
     <PublicDeck deck={deck.data} />
   );

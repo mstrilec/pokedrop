@@ -37,6 +37,11 @@ export interface DeckDraftStore {
   setName: (name: string) => void;
   setFormat: (format: DeckFormat) => void;
   setOwnedOnly: (ownedOnly: boolean) => void;
+  /** A generated deck: its cards replace the draft's, unsaved. */
+  replaceCards: (
+    entries: { cardId: CardId; count: number; card: PlayableCard }[],
+    options: { format: DeckFormat; ownedOnly: boolean },
+  ) => void;
   learnAvailable: (counts: Record<string, number>) => void;
   /** Start again from a server copy: the first one, or a newer one while the draft is clean. */
   reset: (deck: DeckDetail) => void;
@@ -113,6 +118,20 @@ export const [DeckDraftProvider, useDeckDraft] = createStoreContext(
         setName: (name) => edit(() => ({ name })),
         setFormat: (format) => edit(() => ({ format })),
         setOwnedOnly: (ownedOnly) => edit(() => ({ ownedOnly })),
+        replaceCards: (entries, { format, ownedOnly }) =>
+          set((s) => ({
+            draft: {
+              ...s.draft,
+              format,
+              ownedOnly,
+              cards: entries.map(({ cardId, count }) => ({ cardId, count })),
+            },
+            cardsById: {
+              ...s.cardsById,
+              ...Object.fromEntries(entries.map((entry) => [entry.cardId, entry.card])),
+            },
+            verdict: null,
+          })),
         learnAvailable: (counts) => set((s) => ({ available: { ...s.available, ...counts } })),
         reset: (next) =>
           set({
