@@ -546,6 +546,8 @@ An inactive template answers 404 rather than 403: members cannot see inactive te
 | PATCH / DELETE | `/decks/:id` | member (owner) | Edit / delete |
 | POST | `/decks/:id/clone` | member | Copy a visible deck into a private one the caller owns |
 | POST | `/decks/:id/validate` | member (owner) | The deck's validation verdict; writes nothing |
+| GET | `/decks/random/types` | member | The basic Energy types each format can generate a random deck of |
+| POST | `/decks/random` | member | A generated legal deck for the caller; writes nothing (*Random decks*) |
 
 **`GET /decks` carries `valid` on every deck** (since PD-111): the validator's verdict on the deck as saved, computed when the page is read, never stored — the same verdict `POST /decks/:id/validate` gives. It is the owner's list only (`OwnDeckPageSchema`); a public shelf (`GET /users/:id/decks`) never carries it, because the verdict depends on the owner's copies, which are private. A deck deleted between the page read and its validation is left out of that page. Measured 2026-10-05: a 60-card unlimited deck `true`, a 5-card standard deck `false`; the public shelf of the same user without the key; a page of 23 decks in 25 ms warm (50 ms the first time) through HTTP.
 
@@ -691,6 +693,21 @@ Every value counts copies. Each series is `{ name, value }` rows — Recharts' `
 - another member validating a private deck: 404, a public one: 403; signed out: 401; `GET /decks/:id` (owner, stranger, signed out), the public shelf and `GET /decks` carry no `validation`
 - 4 × `Professor's Research` (`pgo-78`) + 4 × `Professor's Research (Professor Turo)` (`sv1-190`) in a 60-card `standard` deck: one `COPY_LIMIT_EXCEEDED` naming both printings, `name` `Professor's Research`, `count` 8 — found by the final review, before the fix it passed as valid
 - another member cloning that strict public deck: 201, `ownedOnly` true, `CARD_NOT_OWNED` computed from the cloner's copies (`available` 0 where the source's owner had 1); no error in the API log across the run
+
+### Random decks (PD-137)
+
+**`POST /decks/random`** (throttle `MODERATE`) builds a legal deck and returns it; nothing is saved — the builder puts it in its draft. Body (`RandomDeckRequestSchema`): `format` (`standard` · `expanded` · `unlimited`), `ownedOnly`, `types` (0–2 distinct basic Energy types; `[]` is *Surprise me*), and `seed` (1–64 characters, development only — in production it is a 400 *seed is only accepted in development*).
+
+The answer is a union on `result`:
+
+- `{ result: 'deck', format, types, cards: [{ cardId, count, card: PlayableCard }] }` — `types` are the types used (the ones *Surprise me* picked);
+- `{ result: 'shortfall', code, type, have, need, message }` — 200, not an error, when the caller's available copies cannot make a deck: `NOT_ENOUGH_POKEMON` (*You own 4 Grass Pokémon; a deck needs at least 12*), `NOT_ENOUGH_TRAINERS` (*You own 5 Trainers; a deck needs at least 8*), `NOT_ENOUGH_ENERGY` (*You own 0 basic Grass Energy; this deck needs 15*).
+
+- **The pool**: cards `Legal` in the format (an absent legality would be a validator warning), no `V-UNION`, no Pokémon without a type; for `ownedOnly`, the caller's available copies (`quantity − lockedQuantity`).
+- **The shape**: 16–18 Pokémon in 2–4 whole lines built down `evolvesFrom` (Basic → Stage 1 → Stage 2, V → VMAX / VSTAR; shapes 3-2-2 or 4-3-3, 3-2, 2 or 3; a line's top of a chosen type), 12–14 Trainers (4–6 Supporters, Stadiums ≤ 2 copies, one ACE SPEC at most; filled up to 15 when Energy runs short), the rest basic Energy of the chosen types split evenly. At most one Radiant and one Star card, one copy per Prism Star name. The copy limit counts by `copyLimitKey`.
+- **A type no basic Energy is legal for** in the format is a 400 *No basic {type} Energy is legal in {format}*; `GET /decks/random/types` lists the allowed ones (measured 2026-10-08: standard eight, no Fairy; expanded and unlimited nine; Dragon and Colorless never — no basic Energy exists).
+- **Checked before answering** with `validateDeck` (for `ownedOnly`, against the available copies; otherwise ownership is only a warning). A result with an error — a generator bug — is regenerated with another seed, up to five times, then 500 with the seeds and issues logged.
+- The generator is `apps/api/src/decks/random-deck/random-deck.generator.ts`, a pure function of the pool, the options and a `SeededRng`; about 17 ms on the unlimited pool.
 
 ## Trades
 

@@ -59,8 +59,9 @@ The Prisma model is named **`CardSet`**, mapped to table `sets`. Two reasons: `s
 `Card.setId` is **`onDelete: Restrict`**, not cascade. A cascade from a set would delete its cards, and cards cascade into `InventoryItem` — deleting one catalog row would destroy user property. Verified: deleting a set holding 400 cards raises a foreign-key error and every card survives. A mirrored set should never be deleted anyway; sync only upserts.
 
 ### Card — *mirrored + price-synced*
-`id, setId, name, supertype, subtypes[], hp, types[], rarity, retreatCost, weaknesses(json), resistances(json), attacks(json), abilities(json), nationalPokedexNumbers[], imageSmall, imageLarge, legalities(json), tcgplayerId?, cardmarketId?, latestPriceUsd?, latestPriceEur?, priceUpdatedAt`
-**Indexes:** `name`, `setId`, `rarity`; `types` is **GIN**, since a btree over an array cannot serve a containment query. Prices are `Decimal(10,2)`, not float — they are summed into collection valuations.
+`id, setId, name, supertype, subtypes[], hp, types[], rarity, retreatCost, weaknesses(json), resistances(json), attacks(json), abilities(json), nationalPokedexNumbers[], evolvesFrom?, imageSmall, imageLarge, legalities(json), tcgplayerId?, cardmarketId?, latestPriceUsd?, latestPriceEur?, priceUpdatedAt`
+`evolvesFrom` is the name of the card this one evolves from, as the provider prints it (*Charmeleon*), null for Basics, Trainers, Energy (PD-137, migration `card_evolves_from`); the random deck builds evolution lines from it.
+**Indexes:** `name`, `setId`, `rarity`, `evolvesFrom`; `types` is **GIN**, since a btree over an array cannot serve a containment query. Prices are `Decimal(10,2)`, not float — they are summed into collection valuations.
 
 Measured on 20 000 synthetic cards: a `setId + rarity` filter plans as a `BitmapAnd` of both btrees, and `setId + types` as a `BitmapAnd` of the btree and the GIN index. A containment query alone uses the GIN index when the type is selective; at ~17% of rows the planner may prefer a sequential scan, which is the correct choice rather than a fault.
 → many `InventoryItem`, `DeckCard`, `TradeItem`, `PriceSnapshot`.

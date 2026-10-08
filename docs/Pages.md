@@ -284,6 +284,7 @@ So the client may show fewer cards than the server will return, never others. **
 
 - **Validity comes from the list itself (D3).** `GET /decks` now carries `valid` per deck, the validator's verdict computed when read (API.md, *Decks*), so an invalid deck is flagged here, with *Breaks a deck rule. Fix it in the builder*, without opening it. The header counts how many need fixing.
 - ***New deck*** asks for a name and a format in a dialog — the API's rules (1–64 characters, trimmed; standard, expanded or unlimited) with sentences for people — creates the deck empty and opens it in the builder.
+- ***Start with a random deck*** (PD-137), a switch in *New deck*: the deck opens at `/decks/<id>?random=1` and the builder opens *Random deck* once (the parameter is dropped first, as `?add=` is).
 - ***Clone*** copies the deck (the API names it *… (copy)*, private) and opens the copy.
 - ***Delete*** asks first, in a danger dialog that says the cards stay in the collection; Escape or *Cancel* changes nothing.
 - **The switch** sets `isPublic` at once and says what it means: *Anyone with the link can see it* or *Only you can see it*.
@@ -333,6 +334,17 @@ So the client may show fewer cards than the server will return, never others. **
 - `react-hooks/refs` fails `drag.setNodeRef` on the object `useDraggable` returns; destructure it. `react-hooks/incompatible-library` fires for `useVirtualizer` (not for `useWindowVirtualizer`); the React Compiler is not enabled.
 - A missing or private deck answered the not-found page with `noindex` but HTTP 200 while `(public)/loading.tsx` made every page in the group stream; since PD-110 removed it, the answer is a real 404.
 - A TanStack Query mutation pauses while offline by default; a save that should fail visibly needs `networkMode: 'always'`.
+
+### Random deck (PD-137)
+
+*Random deck* (beside *Public* in the builder's header) opens `RandomDeckDialog` (`components/decks/builder/random-deck-dialog.tsx`): *Format* (the draft's), *Cards* — *Owned only* or *Any card* (the draft's mode), *Energy* — *Surprise me* or up to two types from `GET /decks/random/types` for the format. *Generate* calls `POST /decks/random` (API.md *Random decks*).
+
+- With cards in the draft it asks first, in the dialog: *Replace the 23 cards in this deck?* — *Replace* / *Keep them*.
+- **A deck** goes into the draft through `replaceCards` (format and mode included): unsaved, so *Leave without saving?* guards it and *Save* stores what is shown; toast *Random Fire · Water deck added — save it to keep it*.
+- **A shortfall** stays in the dialog with the API's sentence and, for *Owned only*, *Use any card instead*.
+- An error is a toast; the dialog stays open.
+
+**Measured 2026-10-08** — the generator over 1,200 decks (200 seeds × three formats × both modes, a throwaway script on the compiled generator against the dev pools; the test member's collection topped up for *Owned only*): every deck passed `validateDeck` with no error (and no warning but `OWNERSHIP` for *Any card*), every evolving card had its pre-evolution in the deck, Energy only of the answer's types, Pokémon 16–18, Trainers 12–15, 60 cards; the same seed twice gave the same deck and the next seed a different one. The API: seed *a* twice → the same 60 (16 Pokémon, 12 Trainers, 32 Energy); Fairy in standard → 400; three types → 400; *Owned only* Grass → *You own 4 Grass Pokémon; a deck needs at least 12*; signed out 401; 40 rapid calls → 429 after 23. The builder, signed in, headless Chrome over CDP: an empty deck → *60/60 · Legal*, *Unsaved changes*, saved → 60 cards; on a full deck the replace question, then *Leave without saving?* on leaving; *Owned only* Grass → the sentence, *Use any card instead* → a deck; *New deck* with the switch → the builder with the dialog open and the parameter gone; 375 px `scrollWidth` 375; no console errors.
 
 ## Trades inbox (PD-114)
 
