@@ -24,6 +24,7 @@ export * from './entities/admin-moderation.js';
 
 export * from './decks/validate.js';
 export * from './decks/stats.js';
+export * from './decks/random.js';
 
 export * from './packs/odds.js';
 export * from './cards/rarity.js';
