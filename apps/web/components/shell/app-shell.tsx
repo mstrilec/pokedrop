@@ -14,7 +14,16 @@ import { AvatarMenu, BalancePill, MenuButton, NotificationBell } from './topbar-
 // The chrome around every signed-in page, including the public pages a
 // signed-in visitor opens. The session's profile seeds the `me` query, so the
 // balance renders without a request.
-export function AppShell({ profile, children }: { profile: MyProfile; children: ReactNode }) {
+export function AppShell({
+  profile,
+  footer,
+  children,
+}: {
+  profile: MyProfile;
+  /** Only the public layout passes one; app pages end at their content. */
+  footer?: ReactNode;
+  children: ReactNode;
+}) {
   const queryClient = getServerQueryClient();
   queryClient.setQueryData(keys.me, profile);
 
@@ -60,6 +69,7 @@ export function AppShell({ profile, children }: { profile: MyProfile; children: 
             <main id="content" tabIndex={-1} className="flex-1 p-8 outline-none">
               {children}
             </main>
+            {footer}
           </div>
         </div>
       </HydrationBoundary>
