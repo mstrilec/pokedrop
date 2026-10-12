@@ -8,6 +8,7 @@ import {
   SetDetailSchema,
   type Card,
   type CardSearchQuery,
+  type CardSort,
   type CardSearchResult,
   type CardSet,
   type CatalogFacets,
@@ -20,6 +21,17 @@ import { escapeLike } from '../common/escape-like.js';
 import { CacheService, cacheKeys } from '../redis/index.js';
 
 const CardSetListSchema = z.array(CardSetSchema);
+
+// `id` is not decoration. 16 216 of 20 670 rows share a name, and most share a
+// price or have none, so without a tiebreak PostgreSQL may order ties
+// differently between two requests and offset pagination then shows one row
+// twice and another never.
+const ORDER: Record<CardSort, Prisma.CardOrderByWithRelationInput[]> = {
+  name_asc: [{ name: 'asc' }, { id: 'asc' }],
+  name_desc: [{ name: 'desc' }, { id: 'desc' }],
+  price_desc: [{ latestPriceUsd: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }],
+  price_asc: [{ latestPriceUsd: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }],
+};
 
 /**
  * Every row leaves through its schema, so a cold read and a warm one are the
@@ -58,18 +70,10 @@ export class CatalogService {
         : { name: { contains: escapeLike(query.q), mode: 'insensitive' } }),
     };
 
-    // `id` is not decoration. 16 216 of 20 670 rows share a name, so without a
-    // tiebreak PostgreSQL may order ties differently between two requests and
-    // offset pagination then shows one row twice and another never.
-    const orderBy: Prisma.CardOrderByWithRelationInput[] =
-      query.sort === 'name_desc'
-        ? [{ name: 'desc' }, { id: 'desc' }]
-        : [{ name: 'asc' }, { id: 'asc' }];
-
     const [items, total] = await Promise.all([
       this.prisma.card.findMany({
         where,
-        orderBy,
+        orderBy: ORDER[query.sort],
         skip: (query.page - 1) * query.pageSize,
         take: query.pageSize,
       }),

@@ -282,6 +282,8 @@ model Card {
   @@index([types], type: Gin)
   @@index([priceUpdatedAt])
   @@index([evolvesFrom])
+  /// The migration adds NULLS LAST, which Prisma cannot express; the price sorts need it.
+  @@index([latestPriceUsd(sort: Desc), id(sort: Desc)])
   @@map("cards")
 }
 

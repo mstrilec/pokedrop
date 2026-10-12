@@ -40,6 +40,8 @@ const CatalogFilterSchema = CardSearchQuerySchema.pick({
 const SORT_LABELS: Record<z.output<typeof CardSortSchema>, string> = {
   name_asc: 'Name A–Z',
   name_desc: 'Name Z–A',
+  price_desc: 'Price: high to low',
+  price_asc: 'Price: low to high',
 };
 
 function SignInDemoForm() {

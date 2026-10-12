@@ -29,7 +29,12 @@ const CatalogUrlSchema = CardSearchQuerySchema.pick({
   sort: true,
 });
 
-const SORT_LABELS: Record<CardSort, string> = { name_asc: 'Name A–Z', name_desc: 'Name Z–A' };
+const SORT_LABELS: Record<CardSort, string> = {
+  name_asc: 'Name A–Z',
+  name_desc: 'Name Z–A',
+  price_desc: 'Price: high to low',
+  price_asc: 'Price: low to high',
+};
 
 const count = new Intl.NumberFormat('en-US');
 

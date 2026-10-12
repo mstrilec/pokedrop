@@ -4,13 +4,14 @@ import { CardSetSchema } from './set.js';
 import { PaginationQuerySchema, pageOf } from '../primitives/pagination.js';
 
 /**
- * One field, two directions.
- *
- * Price columns are null until the price sync exists, and a meaningful rarity
- * order needs RarityTier, which is a presentation concept rather than a column.
- * Adding a sort is one entry here plus one branch in the service.
+ * Price sorts put unpriced cards last in both directions: a price is null until
+ * the price sync reaches the card. A meaningful rarity order needs RarityTier,
+ * which is a presentation concept rather than a column. Adding a sort is one
+ * entry here plus one entry in the service's order table.
  */
-export const CardSortSchema = z.enum(['name_asc', 'name_desc']).default('name_asc');
+export const CardSortSchema = z
+  .enum(['name_asc', 'name_desc', 'price_desc', 'price_asc'])
+  .default('name_asc');
 export type CardSort = z.infer<typeof CardSortSchema>;
 
 // PostgreSQL text cannot hold U+0000: a NUL reaching a query is a driver error
