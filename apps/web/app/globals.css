@@ -461,15 +461,16 @@
       transform: rotate(0);
     }
   }
+  /* transform, so the cards' own translate and rotate utilities still apply. */
   @keyframes stack-in {
     0%,
     8% {
-      translate: 0 -30px;
+      transform: translateY(-30px);
       opacity: 0;
     }
     24%,
     100% {
-      translate: 0 0;
+      transform: none;
       opacity: 1;
     }
   }
