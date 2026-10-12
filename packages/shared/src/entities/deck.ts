@@ -133,7 +133,7 @@ export const DeckStatsSchema = z.object({
 });
 export type DeckStats = z.infer<typeof DeckStatsSchema>;
 
-export const DECK_MAX_COPIES = 4;
+export { DECK_MAX_COPIES } from '../decks/limits.js';
 
 /** A card's name without a printing suffix: `Charizard (Delta Species)` is a `Charizard`. */
 export function baseCardName(name: string): string {

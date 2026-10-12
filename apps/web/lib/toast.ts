@@ -1,5 +1,5 @@
 import { toast } from 'sonner';
-import { ApiError } from '@/lib/api/core';
+import { ApiError } from '@/lib/api/error';
 import { isPublicPath } from '@/lib/routes';
 
 export function apiErrorMessage(error: unknown): string {

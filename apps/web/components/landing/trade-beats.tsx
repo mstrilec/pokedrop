@@ -62,7 +62,8 @@ const CHAIN: { title: string; status: TradeStatus; cards: ReactNode; body: strin
     cards: (
       <>
         <Thumb card={BLASTOISE} />
-        <ArrowRightLeft aria-label="for" className="size-3.5 text-mut" />
+        <ArrowRightLeft aria-hidden className="size-3.5 text-mut" />
+        <span className="sr-only">for</span>
         <Thumb card={VENUSAUR} />
       </>
     ),
@@ -74,11 +75,13 @@ const CHAIN: { title: string; status: TradeStatus; cards: ReactNode; body: strin
     cards: (
       <>
         <Thumb card={BLASTOISE} />
-        <span className="inline-flex items-center gap-1 text-gold" aria-label="plus coins">
+        <span className="inline-flex items-center gap-1 text-gold">
           <Plus aria-hidden className="size-3" />
           <Coins aria-hidden className="size-3.5" />
+          <span className="sr-only">plus coins</span>
         </span>
-        <ArrowRightLeft aria-label="for" className="size-3.5 text-mut" />
+        <ArrowRightLeft aria-hidden className="size-3.5 text-mut" />
+        <span className="sr-only">for</span>
         <Thumb card={VENUSAUR} />
       </>
     ),

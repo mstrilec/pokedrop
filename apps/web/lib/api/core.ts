@@ -1,29 +1,8 @@
 import { ErrorEnvelopeSchema } from '@pokedrop/shared';
 import { z } from 'zod';
+import { ApiError } from './error';
 
-export type ApiErrorKind = 'api' | 'auth' | 'network' | 'contract';
-
-export class ApiError extends Error {
-  readonly kind: ApiErrorKind;
-  readonly statusCode: number;
-  readonly code?: string;
-  readonly requestId?: string;
-
-  constructor(init: {
-    kind: ApiErrorKind;
-    statusCode: number;
-    message: string;
-    code?: string;
-    requestId?: string;
-  }) {
-    super(init.message);
-    this.name = 'ApiError';
-    this.kind = init.kind;
-    this.statusCode = init.statusCode;
-    this.code = init.code;
-    this.requestId = init.requestId;
-  }
-}
+export { ApiError, type ApiErrorKind } from './error';
 
 export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 export type Query = Record<string, unknown>;

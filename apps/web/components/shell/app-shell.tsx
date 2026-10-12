@@ -9,7 +9,7 @@ import { getServerQueryClient } from '@/lib/query/server';
 import { SessionProvider } from '@/lib/session/context';
 import { identityOf } from '@/lib/session/identity';
 import { Sidebar } from './sidebar';
-import { AvatarMenu, BalancePill, MenuButton, NotificationBell } from './topbar-controls';
+import { AvatarMenu, BalancePill, MenuButton, NotificationBell } from './topbar-controls-lazy';
 
 // The chrome around every signed-in page, including the public pages a
 // signed-in visitor opens. The session's profile seeds the `me` query, so the

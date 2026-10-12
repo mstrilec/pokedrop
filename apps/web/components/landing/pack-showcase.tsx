@@ -1,6 +1,6 @@
 'use client';
 
-import { PackArtSchema } from '@pokedrop/shared';
+import type { PackArt } from '@pokedrop/shared';
 import { ArrowRight, PackageOpen } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -29,7 +29,8 @@ const image = (id: string) => `https://images.pokemontcg.io/base1/${id.split('-'
 const LOGO = 'https://images.pokemontcg.io/base1/logo.png';
 const PACK_NAME = 'Base Set Booster Pack';
 
-const ART = PackArtSchema.parse({
+// Asserted, not parsed: parsing would load zod for one constant.
+const ART = {
   set: { id: 'base1', name: 'Base', series: 'Base', logoUrl: LOGO },
   cover: {
     id: 'base1-4',
@@ -40,7 +41,7 @@ const ART = PackArtSchema.parse({
   },
   coverIsDefault: true,
   imageUrl: null,
-});
+} as PackArt;
 
 const STAGES = ['Sealed', 'Torn open', 'Revealed'];
 const stageOf = (p: number) => (p < 0.12 ? 0 : p < 0.5 ? 1 : 2);

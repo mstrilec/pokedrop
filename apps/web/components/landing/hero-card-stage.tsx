@@ -110,8 +110,6 @@ export function HeroCardStage() {
             alt=""
             width={734}
             height={1024}
-            preload
-            fetchPriority="high"
             sizes="(min-width: 1024px) 330px, (min-width: 640px) 300px, 250px"
             className="size-full object-cover"
           />

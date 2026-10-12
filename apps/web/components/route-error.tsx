@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { ApiError } from '@/lib/api/core';
+import { ApiError } from '@/lib/api/error';
 
 export type RouteErrorProps = { error: Error & { digest?: string }; retry: () => void };
 
