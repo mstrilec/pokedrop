@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>PokéDrop · Open, collect, build and trade Pokémon cards</title>
+<meta name="description" content="Open Pokémon TCG booster packs, complete every set, build legal decks and trade cards safely with other collectors.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link rel="preconnect" href="https://images.pokemontcg.io" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:#0a0b0e;color:#eef0f4;font-family:Geist,system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+a{color:#4c8dff;}
+a:hover{color:#5d99ff;}
+a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid #4c8dff;outline-offset:3px;border-radius:10px;}
+summary::-webkit-details-marker{display:none;}
+i[data-lucide],svg.lucide{width:1em;height:1em;display:inline-block;vertical-align:-0.125em;stroke-width:2;flex-shrink:0;}
+@keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-14px);}}
+@keyframes floatPack{0%,100%{transform:translateY(0) rotate(-1.5deg);}50%{transform:translateY(-18px) rotate(1.5deg);}}
+@keyframes pulseGlow{0%,100%{opacity:.55;}50%{opacity:1;}}
+@keyframes sweep{0%{transform:translateX(-140%) skewX(-18deg);}60%,100%{transform:translateX(420%) skewX(-18deg);}}
+@keyframes marquee{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+@keyframes coinDrop{0%{transform:translateY(-46px);opacity:0;}18%{opacity:1;}38%{transform:translateY(0);}48%{transform:translateY(-8px);}58%,100%{transform:translateY(0);opacity:1;}}
+@keyframes wiggle{0%,62%,100%{transform:rotate(0);}66%{transform:rotate(-6deg);}70%{transform:rotate(6deg);}74%{transform:rotate(-4deg);}78%{transform:rotate(3deg);}82%{transform:rotate(0);}}
+@keyframes stackIn{0%,8%{transform:translateY(-30px) rotate(-8deg);opacity:0;}24%,100%{transform:none;opacity:1;}}
+@keyframes swapL{0%,30%{transform:translateX(0);}50%,80%{transform:translateX(44px);}100%{transform:translateX(0);}}
+@keyframes swapR{0%,30%{transform:translateX(0);}50%,80%{transform:translateX(-44px);}100%{transform:translateX(0);}}
+@keyframes deckDrop{0%{transform:translateY(-70px) rotate(-10deg) scale(1.1);opacity:0;}30%{opacity:1;}100%{transform:translateY(0) rotate(0) scale(.6);opacity:0;}}
+@media (prefers-reduced-motion: reduce){*,::before,::after{animation-duration:.01ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important;}}
+</style>
+</helmet>
+
+<div ref="{{ rootRef }}" style="min-height:100vh;background:radial-gradient(1000px 500px at 85% -10%,rgba(76,141,255,.05),transparent 60%),#0a0b0e;color:#eef0f4;font-family:Geist,system-ui,sans-serif;overflow-x:clip;">
+
+<a href="#main" style="position:absolute;left:12px;top:-60px;z-index:100;background:#3f74d2;color:#fff;padding:10px 14px;border-radius:10px;font-weight:600;font-size:14px;text-decoration:none;" style-focus="top:12px;">Skip to content</a>
+
+<sc-if value="{{ showChrome }}" hint-placeholder-val="{{ true }}">
+<header style="position:sticky;top:0;z-index:40;height:64px;background:rgba(10,11,14,.8);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.08);">
+  <div style="height:100%;max-width:1440px;margin:0 auto;padding:0 clamp(16px,3vw,32px);display:flex;align-items:center;justify-content:space-between;gap:16px;">
+    <div style="display:flex;align-items:center;gap:32px;min-width:0;">
+      <a href="/" aria-label="PokéDrop home" style="display:inline-flex;align-items:center;gap:12px;text-decoration:none;color:#eef0f4;">
+        <span style="width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#4c8dff,#5d99ff);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(76,141,255,.4);color:#fff;font-size:16px;"><i data-lucide="zap"></i></span>
+        <span style="font-size:16px;font-weight:700;letter-spacing:-.02em;">Poké<span style="color:#4c8dff;">Drop</span></span>
+      </a>
+      <sc-if value="{{ navLinks }}" hint-placeholder-val="{{ true }}">
+        <nav aria-label="Main" style="display:flex;gap:4px;">
+          <a href="/cards" style="padding:8px 12px;border-radius:10px;font-size:14px;font-weight:500;color:#969cab;text-decoration:none;" style-hover="color:#eef0f4;background:#1b1e26;">Browse cards</a>
+          <a href="/sets" style="padding:8px 12px;border-radius:10px;font-size:14px;font-weight:500;color:#969cab;text-decoration:none;" style-hover="color:#eef0f4;background:#1b1e26;">Sets</a>
+          <sc-if value="{{ signedIn }}" hint-placeholder-val="{{ false }}">
+            <a href="/packs" style="padding:8px 12px;border-radius:10px;font-size:14px;font-weight:500;color:#969cab;text-decoration:none;" style-hover="color:#eef0f4;background:#1b1e26;">Packs</a>
+            <a href="/decks" style="padding:8px 12px;border-radius:10px;font-size:14px;font-weight:500;color:#969cab;text-decoration:none;" style-hover="color:#eef0f4;background:#1b1e26;">Decks</a>
+            <a href="/trades" style="padding:8px 12px;border-radius:10px;font-size:14px;font-weight:500;color:#969cab;text-decoration:none;" style-hover="color:#eef0f4;background:#1b1e26;">Trades</a>
+          </sc-if>
+        </nav>
+      </sc-if>
+    </div>
+    <sc-if value="{{ signedOut }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <a href="/sign-in" style="padding:8px 12px;border-radius:10px;font-size:14px;font-weight:600;color:#eef0f4;text-decoration:none;" style-hover="background:#1b1e26;color:#eef0f4;">Sign in</a>
+        <a href="/register" style="padding:8px 14px;border-radius:10px;font-size:14px;font-weight:600;color:#fff;background:#3f74d2;text-decoration:none;box-shadow:0 8px 24px rgba(76,141,255,.4);white-space:nowrap;" style-hover="background:#3a6cc4;color:#fff;">Create account</a>
+      </div>
+    </sc-if>
+    <sc-if value="{{ signedIn }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <a href="/wallet" aria-label="Coin balance" style="display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:10px;background:rgba(242,178,60,.14);border:1px solid rgba(242,178,60,.3);color:#f2b23c;font-family:'Geist Mono',monospace;font-size:13px;font-weight:600;text-decoration:none;"><i data-lucide="coins"></i><span>{balance}</span></a>
+        <a href="/notifications" aria-label="Notifications" style="width:40px;height:40px;border-radius:10px;background:#14161c;border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;color:#eef0f4;font-size:16px;"><i data-lucide="bell"></i></a>
+        <a href="/settings" aria-label="Your account" style="width:40px;height:40px;border-radius:999px;background:linear-gradient(135deg,#b06bcf,#4c8dff);display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:700;text-decoration:none;">A</a>
+      </div>
+    </sc-if>
+  </div>
+</header>
+</sc-if>
+
+<main id="main">
+
+<sc-if value="{{ showHero }}" hint-placeholder-val="{{ true }}">
+<section aria-labelledby="hero-title" style="position:relative;">
+  <div style="position:absolute;inset:0;pointer-events:none;background:radial-gradient(700px 420px at 78% 40%,rgba(239,106,67,.16),transparent 70%),radial-gradient(600px 400px at 10% 0%,rgba(76,141,255,.10),transparent 70%);"></div>
+  <div style="position:relative;max-width:1200px;margin:0 auto;padding:clamp(40px,7vw,96px) clamp(20px,4vw,56px) clamp(48px,6vw,80px);display:grid;grid-template-columns:{{ heroCols }};gap:clamp(24px,4vw,56px);align-items:center;">
+    <div style="min-width:0;">
+      <p style="margin:0 0 24px;display:inline-flex;align-items:center;gap:8px;border-radius:999px;border:1px solid rgba(255,255,255,.08);background:#14161c;padding:6px 12px;font-size:13px;font-weight:500;color:#969cab;">
+        <span aria-hidden="true" style="width:7px;height:7px;border-radius:999px;background:#34d399;box-shadow:0 0 10px #34d399;"></span>
+        <span>Newest set · <span style="font-family:'Geist Mono',monospace;font-size:.92em;color:#9ec0ff;background:rgba(76,141,255,.14);border:1px dashed rgba(76,141,255,.5);border-radius:6px;padding:0 6px;">{latestSet}</span></span>
+      </p>
+      <h1 id="hero-title" style="margin:0 0 20px;font-size:clamp(2.4rem,6vw,4.5rem);line-height:1.02;font-weight:800;letter-spacing:-.03em;text-wrap:balance;">Open. Collect.<br>Build. <span style="background:linear-gradient(120deg,#4c8dff,#4aa6ef 40%,#f2b23c);-webkit-background-clip:text;background-clip:text;color:transparent;">Trade.</span></h1>
+      <p style="margin:0 0 32px;max-width:520px;font-size:18px;line-height:1.6;color:#969cab;text-wrap:pretty;">The Pokémon Trading Card Game, collected online. Rip packs, complete every set, engineer decks that are legal to play, and trade with collectors without trusting anyone.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;">
+        <sc-if value="{{ signedOut }}" hint-placeholder-val="{{ true }}">
+          <a href="/register" style="display:inline-flex;align-items:center;gap:10px;padding:14px 26px;border-radius:10px;background:#3f74d2;color:#fff;font-size:16px;font-weight:600;text-decoration:none;box-shadow:0 8px 24px rgba(76,141,255,.4);" style-hover="background:#3a6cc4;color:#fff;"><span>Start collecting free</span><i data-lucide="arrow-right"></i></a>
+          <a href="/sign-in" style="display:inline-flex;align-items:center;gap:10px;padding:14px 26px;border-radius:10px;background:#1b1e26;border:1px solid rgba(255,255,255,.13);color:#eef0f4;font-size:16px;font-weight:600;text-decoration:none;" style-hover="background:#22262f;border-color:#969cab;color:#eef0f4;">Sign in</a>
+        </sc-if>
+        <sc-if value="{{ signedIn }}" hint-placeholder-val="{{ false }}">
+          <a href="/dashboard" style="display:inline-flex;align-items:center;gap:10px;padding:14px 26px;border-radius:10px;background:#3f74d2;color:#fff;font-size:16px;font-weight:600;text-decoration:none;box-shadow:0 8px 24px rgba(76,141,255,.4);" style-hover="background:#3a6cc4;color:#fff;"><span>Go to your dashboard</span><i data-lucide="arrow-right"></i></a>
+          <a href="/packs" style="display:inline-flex;align-items:center;gap:10px;padding:14px 26px;border-radius:10px;background:#1b1e26;border:1px solid rgba(255,255,255,.13);color:#eef0f4;font-size:16px;font-weight:600;text-decoration:none;" style-hover="background:#22262f;border-color:#969cab;color:#eef0f4;"><i data-lucide="package-open"></i><span>Open a pack</span></a>
+        </sc-if>
+      </div>
+      <p style="margin:16px 0 0;display:flex;align-items:center;gap:8px;font-size:13px;color:#969cab;"><span style="color:#f2b23c;font-size:14px;display:inline-flex;"><i data-lucide="coins"></i></span><span>Free to play. No real money, no cash-out.</span></p>
+      <dl style="margin:40px 0 0;display:flex;flex-wrap:wrap;gap:32px;">
+        <div style="display:flex;flex-direction:column-reverse;gap:2px;"><dt style="font-size:13px;color:#858a96;">Cards catalogued</dt><dd style="margin:0;font-size:28px;font-weight:700;letter-spacing:-.02em;font-family:'Geist Mono',monospace;">20,670</dd></div>
+        <div style="display:flex;flex-direction:column-reverse;gap:2px;"><dt style="font-size:13px;color:#858a96;">Sets to complete</dt><dd style="margin:0;font-size:28px;font-weight:700;letter-spacing:-.02em;font-family:'Geist Mono',monospace;">176</dd></div>
+        <div style="display:flex;flex-direction:column-reverse;gap:2px;"><dt style="font-size:13px;color:#858a96;">Welcome coins</dt><dd style="margin:0;font-size:28px;font-weight:700;letter-spacing:-.02em;font-family:'Geist Mono',monospace;color:#f2b23c;">1,000</dd></div>
+      </dl>
+      <sc-if value="{{ notes }}" hint-placeholder-val="{{ true }}">
+        <p style="margin:20px 0 0;display:flex;gap:8px;font-family:'Geist Mono',monospace;font-size:11.5px;line-height:1.5;color:#9ec0ff;background:rgba(76,141,255,.08);border:1px dashed rgba(76,141,255,.4);border-radius:10px;padding:8px 12px;max-width:520px;"><b style="color:#4c8dff;">SPEC</b><span>Cards: GET /cards?pageSize=1 → total · Sets: GET /sets → length · {latestSet}: newest releaseDate · each dropped on its own if the API cannot answer. 1,000 is the welcome grant (static).</span></p>
+      </sc-if>
+    </div>
+
+    <div ref="{{ heroStageRef }}" aria-hidden="true" style="position:relative;height:{{ heroStageH }};min-width:0;">
+      <div style="position:absolute;left:50%;top:50%;width:min(92%,460px);aspect-ratio:1;transform:translate(-50%,-50%);border-radius:999px;background:radial-gradient(circle,rgba(242,178,60,.42),rgba(239,106,67,.22) 42%,transparent 70%);filter:blur(24px);animation:pulseGlow 4s ease-in-out infinite;"></div>
+      <div style="position:absolute;left:4%;top:24%;width:min(30%,176px);aspect-ratio:63/88;transform:rotate(-12deg);opacity:.7;">
+        <img src="https://images.pokemontcg.io/base1/2.png" alt="" width="245" height="342" decoding="async" style="width:100%;height:100%;display:block;border-radius:12px;border:1px solid rgba(255,255,255,.2);box-shadow:0 40px 90px rgba(0,0,0,.6);animation:float 6s ease-in-out .8s infinite;">
+      </div>
+      <div style="position:absolute;right:4%;top:24%;width:min(30%,176px);aspect-ratio:63/88;transform:rotate(12deg);opacity:.7;">
+        <img src="https://images.pokemontcg.io/base1/58.png" alt="" width="245" height="342" decoding="async" style="width:100%;height:100%;display:block;border-radius:12px;border:1px solid rgba(255,255,255,.2);box-shadow:0 40px 90px rgba(0,0,0,.6);animation:float 6s ease-in-out 1.6s infinite;">
+      </div>
+      <div style="position:absolute;left:50%;top:50%;height:77%;aspect-ratio:63/88;transform:translate(-50%,-50%);opacity:{{ heroPosterOpacity }};transition:opacity .4s ease .2s;">
+        <div style="position:relative;width:100%;height:100%;border-radius:14px;overflow:hidden;border:1px solid rgba(242,178,60,.4);box-shadow:0 0 60px rgba(242,178,60,.28),0 40px 90px rgba(0,0,0,.6);animation:float 6s ease-in-out infinite;">
+          <img src="https://images.pokemontcg.io/base1/4_hires.png" alt="" width="734" height="1024" fetchpriority="high" decoding="async" style="width:100%;height:100%;display:block;object-fit:cover;">
+          <div style="position:absolute;inset:0;background:linear-gradient(115deg,rgba(239,106,67,.0) 20%,rgba(244,199,58,.22) 38%,rgba(94,194,105,.16) 48%,rgba(74,166,239,.22) 58%,rgba(176,107,207,.18) 68%,transparent 82%);mix-blend-mode:color-dodge;"></div>
+          <div style="position:absolute;inset-block:0;width:30%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent);animation:sweep 5s ease-in-out 1s infinite;transform:translateX(-140%) skewX(-18deg);"></div>
+        </div>
+      </div>
+      <div ref="{{ heroMountRef }}" style="position:absolute;inset:0;"></div>
+    </div>
+  </div>
+</section>
+</sc-if>
+
+<sc-if value="{{ showRest }}" hint-placeholder-val="{{ true }}">
+<section aria-labelledby="how-title" style="max-width:1200px;margin:0 auto;padding:clamp(56px,8vw,112px) clamp(20px,4vw,56px);">
+  <div data-reveal="1" style="display:flex;flex-direction:column;gap:12px;margin-bottom:40px;max-width:620px;">
+    <p style="margin:0;display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#4c8dff;"><i data-lucide="route"></i><span>How it works</span></p>
+    <h2 id="how-title" style="margin:0;font-size:clamp(28px,3.4vw,40px);line-height:1.1;font-weight:700;letter-spacing:-.02em;text-wrap:balance;">From your first coin to your first trade</h2>
+  </div>
+  <ol style="list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:16px;">
+    <li data-reveal="1" style="position:relative;border-radius:16px;border:1px solid rgba(255,255,255,.08);background:#14161c;padding:20px;display:flex;flex-direction:column;gap:12px;overflow:hidden;">
+      <div aria-hidden="true" style="position:relative;height:120px;border-radius:10px;background:radial-gradient(120px 80px at 50% 70%,rgba(242,178,60,.28),transparent 70%),#1b1e26;display:flex;align-items:flex-end;justify-content:center;padding-bottom:22px;overflow:hidden;">
+        <div style="position:relative;width:56px;height:52px;">
+          <span style="position:absolute;left:0;bottom:0;width:56px;height:14px;border-radius:999px;background:#c98a1a;border:2px solid #f2b23c;"></span>
+          <span style="position:absolute;left:0;bottom:10px;width:56px;height:14px;border-radius:999px;background:#d9971f;border:2px solid #f2b23c;"></span>
+          <span style="position:absolute;left:0;bottom:20px;width:56px;height:14px;border-radius:999px;background:#e5a52a;border:2px solid #f2b23c;"></span>
+          <span style="position:absolute;left:0;bottom:30px;width:56px;height:14px;border-radius:999px;background:#f2b23c;border:2px solid #ffd27a;animation:coinDrop 2.6s cubic-bezier(.2,.7,.2,1) infinite;"></span>
+        </div>
+      </div>
+      <p style="margin:0;font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:#f2b23c;">01</p>
+      <h3 style="margin:0;font-size:16px;font-weight:600;">Get 1,000 coins</h3>
+      <p style="margin:0;font-size:14px;line-height:1.6;color:#969cab;text-wrap:pretty;">Every new account starts with 1,000 coins. They open packs and sweeten trades, and they never turn into cash.</p>
+    </li>
+    <li data-reveal="1" style="position:relative;border-radius:16px;border:1px solid rgba(255,255,255,.08);background:#14161c;padding:20px;display:flex;flex-direction:column;gap:12px;overflow:hidden;">
+      <div aria-hidden="true" style="position:relative;height:120px;border-radius:10px;background:radial-gradient(120px 80px at 50% 60%,rgba(239,106,67,.3),transparent 70%),#1b1e26;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+        <div style="position:relative;width:52px;height:83px;border-radius:4px;overflow:hidden;background:linear-gradient(165deg,#ef6a43 10%,#0d0f14 95%);mask:conic-gradient(from 135deg at top,#0000,#000 1deg 89deg,#0000 90deg) top/6px 51% repeat-x,conic-gradient(from -45deg at bottom,#0000,#000 1deg 89deg,#0000 90deg) bottom/6px 51% repeat-x;-webkit-mask:conic-gradient(from 135deg at top,#0000,#000 1deg 89deg,#0000 90deg) top/6px 51% repeat-x,conic-gradient(from -45deg at bottom,#0000,#000 1deg 89deg,#0000 90deg) bottom/6px 51% repeat-x;animation:wiggle 3s ease-in-out infinite;display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;">
+          <span style="position:absolute;inset-inline:0;top:0;height:6%;background:rgba(0,0,0,.28);"></span>
+          <span style="position:absolute;inset-inline:0;bottom:0;height:6%;background:rgba(0,0,0,.28);"></span>
+          <i data-lucide="flame"></i>
+        </div>
+      </div>
+      <p style="margin:0;font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:#ef6a43;">02</p>
+      <h3 style="margin:0;font-size:16px;font-weight:600;">Open packs</h3>
+      <p style="margin:0;font-size:14px;line-height:1.6;color:#969cab;text-wrap:pretty;">Every pack lists its odds before you open it. Your pulls land in your collection the moment it opens.</p>
+    </li>
+    <li data-reveal="1" style="position:relative;border-radius:16px;border:1px solid rgba(255,255,255,.08);background:#14161c;padding:20px;display:flex;flex-direction:column;gap:12px;overflow:hidden;">
+      <div aria-hidden="true" style="position:relative;height:120px;border-radius:10px;background:radial-gradient(120px 80px at 50% 60%,rgba(94,194,105,.26),transparent 70%),#1b1e26;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+        <div style="position:relative;width:46px;height:64px;">
+          <span style="position:absolute;inset:0;border-radius:6px;background:linear-gradient(155deg,#5ec269,#0d0f14);border:1px solid rgba(255,255,255,.2);transform:rotate(-8deg) translateX(-14px);animation:stackIn 3.6s cubic-bezier(.2,.7,.2,1) infinite;"></span>
+          <span style="position:absolute;inset:0;border-radius:6px;background:linear-gradient(155deg,#4aa6ef,#0d0f14);border:1px solid rgba(255,255,255,.2);animation:stackIn 3.6s cubic-bezier(.2,.7,.2,1) .4s infinite;"></span>
+          <span style="position:absolute;inset:0;border-radius:6px;background:linear-gradient(155deg,#ef6a43,#0d0f14);border:1px solid rgba(255,255,255,.2);transform:rotate(8deg) translateX(14px);animation:stackIn 3.6s cubic-bezier(.2,.7,.2,1) .8s infinite;"></span>
+        </div>
+      </div>
+      <p style="margin:0;font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:#5ec269;">03</p>
+      <h3 style="margin:0;font-size:16px;font-weight:600;">Build decks</h3>
+      <p style="margin:0;font-size:14px;line-height:1.6;color:#969cab;text-wrap:pretty;">Drag cards into a deck. Deck size, the four-copy limit and format legality are checked as you go.</p>
+    </li>
+    <li data-reveal="1" style="position:relative;border-radius:16px;border:1px solid rgba(255,255,255,.08);background:#14161c;padding:20px;display:flex;flex-direction:column;gap:12px;overflow:hidden;">
+      <div aria-hidden="true" style="position:relative;height:120px;border-radius:10px;background:radial-gradient(120px 80px at 50% 60%,rgba(74,166,239,.28),transparent 70%),#1b1e26;display:flex;align-items:center;justify-content:center;gap:0;overflow:hidden;">
+        <span style="width:40px;height:56px;border-radius:6px;background:linear-gradient(155deg,#4aa6ef,#0d0f14);border:1px solid rgba(255,255,255,.2);animation:swapL 3s cubic-bezier(.2,.7,.2,1) infinite;"></span>
+        <span style="width:4px;"></span>
+        <span style="width:40px;height:56px;border-radius:6px;background:linear-gradient(155deg,#f4c73a,#0d0f14);border:1px solid rgba(255,255,255,.2);animation:swapR 3s cubic-bezier(.2,.7,.2,1) infinite;"></span>
+        <span style="position:absolute;bottom:12px;left:50%;transform:translateX(-50%);color:#4aa6ef;font-size:14px;display:inline-flex;"><i data-lucide="lock"></i></span>
+      </div>
+      <p style="margin:0;font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:#4aa6ef;">04</p>
+      <h3 style="margin:0;font-size:16px;font-weight:600;">Trade</h3>
+      <p style="margin:0;font-size:14px;line-height:1.6;color:#969cab;text-wrap:pretty;">Offer cards or coins to any collector. Both sides stay locked until the swap settles.</p>
+    </li>
+  </ol>
+</section>
+
+<section ref="{{ showRef }}" aria-labelledby="show-title" style="position:relative;height:{{ showOuterH }};">
+  <div style="position:{{ showStickyPos }};top:64px;height:{{ showInnerH }};overflow:hidden;background:radial-gradient(900px 520px at 70% 55%,rgba(239,106,67,.14),transparent 70%),linear-gradient(180deg,#0a0b0e,#0d0f14 50%,#0a0b0e);border-block:1px solid rgba(255,255,255,.05);">
+    <div style="max-width:1200px;height:100%;margin:0 auto;padding:{{ showPad }};display:grid;grid-template-columns:{{ showCols }};grid-template-rows:{{ showRows }};gap:clamp(16px,3vw,48px);align-items:center;">
+      <div style="min-width:0;display:flex;flex-direction:column;gap:{{ showTextGap }};">
+        <p style="margin:0;display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#ef6a43;"><i data-lucide="package-open"></i><span>Pack opening</span></p>
+        <h2 id="show-title" style="margin:0;font-size:clamp(28px,3.4vw,40px);line-height:1.1;font-weight:700;letter-spacing:-.02em;text-wrap:balance;">Rip a pack. See the odds first.</h2>
+        <p style="margin:0;font-size:16px;line-height:1.6;color:#969cab;max-width:420px;text-wrap:pretty;">Every pack lists its odds before you open it.</p>
+        <sc-if value="{{ showScrubUI }}" hint-placeholder-val="{{ false }}">
+          <ol aria-label="Pack opening stages" style="list-style:none;margin:8px 0 0;padding:0;display:flex;gap:8px;flex-wrap:wrap;">
+            <sc-for list="{{ stages }}" as="s" hint-placeholder-count="3">
+              <li style="display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:600;border:1px solid {{ s.bd }};background:{{ s.bg }};color:{{ s.fg }};transition:all .2s ease;"><span style="font-family:'Geist Mono',monospace;font-size:11px;opacity:.8;">{{ s.n }}</span><span>{{ s.label }}</span></li>
+            </sc-for>
+          </ol>
+        </sc-if>
+        <sc-if value="{{ showLegend }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:12px;margin-top:8px;">
+            <p style="margin:0;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#858a96;">An example pull</p>
+            <ul style="list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px;">
+              <sc-for list="{{ fan }}" as="c" hint-placeholder-count="6">
+                <li style="display:inline-flex;align-items:center;gap:8px;padding:5px 10px;border-radius:999px;font-size:13px;background:{{ c.tint }};border:1px solid {{ c.border }};"><span aria-hidden="true" style="width:7px;height:7px;border-radius:99px;background:{{ c.color }};"></span><span style="color:#eef0f4;font-weight:500;">{{ c.name }}</span><span style="color:{{ c.textColor }};font-weight:600;">{{ c.rarity }}</span></li>
+              </sc-for>
+            </ul>
+          </div>
+        </sc-if>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:8px;">
+          <a href="{{ packsHref }}" style="display:inline-flex;align-items:center;gap:10px;padding:11px 18px;border-radius:10px;background:#1b1e26;border:1px solid rgba(255,255,255,.13);color:#eef0f4;font-size:14px;font-weight:600;text-decoration:none;" style-hover="background:#22262f;border-color:#969cab;color:#eef0f4;"><span>{{ packsLabel }}</span><i data-lucide="arrow-right"></i></a>
+        </div>
+        <sc-if value="{{ notes }}" hint-placeholder-val="{{ true }}">
+          <p style="margin:0;display:flex;gap:8px;font-family:'Geist Mono',monospace;font-size:11.5px;line-height:1.5;color:#9ec0ff;background:rgba(76,141,255,.08);border:1px dashed rgba(76,141,255,.4);border-radius:10px;padding:8px 12px;max-width:440px;"><b style="color:#4c8dff;">SPEC</b><span>Static. Base Set pack, Charizard cover (the template's default cover). The fan is labelled an example because a real pack is random. 3D: {{ modeLabel }}.</span></p>
+        </sc-if>
+      </div>
+
+      <div ref="{{ showStageRef }}" role="img" aria-label="A Base Set booster tears open and fans out six cards: Pikachu, Bulbasaur, Squirtle, Charmander, Blastoise and Charizard." style="position:relative;height:100%;min-height:{{ showStageMin }};min-width:0;">
+        <div aria-hidden="true" style="position:absolute;left:50%;top:50%;width:min(90%,620px);aspect-ratio:1.4;transform:translate(-50%,-50%);border-radius:999px;background:radial-gradient(closest-side,rgba(239,106,67,.32),rgba(242,178,60,.12) 55%,transparent);filter:blur(10px);"></div>
+        <sc-if value="{{ showSealedPoster }}" hint-placeholder-val="{{ false }}">
+          <div aria-hidden="true" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);">
+            <div style="position:relative;width:{{ packW }};aspect-ratio:5/8;animation:floatPack 5.5s ease-in-out infinite;">
+              <div style="position:absolute;inset:0;overflow:hidden;border-radius:6px;background:linear-gradient(165deg,#ef6a43 10%,#0d0f14 95%);color:#fff;mask:conic-gradient(from 135deg at top,#0000,#000 1deg 89deg,#0000 90deg) top/8px 51% repeat-x,conic-gradient(from -45deg at bottom,#0000,#000 1deg 89deg,#0000 90deg) bottom/8px 51% repeat-x;-webkit-mask:conic-gradient(from 135deg at top,#0000,#000 1deg 89deg,#0000 90deg) top/8px 51% repeat-x,conic-gradient(from -45deg at bottom,#0000,#000 1deg 89deg,#0000 90deg) bottom/8px 51% repeat-x;box-shadow:0 40px 90px rgba(0,0,0,.6);">
+                <div style="position:absolute;inset-inline:0;top:0;height:6.25%;background:rgba(0,0,0,.28);"></div>
+                <div style="position:absolute;inset-inline:0;bottom:0;height:6.25%;background:rgba(0,0,0,.28);"></div>
+                <div style="position:absolute;inset-block:0;width:25%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent);animation:sweep 4.5s ease-in-out infinite;transform:translateX(-140%) skewX(-18deg);"></div>
+                <div style="position:relative;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:12px;padding:9% 7%;">
+                  <img src="https://images.pokemontcg.io/base1/logo.png" alt="" loading="lazy" decoding="async" width="300" height="110" style="width:100%;height:22%;object-fit:contain;">
+                  <div style="position:relative;width:100%;aspect-ratio:4/3;overflow:hidden;border-radius:13px;border:2px solid #4c8dff;background:linear-gradient(155deg,#ef6a43,#0d0f14);">
+                    <img src="https://images.pokemontcg.io/base1/4.png" alt="" loading="lazy" decoding="async" width="245" height="342" style="width:100%;height:100%;object-fit:cover;object-position:50% 15%;">
+                  </div>
+                  <span style="font-size:15px;font-weight:800;">Base Set</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ showFanPoster }}" hint-placeholder-val="{{ true }}">
+          <div aria-hidden="true" style="position:absolute;inset:0;">
+            <sc-for list="{{ fan }}" as="c" hint-placeholder-count="6">
+              <div style="position:absolute;left:50%;top:50%;width:{{ fanW }};aspect-ratio:63/88;transform:{{ c.tf }};">
+                <img src="{{ c.img }}" alt="" loading="lazy" decoding="async" width="245" height="342" style="width:100%;height:100%;display:block;border-radius:9px;border:1px solid {{ c.posterBorder }};box-shadow:0 20px 50px rgba(0,0,0,.55),0 0 22px {{ c.glow }};">
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <div ref="{{ showMountRef }}" style="position:absolute;inset:0;"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<sc-if value="{{ chaseOn }}" hint-placeholder-val="{{ true }}">
+<section aria-labelledby="chase-title" style="padding:clamp(56px,8vw,112px) 0;">
+  <div style="max-width:1200px;margin:0 auto 32px;padding:0 clamp(20px,4vw,56px);display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between;">
+    <div data-reveal="1" style="display:flex;flex-direction:column;gap:12px;max-width:620px;">
+      <p style="margin:0;display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#f2b23c;"><i data-lucide="gem"></i><span>Chase cards</span></p>
+      <h2 id="chase-title" style="margin:0;font-size:clamp(28px,3.4vw,40px);line-height:1.1;font-weight:700;letter-spacing:-.02em;text-wrap:balance;">The cards collectors chase</h2>
+      <p style="margin:0;font-size:16px;line-height:1.6;color:#969cab;text-wrap:pretty;">The catalog's most valuable cards, at today's market price.</p>
+    </div>
+    <sc-if value="{{ marqueeAnimated }}" hint-placeholder-val="{{ true }}">
+      <button type="button" onClick="{{ togglePause }}" aria-pressed="{{ pausedAria }}" style="display:inline-flex;align-items:center;gap:8px;padding:8px 13px;border-radius:10px;background:#1b1e26;border:1px solid rgba(255,255,255,.13);color:#eef0f4;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;" style-hover="background:#22262f;border-color:#969cab;"><span>{{ pauseLabel }}</span></button>
+    </sc-if>
+  </div>
+  <sc-if value="{{ notes }}" hint-placeholder-val="{{ true }}">
+    <p style="max-width:1200px;margin:0 auto 24px;padding:0 clamp(20px,4vw,56px);"><span style="display:inline-flex;gap:8px;font-family:'Geist Mono',monospace;font-size:11.5px;line-height:1.5;color:#9ec0ff;background:rgba(76,141,255,.08);border:1px dashed rgba(76,141,255,.4);border-radius:10px;padding:8px 12px;"><b style="color:#4c8dff;">SPEC</b><span>Proposed GET /cards?sort=price_desc&amp;pageSize=12 (public, cached, priced cards only). The whole section is hidden if the API cannot answer. {price} = latestPriceUsd.</span></span></p>
+  </sc-if>
+  <div style="position:relative;overflow-x:{{ railOverflow }};scroll-snap-type:{{ railSnap }};-webkit-mask:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);padding-block:16px 24px;" style-hover="--x:1;">
+    <ul style="list-style:none;margin:0;padding:0 clamp(20px,4vw,56px);display:flex;gap:16px;width:max-content;animation:{{ marqueeAnim }};animation-play-state:{{ marqueeState }};">
+      <sc-for list="{{ chaseList }}" as="c" hint-placeholder-count="12">
+        <li aria-hidden="{{ c.hidden }}" style="flex:none;width:{{ chaseW }};scroll-snap-align:start;">
+          <a href="{{ c.href }}" tabIndex="{{ c.tab }}" style="display:flex;flex-direction:column;gap:10px;text-decoration:none;color:#eef0f4;border-radius:13px;padding:8px;background:#14161c;border:1px solid rgba(76,141,255,.3);box-shadow:0 0 22px rgba(76,141,255,.1);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;" style-hover="transform:translateY(-4px);border-color:#4c8dff;box-shadow:0 16px 34px rgba(0,0,0,.45),0 0 26px rgba(76,141,255,.3);color:#eef0f4;">
+            <img src="{{ c.img }}" alt="{{ c.alt }}" loading="lazy" decoding="async" width="245" height="342" style="width:100%;height:auto;aspect-ratio:63/88;display:block;border-radius:8px;background:linear-gradient(155deg,#b9bec9,#0d0f14);">
+            <span style="display:flex;flex-direction:column;gap:4px;padding:0 4px 4px;">
+              <span style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ c.name }}</span>
+              <span style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#4c8dff;"><span aria-hidden="true" style="width:7px;height:7px;border-radius:99px;background:#4c8dff;"></span>Rare</span>
+                <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:#9ec0ff;background:rgba(76,141,255,.14);border:1px dashed rgba(76,141,255,.5);border-radius:6px;padding:0 6px;">{price}</span>
+              </span>
+              <span style="font-family:'Geist Mono',monospace;font-size:11px;color:#858a96;">Base Set · {{ c.no }}</span>
+            </span>
+          </a>
+        </li>
+      </sc-for>
+    </ul>
+  </div>
+</section>
+</sc-if>
+
+<section aria-labelledby="sets-title" style="max-width:1200px;margin:0 auto;padding:clamp(56px,8vw,112px) clamp(20px,4vw,56px);">
+  <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between;margin-bottom:32px;">
+    <div data-reveal="1" style="display:flex;flex-direction:column;gap:12px;max-width:620px;">
+      <p style="margin:0;display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#5ec269;"><i data-lucide="library"></i><span>Collect every set</span></p>
+      <h2 id="sets-title" style="margin:0;font-size:clamp(28px,3.4vw,40px);line-height:1.1;font-weight:700;letter-spacing:-.02em;text-wrap:balance;">176 sets, from Base to the newest release</h2>
+      <p style="margin:0;font-size:16px;line-height:1.6;color:#969cab;text-wrap:pretty;">{{ setsLine }}</p>
+    </div>
+    <a href="/sets" style="display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:#4c8dff;text-decoration:none;padding:8px 0;" style-hover="color:#5d99ff;"><span>Browse all sets</span><i data-lucide="arrow-right"></i></a>
+  </div>
+  <ul style="list-style:none;margin:0;padding:0;display:{{ setsDisplay }};grid-template-columns:repeat(auto-fill,minmax(min(100%,196px),1fr));gap:12px;overflow-x:{{ setsOverflow }};scroll-snap-type:x mandatory;">
+    <sc-for list="{{ sets }}" as="s" hint-placeholder-count="10">
+      <li data-reveal="1" style="flex:none;width:{{ setW }};scroll-snap-align:start;">
+        <a href="{{ s.href }}" style="display:flex;flex-direction:column;gap:12px;height:100%;padding:16px;border-radius:16px;background:#14161c;border:1px solid rgba(255,255,255,.08);text-decoration:none;color:#eef0f4;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;" style-hover="transform:translateY(-4px);border-color:rgba(94,194,105,.5);box-shadow:0 16px 34px rgba(0,0,0,.45);color:#eef0f4;">
+          <span style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:radial-gradient(80px 40px at 50% 50%,rgba(255,255,255,.06),transparent),#1b1e26;padding:8px;">
+            <sc-if value="{{ s.hasLogo }}" hint-placeholder-val="{{ true }}">
+              <img src="{{ s.logo }}" alt="" loading="lazy" decoding="async" width="160" height="48" onError="{{ s.onFail }}" style="max-width:100%;height:40px;width:auto;object-fit:contain;">
+            </sc-if>
+            <sc-if value="{{ s.noLogo }}" hint-placeholder-val="{{ false }}">
+              <span style="font-size:13px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;text-align:center;">{{ s.name }}</span>
+            </sc-if>
+          </span>
+          <span style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+            <span style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ s.name }}</span>
+            <span style="flex:none;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;color:{{ s.tagFg }};background:{{ s.tagBg }};">{{ s.tag }}</span>
+          </span>
+          <sc-if value="{{ signedOut }}" hint-placeholder-val="{{ true }}">
+            <span style="font-family:'Geist Mono',monospace;font-size:13px;color:#969cab;">{{ s.total }} cards</span>
+          </sc-if>
+          <sc-if value="{{ signedIn }}" hint-placeholder-val="{{ false }}">
+            <span style="display:flex;flex-direction:column;gap:6px;">
+              <span role="meter" aria-label="{{ s.meterLabel }}" aria-valuemin="0" aria-valuemax="{{ s.total }}" aria-valuenow="{{ s.owned }}" style="height:6px;border-radius:999px;background:#1b1e26;overflow:hidden;"><span style="display:block;height:100%;width:{{ s.pct }};border-radius:999px;background:linear-gradient(90deg,#34d399,#5ec269);"></span></span>
+              <span style="font-family:'Geist Mono',monospace;font-size:12px;color:#969cab;"><span style="color:#9ec0ff;">{owned}</span> / {{ s.total }}</span>
+            </span>
+          </sc-if>
+        </a>
+      </li>
+    </sc-for>
+  </ul>
+  <sc-if value="{{ notes }}" hint-placeholder-val="{{ true }}">
+    <p style="margin:20px 0 0;"><span style="display:inline-flex;gap:8px;font-family:'Geist Mono',monospace;font-size:11.5px;line-height:1.5;color:#9ec0ff;background:rgba(76,141,255,.08);border:1px dashed rgba(76,141,255,.4);border-radius:10px;padding:8px 12px;"><b style="color:#4c8dff;">SPEC</b><span>GET /sets: newest 4 by releaseDate (sv8–sv5 stand in here) + base1, base2, neo1, ex1, dp1, swsh1. Card counts are each set's total. A missing logo falls back to the set name in text. Signed in: the member's completion from /inventory/summary; the meter fill shown is illustrative.</span></span></p>
+  </sc-if>
+</section>
+
+<section ref="{{ deckRef }}" aria-labelledby="deck-title" style="background:radial-gradient(800px 500px at 20% 50%,rgba(94,194,105,.10),transparent 70%);border-block:1px solid rgba(255,255,255,.05);">
+  <div style="max-width:1200px;margin:0 auto;padding:clamp(56px,8vw,112px) clamp(20px,4vw,56px);display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:clamp(32px,5vw,64px);align-items:center;">
+    <div data-reveal="1" style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#5ec269;"><i data-lucide="layers"></i><span>Deck builder</span></p>
+      <h2 id="deck-title" style="margin:0;font-size:clamp(28px,3.4vw,40px);line-height:1.1;font-weight:700;letter-spacing:-.02em;text-wrap:balance;">Build decks that are legal to play</h2>
+      <p style="margin:0;font-size:16px;line-height:1.6;color:#969cab;text-wrap:pretty;">The builder checks every rule as you add cards, so you know a deck is ready before you share it.</p>
+      <ul style="list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:10px;">
+        <li style="display:flex;align-items:center;gap:12px;font-size:15px;"><span style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:rgba(94,194,105,.14);color:#5ec269;font-size:16px;"><i data-lucide="rectangle-vertical"></i></span><span><b style="font-weight:600;">Exactly 60 cards</b></span></li>
+        <li style="display:flex;align-items:center;gap:12px;font-size:15px;"><span style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:rgba(94,194,105,.14);color:#5ec269;font-size:16px;"><i data-lucide="copy"></i></span><span><b style="font-weight:600;">At most 4 copies</b> <span style="color:#969cab;">of any card name, basic energy exempt</span></span></li>
+        <li style="display:flex;align-items:center;gap:12px;font-size:15px;"><span style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:rgba(94,194,105,.14);color:#5ec269;font-size:16px;"><i data-lucide="scale"></i></span><span><b style="font-weight:600;">Format legality</b> <span style="color:#969cab;">for Standard, Expanded or Unlimited</span></span></li>
+      </ul>
+    </div>
+
+    <div data-reveal="1" aria-label="Deck builder preview" role="img" style="border-radius:16px;background:#14161c;border:1px solid rgba(255,255,255,.08);box-shadow:0 40px 90px rgba(0,0,0,.5);overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.08);">
+        <span style="display:flex;align-items:center;gap:10px;min-width:0;"><span style="font-size:14px;font-weight:600;white-space:nowrap;">Lightning Rush</span><span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:#1b1e26;color:#969cab;border:1px solid rgba(255,255,255,.08);">Unlimited</span></span>
+        <span style="font-family:'Geist Mono',monospace;font-size:14px;font-weight:600;color:{{ deckCountColor }};">{{ deckN }} / 60</span>
+      </div>
+      <div style="position:relative;padding:16px;">
+        <div aria-hidden="true" style="position:absolute;left:50%;top:-6px;width:64px;height:90px;margin-left:-32px;z-index:2;pointer-events:none;">{{ deckDrop }}</div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:14px;border:1px solid {{ bannerBd }};background:{{ bannerBg }};color:{{ bannerFg }};transition:background .3s ease,border-color .3s ease,color .3s ease;">
+          <sc-if value="{{ deckValid }}" hint-placeholder-val="{{ false }}">
+            <span style="display:flex;align-items:center;gap:10px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><path d="m9 11 3 3L22 4"></path></svg><span>Legal in Unlimited · ready to play</span></span>
+          </sc-if>
+          <sc-if value="{{ deckInvalid }}" hint-placeholder-val="{{ true }}">
+            <span style="display:flex;align-items:center;gap:10px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg><span>{{ deckShort }}</span></span>
+          </sc-if>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat({{ slotCols }},1fr);gap:4px;">
+          <sc-for list="{{ slots }}" as="s" hint-placeholder-count="60">
+            <span style="aspect-ratio:5/7;border-radius:3px;background:{{ s.bg }};border:1px solid {{ s.bd }};transform:{{ s.tf }};transition:transform .3s cubic-bezier(.2,.7,.2,1),background .3s ease;"></span>
+          </sc-for>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px 16px;margin-top:14px;font-size:12px;color:#969cab;">
+          <span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:10px;height:14px;border-radius:2px;background:#f4c73a;"></span>Pokémon 16</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:10px;height:14px;border-radius:2px;background:#b9bec9;"></span>Trainer 20</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:10px;height:14px;border-radius:2px;background:rgba(244,199,58,.4);border:1px solid #f4c73a;"></span>Energy 24</span>
+        </div>
+      </div>
+      <ul style="list-style:none;margin:0;padding:12px 16px 16px;border-top:1px solid rgba(255,255,255,.08);display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;">
+        <sc-for list="{{ rules }}" as="r" hint-placeholder-count="3">
+          <li style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:8px 10px;border-radius:10px;background:#1b1e26;color:{{ r.fg }};">
+            <span style="display:inline-flex;font-weight:700;font-family:'Geist Mono',monospace;font-size:11px;padding:1px 6px;border-radius:6px;background:{{ r.chipBg }};">{{ r.state }}</span><span style="color:#eef0f4;">{{ r.label }}</span>
+          </li>
+        </sc-for>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section ref="{{ tradeRef }}" aria-labelledby="trade-title" style="max-width:1200px;margin:0 auto;padding:clamp(56px,8vw,112px) clamp(20px,4vw,56px);">
+  <div data-reveal="1" style="display:flex;flex-direction:column;gap:12px;max-width:620px;margin-bottom:40px;">
+    <p style="margin:0;display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#4aa6ef;"><i data-lucide="shield-check"></i><span>Safe trading</span></p>
+    <h2 id="trade-title" style="margin:0;font-size:clamp(28px,3.4vw,40px);line-height:1.1;font-weight:700;letter-spacing:-.02em;text-wrap:balance;">Your cards stay yours</h2>
+    <p style="margin:0;font-size:16px;line-height:1.6;color:#969cab;text-wrap:pretty;">Trades lock first, then swap in one step.</p>
+  </div>
+  <ol style="list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:16px;">
+    <sc-for list="{{ beats }}" as="b" hint-placeholder-count="3">
+      <li data-reveal="1" style="position:relative;display:flex;flex-direction:column;gap:12px;padding:20px;border-radius:16px;background:#14161c;border:1px solid {{ b.bd }};box-shadow:{{ b.shadow }};transition:border-color .4s ease,box-shadow .4s ease;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <span style="width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:rgba(74,166,239,.14);color:#4aa6ef;font-size:20px;"><i data-lucide="{{ b.icon }}"></i></span>
+          <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:#858a96;">{{ b.n }}</span>
+        </div>
+        <h3 style="margin:0;font-size:16px;font-weight:600;">{{ b.title }}</h3>
+        <p style="margin:0;font-size:14px;line-height:1.6;color:#969cab;text-wrap:pretty;">{{ b.body }}</p>
+      </li>
+    </sc-for>
+  </ol>
+
+  <div data-reveal="1" style="margin-top:24px;padding:20px;border-radius:16px;background:#14161c;border:1px solid rgba(255,255,255,.08);">
+    <h3 style="margin:0 0 16px;font-size:16px;font-weight:600;">A counter-offer, start to finish</h3>
+    <ol style="list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:12px;">
+      <li style="display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:10px;background:#1b1e26;">
+        <span style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span style="font-size:13px;font-weight:600;">You offer</span><span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:rgba(242,178,60,.14);color:#f2b23c;">Pending</span></span>
+        <span style="display:flex;align-items:center;gap:8px;"><img src="https://images.pokemontcg.io/base1/2.png" alt="Blastoise" loading="lazy" decoding="async" width="40" height="56" style="width:40px;height:56px;border-radius:4px;"><span style="color:#969cab;font-size:14px;display:inline-flex;"><i data-lucide="arrow-right-left"></i></span><img src="https://images.pokemontcg.io/base1/15.png" alt="Venusaur" loading="lazy" decoding="async" width="40" height="56" style="width:40px;height:56px;border-radius:4px;"></span>
+        <span style="font-size:13px;line-height:1.5;color:#969cab;">Blastoise for their Venusaur. Your Blastoise locks.</span>
+      </li>
+      <li style="display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:10px;background:#1b1e26;">
+        <span style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span style="font-size:13px;font-weight:600;">They counter</span><span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:rgba(176,108,240,.14);color:#c28cf5;">Countered</span></span>
+        <span style="display:flex;align-items:center;gap:8px;"><img src="https://images.pokemontcg.io/base1/2.png" alt="Blastoise" loading="lazy" decoding="async" width="40" height="56" style="width:40px;height:56px;border-radius:4px;"><span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:#f2b23c;"><i data-lucide="plus"></i><i data-lucide="coins"></i></span><span style="color:#969cab;font-size:14px;display:inline-flex;"><i data-lucide="arrow-right-left"></i></span><img src="https://images.pokemontcg.io/base1/15.png" alt="Venusaur" loading="lazy" decoding="async" width="40" height="56" style="width:40px;height:56px;border-radius:4px;"></span>
+        <span style="font-size:13px;line-height:1.5;color:#969cab;">They ask for coins on top. The first offer closes, the counter takes its place.</span>
+      </li>
+      <li style="display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:10px;background:#1b1e26;">
+        <span style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span style="font-size:13px;font-weight:600;">You accept</span><span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:rgba(52,211,153,.14);color:#34d399;">Accepted</span></span>
+        <span style="display:flex;align-items:center;gap:8px;"><img src="https://images.pokemontcg.io/base1/15.png" alt="Venusaur" loading="lazy" decoding="async" width="40" height="56" style="width:40px;height:56px;border-radius:4px;"><span style="color:#34d399;font-size:14px;display:inline-flex;"><i data-lucide="check"></i></span></span>
+        <span style="font-size:13px;line-height:1.5;color:#969cab;">One swap. Cards and coins move together, or nothing moves.</span>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section ref="{{ statsRef }}" aria-labelledby="live-title" style="background:radial-gradient(900px 400px at 50% 0%,rgba(76,141,255,.10),transparent 70%);border-block:1px solid rgba(255,255,255,.05);">
+  <div style="max-width:1200px;margin:0 auto;padding:clamp(56px,8vw,112px) clamp(20px,4vw,56px);">
+    <div data-reveal="1" style="display:flex;flex-direction:column;gap:12px;max-width:620px;margin-bottom:32px;">
+      <p style="margin:0;display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#4c8dff;"><i data-lucide="activity"></i><span>Live numbers</span></p>
+      <h2 id="live-title" style="margin:0;font-size:clamp(28px,3.4vw,40px);line-height:1.1;font-weight:700;letter-spacing:-.02em;text-wrap:balance;">Counted, not estimated</h2>
+    </div>
+    <dl style="margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:16px;">
+      <sc-for list="{{ stats }}" as="s" hint-placeholder-count="4">
+        <div data-reveal="1" style="display:flex;flex-direction:column-reverse;justify-content:flex-end;gap:12px;padding:20px;border-radius:16px;background:#14161c;border:1px solid rgba(255,255,255,.08);">
+          <sc-if value="{{ notes }}" hint-placeholder-val="{{ true }}">
+            <span style="font-family:'Geist Mono',monospace;font-size:11px;line-height:1.5;color:#9ec0ff;border-top:1px dashed rgba(76,141,255,.35);padding-top:10px;">{{ s.source }}</span>
+          </sc-if>
+          <dt style="font-size:13px;color:#969cab;">{{ s.label }}</dt>
+          <dd style="margin:0;display:flex;align-items:center;gap:12px;"><span style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:{{ s.tint }};color:{{ s.color }};font-size:20px;"><i data-lucide="{{ s.icon }}"></i></span><span style="font-family:'Geist Mono',monospace;font-size:{{ s.size }};font-weight:600;letter-spacing:-.02em;color:{{ s.valColor }};">{{ s.value }}</span></dd>
+        </div>
+      </sc-for>
+    </dl>
+  </div>
+</section>
+
+<section aria-labelledby="faq-title" style="max-width:800px;margin:0 auto;padding:clamp(56px,8vw,112px) clamp(20px,4vw,56px);">
+  <h2 id="faq-title" data-reveal="1" style="margin:0 0 32px;font-size:clamp(28px,3.4vw,40px);line-height:1.1;font-weight:700;letter-spacing:-.02em;">Questions</h2>
+  <div style="display:flex;flex-direction:column;gap:8px;">
+    <sc-for list="{{ faqs }}" as="f" hint-placeholder-count="5">
+      <details onToggle="{{ f.onToggle }}" style="border-radius:16px;background:#14161c;border:1px solid {{ f.bd }};transition:border-color .18s ease;">
+        <summary style="list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px;border-radius:16px;">
+          <h3 style="margin:0;font-size:16px;font-weight:600;">{{ f.q }}</h3>
+          <span aria-hidden="true" style="flex:none;width:28px;height:28px;border-radius:999px;background:#1b1e26;display:flex;align-items:center;justify-content:center;color:#969cab;transform:rotate({{ f.rot }});transition:transform .18s ease;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></span>
+        </summary>
+        <p style="margin:0;padding:0 20px 20px;font-size:15px;line-height:1.65;color:#969cab;text-wrap:pretty;">{{ f.a }}</p>
+      </details>
+    </sc-for>
+  </div>
+</section>
+
+<section aria-labelledby="cta-title" style="max-width:1200px;margin:0 auto;padding:0 clamp(20px,4vw,56px) clamp(56px,8vw,112px);">
+  <div data-reveal="1" style="position:relative;overflow:hidden;border-radius:18px;padding:clamp(32px,6vw,72px) clamp(20px,5vw,64px);border:1px solid transparent;background:radial-gradient(500px 260px at 85% 20%,rgba(239,106,67,.22),transparent 70%),radial-gradient(500px 260px at 10% 100%,rgba(74,166,239,.18),transparent 70%),linear-gradient(#14161c,#14161c) padding-box,linear-gradient(115deg,#ef6a43,#f4c73a,#5ec269,#4aa6ef,#b06bcf,#e987bd) border-box;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:32px;align-items:center;">
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <h2 id="cta-title" style="margin:0;font-size:clamp(28px,4vw,48px);line-height:1.05;font-weight:800;letter-spacing:-.03em;text-wrap:balance;">{{ ctaTitle }}</h2>
+      <p style="margin:0;font-size:16px;line-height:1.6;color:#969cab;max-width:460px;text-wrap:pretty;">{{ ctaLine }}</p>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:{{ ctaJustify }};">
+      <sc-if value="{{ signedOut }}" hint-placeholder-val="{{ true }}">
+        <a href="/register" style="display:inline-flex;align-items:center;gap:10px;padding:14px 26px;border-radius:10px;background:#3f74d2;color:#fff;font-size:16px;font-weight:600;text-decoration:none;box-shadow:0 8px 24px rgba(76,141,255,.4);" style-hover="background:#3a6cc4;color:#fff;"><span>Start collecting free</span><i data-lucide="arrow-right"></i></a>
+        <a href="/sign-in" style="display:inline-flex;align-items:center;gap:10px;padding:14px 26px;border-radius:10px;background:#1b1e26;border:1px solid rgba(255,255,255,.13);color:#eef0f4;font-size:16px;font-weight:600;text-decoration:none;" style-hover="background:#22262f;border-color:#969cab;color:#eef0f4;">Sign in</a>
+      </sc-if>
+      <sc-if value="{{ signedIn }}" hint-placeholder-val="{{ false }}">
+        <a href="/packs" style="display:inline-flex;align-items:center;gap:10px;padding:14px 26px;border-radius:10px;background:#3f74d2;color:#fff;font-size:16px;font-weight:600;text-decoration:none;box-shadow:0 8px 24px rgba(76,141,255,.4);" style-hover="background:#3a6cc4;color:#fff;"><i data-lucide="package-open"></i><span>Open a pack</span></a>
+        <a href="/dashboard" style="display:inline-flex;align-items:center;gap:10px;padding:14px 26px;border-radius:10px;background:#1b1e26;border:1px solid rgba(255,255,255,.13);color:#eef0f4;font-size:16px;font-weight:600;text-decoration:none;" style-hover="background:#22262f;border-color:#969cab;color:#eef0f4;">Go to your dashboard</a>
+      </sc-if>
+    </div>
+  </div>
+</section>
+</sc-if>
+</main>
+
+<sc-if value="{{ showChrome }}" hint-placeholder-val="{{ true }}">
+  <dc-import name="SiteFooter" signed-in="{{ signedIn }}" hint-size="100%,340px"></dc-import>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;signedIn&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;auto&quot;,&quot;full&quot;,&quot;lite&quot;,&quot;poster&quot;,&quot;reduced&quot;],&quot;default&quot;:&quot;auto&quot;,&quot;tsType&quot;:&quot;'auto'|'full'|'lite'|'poster'|'reduced'&quot;,&quot;section&quot;:&quot;3D&quot;},&quot;notes&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Review&quot;}}">
+class Component extends DCLogic {
+  state = { bp: 'lg', env: null, heroReady: false, heroFail: false, showReady: false, showFail: false, progress: 0, paused: false, deckStep: 0, beat: 0, statT: 1, open: {}, logoFail: {} };
+  rootRef = React.createRef(); heroStageRef = React.createRef(); heroMountRef = React.createRef();
+  showRef = React.createRef(); showStageRef = React.createRef(); showMountRef = React.createRef();
+  deckRef = React.createRef(); tradeRef = React.createRef(); statsRef = React.createRef();
+
+  q(k) { try { return new URLSearchParams(location.search).get(k); } catch (e) { return null; } }
+
+  detectEnv() {
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let webgl = false;
+    try { const c = document.createElement('canvas'); webgl = !!(c.getContext('webgl2') || c.getContext('webgl')); } catch (e) {}
+    const conn = navigator.connection || {};
+    const lowPower = (navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 4 || matchMedia('(pointer: coarse)').matches;
+    if (reduced) return 'reduced';
+    if (!webgl || conn.saveData) return 'poster';
+    return lowPower ? 'lite' : 'full';
+  }
+  mode() {
+    const m = this.q('mode') || this.props.mode || 'auto';
+    return m === 'auto' ? (this.state.env || 'full') : m;
+  }
+
+  componentDidMount() {
+    const env = this.detectEnv();
+    if ((this.q('mode') || this.props.mode) === 'reduced') {
+      const st = document.createElement('style');
+      st.textContent = '*,::before,::after{animation-duration:.01ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:.01ms!important;}';
+      document.head.appendChild(st); this._forced = st;
+    }
+    this.onResize = () => { const w = window.innerWidth; const bp = w < 700 ? 'sm' : w < 1100 ? 'md' : 'lg'; if (bp !== this.state.bp) { this.setState({ bp }); this.s3d && this.s3d.setCompact(bp === 'sm'); } };
+    this.onResize();
+    window.addEventListener('resize', this.onResize);
+    this.setState({ env }, () => this.boot());
+    this.icons();
+  }
+  componentDidUpdate() { this.icons(); }
+  componentWillUnmount() {
+    window.removeEventListener('resize', this.onResize);
+    window.removeEventListener('scroll', this.onScroll);
+    clearInterval(this._deckT); clearInterval(this._beatT);
+    (this._ios || []).forEach((o) => o.disconnect());
+    this.h3d && this.h3d.dispose(); this.s3d && this.s3d.dispose();
+    this._forced && this._forced.remove();
+  }
+  icons() { cancelAnimationFrame(this._ic); this._ic = requestAnimationFrame(() => { try { window.lucide && window.lucide.createIcons(); } catch (e) {} }); }
+
+  boot() {
+    const mode = this.mode();
+    const use3D = mode === 'full' || mode === 'lite';
+    const lite = mode === 'lite';
+    const anim = mode !== 'reduced';
+    this._ios = [];
+    const url = (f) => new URL(f, document.baseURI).href;
+
+    // hero: idle-time import, never before first paint
+    if (use3D && this.heroMountRef.current) {
+      const go = () => import(url('hero-card-3d.js')).then((m) => m.init(this.heroMountRef.current, {
+        image: 'https://images.pokemontcg.io/base1/4_hires.png', energy: '#ef6a43', glow: '#f2b23c', lite,
+        pointerTarget: this.heroStageRef.current?.parentElement || this.heroMountRef.current,
+        onReady: () => this.setState({ heroReady: true }),
+        onFallback: () => this.setState({ heroFail: true, heroReady: false }),
+      })).then((h) => { this.h3d = h; }).catch(() => this.setState({ heroFail: true }));
+      (window.requestIdleCallback || ((f) => setTimeout(f, 600)))(go, { timeout: 1500 });
+    }
+    // showcase: import when the section nears the viewport
+    if (use3D && this.showRef.current) {
+      const io = new IntersectionObserver(([e]) => {
+        if (!e.isIntersecting) return;
+        io.disconnect();
+        import(url('pack-showcase-3d.js')).then((m) => m.init(this.showMountRef.current, {
+          cards: this.fanData().map((c) => ({ image: c.img, holo: c.holo })),
+          cover: 'https://images.pokemontcg.io/base1/4.png', logo: 'https://images.pokemontcg.io/base1/logo.png',
+          packName: 'Base Set', energy: '#ef6a43', rarity: '#4c8dff', lite, compact: this.state.bp === 'sm',
+          onReady: () => this.setState({ showReady: true }),
+          onFallback: () => this.setState({ showFail: true, showReady: false }),
+        })).then((s) => { this.s3d = s; s.setProgress(this.state.progress); }).catch(() => this.setState({ showFail: true }));
+      }, { rootMargin: '800px 0px' });
+      io.observe(this.showRef.current); this._ios.push(io);
+      this.onScroll = () => {
+        if (this._sr) return;
+        this._sr = requestAnimationFrame(() => {
+          this._sr = 0;
+          const el = this.showRef.current; if (!el) return;
+          const r = el.getBoundingClientRect();
+          const span = r.height - (window.innerHeight - 64);
+          const p = Math.min(1, Math.max(0, (64 - r.top) / Math.max(1, span)));
+          if (Math.abs(p - this.state.progress) > 0.002) { this.setState({ progress: p }); this.s3d && this.s3d.setProgress(p); }
+        });
+      };
+      window.addEventListener('scroll', this.onScroll, { passive: true });
+      this.onScroll();
+    }
+
+    if (!anim) { this.setState({ deckStep: 9, beat: -1, statT: 1 }); return; }
+
+    // scroll reveal (progressive: content is visible until JS hides it)
+    const els = Array.from(this.rootRef.current.querySelectorAll('[data-reveal]'));
+    const rio = new IntersectionObserver((es) => es.forEach((e) => {
+      if (!e.isIntersecting) return;
+      e.target.style.opacity = '1'; e.target.style.transform = 'none'; rio.unobserve(e.target);
+    }), { rootMargin: '0px 0px -8% 0px' });
+    els.forEach((el) => {
+      const r = el.getBoundingClientRect();
+      if (r.top < window.innerHeight) return;
+      el.style.opacity = '0'; el.style.transform = 'translateY(16px)';
+      el.style.transition = 'opacity .5s cubic-bezier(.2,.7,.2,1), transform .5s cubic-bezier(.2,.7,.2,1)';
+      rio.observe(el);
+    });
+    this._ios.push(rio);
+
+    const loop = (ref, start, stop) => {
+      if (!ref.current) return;
+      const io = new IntersectionObserver(([e]) => (e.isIntersecting ? start() : stop()), { threshold: 0.25 });
+      io.observe(ref.current); this._ios.push(io);
+    };
+    loop(this.deckRef, () => { clearInterval(this._deckT); this._deckT = setInterval(() => this.setState((s) => ({ deckStep: (s.deckStep + 1) % 13 })), 650); }, () => clearInterval(this._deckT));
+    loop(this.tradeRef, () => { clearInterval(this._beatT); this._beatT = setInterval(() => this.setState((s) => ({ beat: (s.beat + 1) % 3 })), 1800); }, () => clearInterval(this._beatT));
+    // count-up once
+    this.setState({ statT: 0 });
+    loop(this.statsRef, () => {
+      if (this._counted) return; this._counted = true;
+      const t0 = performance.now();
+      const tick = (now) => { const t = Math.min(1, (now - t0) / 1200); this.setState({ statT: 1 - Math.pow(1 - t, 3) }); if (t < 1) requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+    }, () => {});
+  }
+
+  fanData() {
+    const C = { name: 'Common', color: '#9aa1ad', tint: 'rgba(154,161,173,.14)', border: 'rgba(154,161,173,.3)', text: '#b4bac4' };
+    const R = { name: 'Rare', color: '#4c8dff', tint: 'rgba(76,141,255,.14)', border: 'rgba(76,141,255,.3)', text: '#7aa9ff' };
+    return [
+      ['Pikachu', 58, C], ['Bulbasaur', 44, C], ['Squirtle', 63, C], ['Charmander', 46, C], ['Blastoise', 2, R], ['Charizard', 4, R],
+    ].map(([name, no, r]) => ({ name, img: `https://images.pokemontcg.io/base1/${no}.png`, holo: r === R, r }));
+  }
+
+  renderVals() {
+    const st = this.state;
+    const bp = st.bp, sm = bp === 'sm', lg = bp === 'lg';
+    const signedIn = this.props.signedIn ?? (this.q('signedIn') === '1');
+    const notes = this.props.notes ?? (this.q('notes') !== '0');
+    const only = this.q('only');
+    const mode = this.mode();
+    const use3D = mode === 'full' || mode === 'lite';
+    const anim = mode !== 'reduced';
+    const scrub = use3D;
+    const p = st.progress;
+
+    // showcase
+    const fanW = sm ? 84 : bp === 'md' ? 118 : 140;
+    const R = sm ? 330 : 560, spread = sm ? 0.12 : 0.2;
+    const fan = this.fanData().map((c, i, a) => {
+      const th = (i - (a.length - 1) / 2) * spread;
+      const x = R * Math.sin(th), y = R * (1 - Math.cos(th)) - (sm ? 10 : 20);
+      return {
+        name: c.name, img: c.img, rarity: c.r.name, color: c.r.color, tint: c.r.tint, border: c.r.border, textColor: c.r.text,
+        tf: `translate(-50%,-50%) translate(${x.toFixed(1)}px,${y.toFixed(1)}px) rotate(${th.toFixed(3)}rad)`,
+        posterBorder: c.holo ? 'rgba(76,141,255,.6)' : 'rgba(255,255,255,.2)', glow: c.holo ? 'rgba(76,141,255,.35)' : 'transparent',
+      };
+    });
+    const stageIdx = p < 0.12 ? 0 : p < 0.5 ? 1 : 2;
+    const stages = ['Sealed', 'Torn open', 'Revealed'].map((label, i) => ({
+      n: '0' + (i + 1), label,
+      bd: i === stageIdx ? 'rgba(239,106,67,.6)' : 'rgba(255,255,255,.08)',
+      bg: i === stageIdx ? 'rgba(239,106,67,.16)' : 'transparent',
+      fg: i === stageIdx ? '#eef0f4' : '#969cab',
+    }));
+
+    // chase
+    const chaseBase = [[4, 'Charizard'], [2, 'Blastoise'], [15, 'Venusaur'], [10, 'Mewtwo'], [6, 'Gyarados'], [1, 'Alakazam'], [16, 'Zapdos'], [14, 'Raichu'], [8, 'Machamp'], [12, 'Ninetales'], [13, 'Poliwrath'], [11, 'Nidoking']]
+      .map(([n, name]) => ({ name, no: `${n}/102`, img: `https://images.pokemontcg.io/base1/${n}.png`, href: `/cards/base1-${n}`, alt: `${name}, Base Set ${n}/102` }));
+    const marqueeAnimated = anim && !sm;
+    const chaseList = marqueeAnimated
+      ? [...chaseBase, ...chaseBase.map((c) => ({ ...c, hidden: 'true', tab: -1, alt: '' }))]
+      : chaseBase;
+
+    // sets
+    const setDefs = [
+      ['sv8', 'Surging Sparks', 252, true, .34], ['sv7', 'Stellar Crown', 175, true, .58], ['sv6', 'Twilight Masquerade', 226, true, .12], ['sv5', 'Temporal Forces', 218, true, .41],
+      ['base1', 'Base', 102, false, .86], ['base2', 'Jungle', 64, false, .5], ['neo1', 'Neo Genesis', 111, false, .22], ['ex1', 'Ruby & Sapphire', 109, false, .07], ['dp1', 'Diamond & Pearl', 130, false, .3], ['swsh1', 'Sword & Shield', 216, false, .65],
+    ];
+    const sets = setDefs.map(([id, name, total, newest, f]) => {
+      const failed = !!st.logoFail[id];
+      return {
+        id, name, total, href: `/sets/${id}`, logo: `https://images.pokemontcg.io/${id}/logo.png`, hasLogo: !failed, noLogo: failed,
+        onFail: () => this.setState((s) => ({ logoFail: { ...s.logoFail, [id]: true } })),
+        tag: newest ? 'Newest' : 'Classic', tagFg: newest ? '#34d399' : '#969cab', tagBg: newest ? 'rgba(52,211,153,.14)' : '#1b1e26',
+        pct: Math.round(f * 100) + '%', owned: Math.round(f * total), meterLabel: `${name} completion`,
+      };
+    });
+
+    // deck
+    const step = st.deckStep;
+    const added = Math.min(step, 8);
+    const deckN = 52 + added;
+    const valid = deckN === 60;
+    const slotCat = (i) => (i < 24 ? 'e' : i < 44 ? 't' : 'p');
+    const slots = Array.from({ length: 60 }, (_, i) => {
+      const on = i < deckN, c = slotCat(i);
+      const bg = !on ? '#1b1e26' : c === 'p' ? '#f4c73a' : c === 't' ? '#b9bec9' : 'rgba(244,199,58,.4)';
+      return { bg, bd: on ? (c === 'e' ? '#f4c73a' : 'transparent') : 'rgba(255,255,255,.06)', tf: on ? 'scale(1)' : 'scale(.86)' };
+    });
+    const dropNos = [16, 14, 58, 58, 20, 67, 21, 53];
+    const deckDrop = anim && step >= 1 && step <= 8
+      ? React.createElement('img', { key: 'd' + step, src: `https://images.pokemontcg.io/base1/${dropNos[step - 1]}.png`, alt: '', width: 64, height: 90, style: { width: 64, height: 90, borderRadius: 5, display: 'block', boxShadow: '0 10px 24px rgba(0,0,0,.5)', animation: 'deckDrop .6s cubic-bezier(.2,.7,.2,1) both' } })
+      : null;
+    const ok = { fg: '#34d399', chipBg: 'rgba(52,211,153,.14)', state: 'PASS' };
+    const bad = { fg: '#f05151', chipBg: 'rgba(239,68,68,.14)', state: 'FAIL' };
+    const rules = [
+      { label: `60 cards · ${deckN} / 60`, ...(valid ? ok : bad) },
+      { label: 'Max 4 copies', ...ok },
+      { label: 'Unlimited legal', ...ok },
+    ];
+
+    // trades
+    const beatsDef = [
+      ['lock', 'Cards lock', 'The cards and coins you offer are held in escrow. They can\u2019t be traded twice or spent while the offer is open.'],
+      ['message-square-reply', 'The other side answers', 'They accept, decline or counter. A counter replaces the offer, and your lock follows it.'],
+      ['arrow-left-right', 'One atomic swap', 'On accept, both sides move in a single transaction. Either everything changes hands, or nothing does.'],
+    ];
+    const beats = beatsDef.map(([icon, title, body], i) => {
+      const on = st.beat === -1 || st.beat === i;
+      return { icon, title, body, n: '0' + (i + 1), bd: on ? 'rgba(74,166,239,.55)' : 'rgba(255,255,255,.08)', shadow: on ? '0 0 0 1px rgba(74,166,239,.25),0 0 32px rgba(74,166,239,.18)' : 'none' };
+    });
+
+    // stats
+    const t = st.statT;
+    const fmt = (n) => Math.round(n).toLocaleString('en-US');
+    const ph = '#9ec0ff';
+    const stats = [
+      { label: 'Cards catalogued', value: fmt(20670 * t), icon: 'library', color: '#4c8dff', tint: 'rgba(76,141,255,.14)', size: '30px', valColor: '#eef0f4', source: 'GET /cards?pageSize=1 → total · dropped if unavailable' },
+      { label: 'Sets', value: fmt(176 * t), icon: 'layout-grid', color: '#5ec269', tint: 'rgba(94,194,105,.14)', size: '30px', valColor: '#eef0f4', source: 'GET /sets → length · dropped if unavailable' },
+      { label: 'Prices updated in the last day', value: '{pricesUpdated24h}', icon: 'trending-up', color: '#f2b23c', tint: 'rgba(242,178,60,.14)', size: '20px', valColor: ph, source: 'Proposed GET /stats → pricesUpdated24h · dropped if unavailable' },
+      { label: 'Packs opened', value: '{packsOpened}', icon: 'package-open', color: '#ef6a43', tint: 'rgba(239,106,67,.14)', size: '20px', valColor: ph, source: 'Proposed GET /stats → packsOpened · dropped if unavailable' },
+    ];
+
+    // faq
+    const faqDef = [
+      ['Is it free?', 'Yes. Every new account gets 1,000 coins to open packs with, and there is nothing to buy.'],
+      ['Is it real money?', 'No. Coins can\u2019t be bought or cashed out, and cards can\u2019t be sold for money here. Market prices are shown for reference only.'],
+      ['Where do the cards and prices come from?', 'The catalog is mirrored from pokemontcg.io and TCGdex, with Pokémon data from PokéAPI. Prices come from TCGplayer and Cardmarket and are refreshed every day.'],
+      ['Can I trade with friends?', 'Yes, with any member. Offer cards and coins; they can accept, decline or counter, and nothing moves until both sides agree.'],
+      ['Is PokéDrop official?', 'No. It is a fan project, not affiliated with Nintendo, Creatures, GAME FREAK or The Pokémon Company.'],
+    ];
+    const faqs = faqDef.map(([q, a], i) => ({
+      q, a, rot: st.open[i] ? '45deg' : '0deg', bd: st.open[i] ? 'rgba(255,255,255,.13)' : 'rgba(255,255,255,.08)',
+      onToggle: (e) => { const o = e.currentTarget.open; this.setState((s) => ({ open: { ...s.open, [i]: o } })); },
+    }));
+
+    const modeLabel = { full: 'full (WebGL, scrubbed by scroll)', lite: 'lite (DPR ≤ 1.5, renders on scroll only)', poster: 'poster (no WebGL)', reduced: 'poster (reduced motion)' }[mode];
+
+    return {
+      rootRef: this.rootRef, heroStageRef: this.heroStageRef, heroMountRef: this.heroMountRef,
+      showRef: this.showRef, showStageRef: this.showStageRef, showMountRef: this.showMountRef,
+      deckRef: this.deckRef, tradeRef: this.tradeRef, statsRef: this.statsRef,
+      signedIn, signedOut: !signedIn, notes,
+      showChrome: !only, showHero: !only || only === 'hero', showRest: !only || only === 'showcase',
+      navLinks: !sm,
+      heroCols: lg ? 'minmax(0,1.05fr) minmax(0,.95fr)' : 'minmax(0,1fr)',
+      heroStageH: sm ? '400px' : bp === 'md' ? '480px' : '560px',
+      heroPosterOpacity: st.heroReady && !st.heroFail ? 0 : 1,
+      // showcase layout
+      showOuterH: scrub ? (sm ? '220vh' : '260vh') : 'auto',
+      showStickyPos: scrub ? 'sticky' : 'relative',
+      showInnerH: scrub ? 'calc(100vh - 64px)' : 'auto',
+      showPad: sm ? '24px 20px' : 'clamp(32px,5vw,64px) clamp(20px,4vw,56px)',
+      showCols: lg ? 'minmax(0,.85fr) minmax(0,1.15fr)' : 'minmax(0,1fr)',
+      showRows: lg ? 'minmax(0,1fr)' : (scrub ? 'auto minmax(0,1fr)' : 'auto auto'),
+      showTextGap: sm ? '10px' : '16px',
+      showStageMin: scrub ? '0px' : (sm ? '360px' : '520px'),
+      showScrubUI: scrub && !st.showFail,
+      showLegend: !(scrub && sm) || p > 0.6,
+      showSealedPoster: use3D && !st.showReady && !st.showFail,
+      showFanPoster: !use3D || st.showFail,
+      packW: sm ? '150px' : '220px', fanW: fanW + 'px',
+      fan, stages, modeLabel,
+      packsHref: signedIn ? '/packs' : '/register', packsLabel: signedIn ? 'Browse packs' : 'Get your 1,000 coins',
+      // chase
+      chaseOn: true, chaseList, chaseW: sm ? '150px' : '176px',
+      marqueeAnimated,
+      marqueeAnim: marqueeAnimated ? 'marquee 70s linear infinite' : 'none',
+      marqueeState: st.paused ? 'paused' : 'running',
+      railOverflow: marqueeAnimated ? 'hidden' : 'auto', railSnap: marqueeAnimated ? 'none' : 'x mandatory',
+      togglePause: () => this.setState((s) => ({ paused: !s.paused })), pausedAria: st.paused ? 'true' : 'false', pauseLabel: st.paused ? 'Play' : 'Pause',
+      // sets
+      sets, setsLine: signedIn ? 'Your progress on the newest sets and the classics.' : 'Each set shows how many cards it holds. Sign in to track how many you own.',
+      setsDisplay: sm ? 'flex' : 'grid', setsOverflow: sm ? 'auto' : 'visible', setW: sm ? '168px' : 'auto',
+      // deck
+      deckN, deckValid: valid, deckInvalid: !valid, deckShort: `${60 - deckN} card${60 - deckN === 1 ? '' : 's'} short of 60`,
+      deckCountColor: valid ? '#34d399' : '#eef0f4',
+      bannerBd: valid ? 'rgba(52,211,153,.4)' : 'rgba(239,68,68,.3)', bannerBg: valid ? 'rgba(52,211,153,.12)' : 'rgba(239,68,68,.1)', bannerFg: valid ? '#34d399' : '#f05151',
+      slots, slotCols: sm ? 10 : 15, rules, deckDrop,
+      beats, stats, faqs,
+      ctaTitle: signedIn ? 'Your next pack is waiting.' : '1,000 coins are waiting for you.',
+      ctaLine: signedIn ? 'Open a pack, finish a set, or answer an offer.' : 'Sign up free, open your first packs and start a collection that is yours to trade.',
+      ctaJustify: lg ? 'flex-end' : 'flex-start',
+    };
+  }
+}
+</script>
+</body>
+</html>

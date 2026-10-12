@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<footer style="border-top:1px solid rgba(255,255,255,.08);background:linear-gradient(180deg,rgba(20,22,28,.6),#0a0b0e);font-family:Geist,system-ui,sans-serif;color:#eef0f4;">
+  <div style="max-width:1200px;margin:0 auto;padding:48px clamp(20px,4vw,56px) 32px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:32px 24px;">
+    <div style="display:flex;flex-direction:column;gap:12px;grid-column:span 1;min-width:0;">
+      <a href="/" aria-label="PokéDrop home" style="display:inline-flex;align-items:center;gap:12px;text-decoration:none;color:#eef0f4;width:max-content;border-radius:10px;">
+        <span style="width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#4c8dff,#5d99ff);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(76,141,255,.4);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"></path></svg>
+        </span>
+        <span style="font-size:16px;font-weight:700;letter-spacing:-.02em;">Poké<span style="color:#4c8dff;">Drop</span></span>
+      </a>
+      <p style="margin:0;font-size:14px;line-height:1.6;color:#969cab;max-width:260px;text-wrap:pretty;">Open. Collect. Build. Trade. Free to play, with 1,000 coins to start.</p>
+    </div>
+    <nav aria-label="Explore" style="display:flex;flex-direction:column;gap:12px;">
+      <h2 style="margin:0;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#858a96;">Explore</h2>
+      <a href="/cards" style="font-size:14px;color:#eef0f4;text-decoration:none;width:max-content;" style-hover="color:#4c8dff;">Browse cards</a>
+      <a href="/sets" style="font-size:14px;color:#eef0f4;text-decoration:none;width:max-content;" style-hover="color:#4c8dff;">Sets</a>
+    </nav>
+    <nav aria-label="Account" style="display:flex;flex-direction:column;gap:12px;">
+      <h2 style="margin:0;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#858a96;">Account</h2>
+      <sc-if value="{{ signedIn }}" hint-placeholder-val="{{ false }}">
+        <a href="/dashboard" style="font-size:14px;color:#eef0f4;text-decoration:none;width:max-content;" style-hover="color:#4c8dff;">Dashboard</a>
+      </sc-if>
+      <sc-if value="{{ signedOut }}" hint-placeholder-val="{{ true }}">
+        <a href="/sign-in" style="font-size:14px;color:#eef0f4;text-decoration:none;width:max-content;" style-hover="color:#4c8dff;">Sign in</a>
+        <a href="/register" style="font-size:14px;color:#eef0f4;text-decoration:none;width:max-content;" style-hover="color:#4c8dff;">Create account</a>
+      </sc-if>
+    </nav>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <h2 style="margin:0;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#858a96;">Data</h2>
+      <a href="https://pokemontcg.io" rel="noopener" style="font-size:14px;color:#eef0f4;text-decoration:none;width:max-content;" style-hover="color:#4c8dff;">pokemontcg.io</a>
+      <a href="https://tcgdex.dev" rel="noopener" style="font-size:14px;color:#eef0f4;text-decoration:none;width:max-content;" style-hover="color:#4c8dff;">TCGdex</a>
+      <a href="https://pokeapi.co" rel="noopener" style="font-size:14px;color:#eef0f4;text-decoration:none;width:max-content;" style-hover="color:#4c8dff;">PokéAPI</a>
+      <span style="font-size:14px;color:#969cab;">Prices: TCGplayer / Cardmarket</span>
+    </div>
+  </div>
+  <div style="max-width:1200px;margin:0 auto;padding:20px clamp(20px,4vw,56px) 32px;border-top:1px solid rgba(255,255,255,.08);display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:space-between;align-items:baseline;">
+    <p style="margin:0;font-size:13px;line-height:1.6;color:#969cab;max-width:640px;text-wrap:pretty;">PokéDrop is a fan project, not affiliated with Nintendo, Creatures, GAME FREAK or The Pokémon Company. No real money, no cash-out.</p>
+    <p style="margin:0;font-size:13px;color:#858a96;font-family:'Geist Mono',monospace;">© {{ year }} PokéDrop</p>
+  </div>
+</footer>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1200,&quot;height&quot;:340},&quot;signedIn&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const signedIn = !!this.props.signedIn;
+    return { signedIn, signedOut: !signedIn, year: new Date().getFullYear() };
+  }
+}
+</script>
+</body>
+</html>
