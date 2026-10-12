@@ -92,6 +92,8 @@ Prisma has no syntax for them, so they are added by hand in their own migration 
 
 **It does not generalise to indexes.** Prisma _does_ model those, so a hand-written index would be seen as drift and dropped. That is why the "at most one price snapshot per card per day" rule is enforced by the price sync job rather than by a unique index over `capturedAt::date`.
 
+**An index Prisma models can still be hand-tuned where Prisma has no syntax for a detail.** `card_price_sort` declares `@@index([latestPriceUsd(sort: Desc), id(sort: Desc)])` in the schema and its SQL adds `NULLS LAST`, which Prisma cannot express. Verified 2026-10-12: a `--create-only` migration made right after was empty (Prisma does not compare null ordering), and `pg_indexes` shows `DESC NULLS LAST`. Keep the index in the schema so Prisma owns it; only the detail is hand-written.
+
 > **The trap.** `prisma migrate dev --create-only` writes `-- This is an empty migration.` **with no trailing newline.** Appending to the file with `>>` glues your first statement onto that comment line, where it is silently skipped. Overwrite the file instead of appending.
 >
 > It hides well. When this happened during PD-24, the test row was still rejected — by a neighbouring constraint — so the result looked green while one constraint was missing entirely.

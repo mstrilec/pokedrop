@@ -274,6 +274,31 @@ Measured 2026-10-07 on `/cards` signed out (the FilterBar menus): the open conte
 
 The gallery's *BoosterPack* specimen shows the four sizes, no art, and a broken logo, cover and photo.
 
+## Landing (PD-138)
+
+`components/landing/`, composed by `app/(public)/page.tsx` (Pages.md *Landing*). Server components unless marked client.
+
+| Component | File | What |
+| --- | --- | --- |
+| `landingData` | `landing-data.ts` (server-only) | The page's reads, each settled on its own: card count, sets, the twelve most valuable priced cards, the member's set completion |
+| `SectionHeading` | `section-heading.tsx` | Eyebrow with icon and tone, `h2`, optional lead |
+| `Reveal` (client) | `reveal.tsx` | Fades content in when it is reached; hides only what starts below the first screen, never under reduced motion; `as="li"` for list items |
+| `Hero` | `hero.tsx` | Newest-set badge, headline, calls to action, figures |
+| `HeroCardStage` (client) | `hero-card-stage.tsx` | Charizard poster with CSS holo between Blastoise and Pikachu; on a capable desktop, the 3D card over it |
+| `HowItWorks` | `how-it-works.tsx` | Four step cards with CSS micro-animations and links to the sections |
+| `PackShowcase` (client) | `pack-showcase.tsx` | The example pull's legend; a CSS fan as the poster, or a sticky 3D tear-and-fan driven by scroll |
+| `ChaseMarquee`, `ChaseItem` | `chase-marquee.tsx` | The most valuable cards: art, name, rarity tier with its colour and label, price, set and number |
+| `MarqueeMotion` (client) | `marquee-motion.tsx` | A scroll-snap rail that becomes a pausable marquee from 640 px with motion allowed; the second copy `aria-hidden` and `inert` |
+| `SetStrip`, `SetLogo` (client) | `set-strip.tsx`, `set-logo.tsx` | Newest and classic sets with card counts or `CompletionMeter`s; a failed logo falls back to the name |
+| `DeckPreview` (client) | `deck-preview.tsx` | A 60-slot deck filling 52 → 60 while visible, above `DeckValidationBanner` fed a static `DeckValidation` (`inert`, so its live badge stays quiet) |
+| `TradeBeats` | `trade-beats.tsx` | Three escrow beats and a counter-offer chain with `TRADE_STATUS_STYLES` badges |
+| `LandingFaq` | `landing-faq.tsx` | Five `<details>` and the same five as `FAQPage` JSON-LD |
+| `FinalCta` | `final-cta.tsx` | Signed-out or signed-in close; the rainbow border is an inline background (four layers with `padding-box`/`border-box`, beyond a `bg-[…]` utility) |
+| `useThreeMode` (client) | `use-three-mode.ts` | `full` or `poster`; `poster` on the server and during hydration |
+| 3D modules | `three/hero-card.ts`, `three/pack-showcase.ts`, `three/tokens.ts` | `init(container, opts)` → a handle with `dispose` (and `setProgress`, `setCompact` for the showcase); `import('three')` inside, `onReady`/`onFallback`, pause off-screen and on hidden tabs, survive a lost context |
+
+**`SiteFooter`** (`components/shell/site-footer.tsx`, server): the footer of every public page — logo and slogan, *Explore*, *Account* (by `signedIn`), *Data* credits, the disclaimer and the year. **`topbar-controls-lazy.tsx`** re-exports the shell's top-bar controls through `next/dynamic` (SSR on) so guests, whose layout imports `AppShell`, do not download them.
+
 ## TCG domain (PD-99)
 
 | Component | File | Notes |

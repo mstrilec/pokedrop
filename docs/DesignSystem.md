@@ -164,6 +164,7 @@ Dialog scrim: `rgba(6,7,10,.72)` + 6px blur. Sticky bars (navbar/topbar) use `rg
 - **Skeleton shimmer:** `shimmer 1.5s ease-in-out infinite` over a `linear-gradient(90deg,#191c24,#262a34,#191c24)`.
 - **Spinner:** 2.5px ring, `--pri` top color, `spin 0.8s linear infinite`.
 - **Booster opening stages:** sealed (float) → opening (shake + flash) → reveal (card-by-card flip) → summary. See `design/Booster Opening.dc.html`.
+- **Landing micro-animations (PD-138):** `coin-drop` 2.6s, `wiggle` 3s, `stack-in` 3.6s, `swap-l`/`swap-r` 3s (the How it works steps), `marquee` 70s linear (the chase cards, from 640 px), `deck-drop` 0.6s (the deck preview), `beat` 5.4s (the escrow beats, staggered 1.8s), all on the reveal easing where they ease. The looping ones have no fill mode, so the reduced-motion rule leaves each element in its own resting style; where the resting style is not the end state (the escrow beats), the component sets it with `motion-reduce:`. `stack-in` animates `transform`, not `translate`, so the cards' translate and rotate utilities still apply.
 
 **All motion must honor `prefers-reduced-motion`** — freeze shimmer, drop the flip, render results instantly.
 
