@@ -59,7 +59,7 @@ export function SetStrip({
           <ArrowRight aria-hidden className="size-4" />
         </Link>
       </div>
-      <ul className="-mx-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-2 sm:mx-0 sm:grid sm:grid-cols-[repeat(auto-fill,minmax(min(100%,12.25rem),1fr))] sm:overflow-visible sm:px-0 sm:pb-0">
+      <ul className="-mx-5 flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto px-5 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-5">
         {shown.map(({ set, newest: isNew }) => {
           const progress = completion
             ? (completion.get(set.id) ?? { owned: 0, total: set.printedTotal })
@@ -74,7 +74,7 @@ export function SetStrip({
                   <SetLogo name={set.name} logoUrl={set.logoUrl} />
                 </span>
                 <span className="flex flex-col items-start gap-2">
-                  <span className="w-full truncate text-body font-semibold">{set.name}</span>
+                  <span className="line-clamp-2 w-full text-body font-semibold">{set.name}</span>
                   <Badge
                     label={isNew ? 'Newest' : 'Classic'}
                     tone={isNew ? 'success' : 'neutral'}

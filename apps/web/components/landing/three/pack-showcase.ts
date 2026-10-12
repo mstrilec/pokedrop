@@ -390,7 +390,7 @@ export async function init(
     const t = Math.tan((camera.fov * Math.PI) / 360);
     // Wide enough for the fanned arc of however many cards there are.
     const { R, spread } = arc();
-    const needW = 2 * R * Math.sin((spread * (cardMeshes.length - 1)) / 2) + CW + 0.6;
+    const needW = 2 * R * Math.sin((spread * (cardMeshes.length - 1)) / 2) + CW + 1.4;
     const needH = compact ? 5.6 : 5.0;
     camera.position.set(0, 0.2, Math.max(needH / (2 * t), needW / (2 * t * camera.aspect)));
     camera.updateProjectionMatrix();

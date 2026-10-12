@@ -116,7 +116,7 @@ export function TradeBeats() {
         lead="Trades lock first, then swap in one step."
         className="mb-10"
       />
-      <ol className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,16.25rem),1fr))] gap-4">
+      <ol className="grid gap-4 md:grid-cols-3">
         {BEATS.map((beat, i) => (
           <Reveal
             as="li"
@@ -141,7 +141,7 @@ export function TradeBeats() {
 
       <Reveal className="mt-6 rounded-card border border-bd bg-surface p-5">
         <h3 className="mb-4 text-h3">A counter-offer, start to finish</h3>
-        <ol className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,15rem),1fr))] gap-3">
+        <ol className="grid gap-3 md:grid-cols-3">
           {CHAIN.map((step) => {
             const status = TRADE_STATUS_STYLES[step.status];
             return (

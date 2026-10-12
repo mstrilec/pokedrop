@@ -166,15 +166,15 @@ export function DeckPreview() {
               <div className="mt-3.5 flex flex-wrap gap-x-4 gap-y-3 text-caption font-normal tracking-normal text-mut normal-case">
                 <span className="inline-flex items-center gap-1.5">
                   <span className="h-3.5 w-2.5 rounded-xs bg-energy-lightning" />
-                  Pokémon 16
+                  Pokémon {Math.min(Math.max(n - 44, 0), 16)}
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <span className="h-3.5 w-2.5 rounded-xs bg-energy-colorless" />
-                  Trainer 20
+                  Trainer {Math.min(Math.max(n - 24, 0), 20)}
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <span className="h-3.5 w-2.5 rounded-xs border border-energy-lightning bg-energy-lightning/40" />
-                  Energy 24
+                  Energy {Math.min(n, 24)}
                 </span>
               </div>
             </div>

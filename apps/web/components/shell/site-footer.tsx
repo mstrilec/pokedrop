@@ -29,7 +29,7 @@ function Group({ label, nav, children }: { label: string; nav?: boolean; childre
 export function SiteFooter({ signedIn }: { signedIn: boolean }) {
   return (
     <footer className="border-t border-bd bg-linear-180 from-surface/60 to-bg">
-      <div className="mx-auto grid max-w-300 grid-cols-[repeat(auto-fit,minmax(min(100%,11.25rem),1fr))] gap-x-6 gap-y-8 px-5 pt-12 pb-8 sm:px-14">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,11.25rem),1fr))] gap-x-6 gap-y-8 px-4 pt-12 pb-8 sm:px-14">
         <div className="flex min-w-0 flex-col gap-3">
           <Logo href="/" className="w-max rounded-control" />
           <p className="text-body text-mut">Open. Collect. Build. Trade.</p>
@@ -67,7 +67,7 @@ export function SiteFooter({ signedIn }: { signedIn: boolean }) {
           <span className="text-body text-mut">Prices: TCGplayer / Cardmarket</span>
         </Group>
       </div>
-      <div className="mx-auto flex max-w-300 flex-wrap items-baseline justify-between gap-x-6 gap-y-3 border-t border-bd px-5 pt-5 pb-8 sm:px-14">
+      <div className="mx-4 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-3 border-t border-bd pt-5 pb-8 sm:mx-14">
         <p className="max-w-160 text-small text-mut">
           PokéDrop is a fan project, not affiliated with Nintendo, Creatures, GAME FREAK or The
           Pokémon Company. No real money, no cash-out.

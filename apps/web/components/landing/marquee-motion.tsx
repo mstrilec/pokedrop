@@ -25,13 +25,16 @@ export function MarqueeMotion({ items, label }: { items: ReactNode[]; label: str
     () => false,
   );
   const [paused, setPaused] = useState(false);
+  // Focus inside stops the marquee for good and makes the track a scrollable rail in place,
+  // so the browser can scroll each focused card into view; swapping the markup would drop focus.
+  const [stopped, setStopped] = useState(false);
 
   if (!moving) {
     return (
       <ul
         aria-label={label}
         className={cn(
-          'flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pt-4 pb-6 sm:px-14',
+          'flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pt-4 pb-6 sm:scroll-px-14 sm:px-14',
           MASK,
         )}
       >
@@ -43,27 +46,41 @@ export function MarqueeMotion({ items, label }: { items: ReactNode[]; label: str
   return (
     <>
       <div className="mx-auto flex max-w-300 justify-end px-5 sm:px-14">
-        <Button
-          size="sm"
-          variant="secondary"
-          icon={paused ? Play : Pause}
-          onClick={() => setPaused((p) => !p)}
-        >
-          {paused ? 'Play' : 'Pause'}
-        </Button>
+        {stopped ? null : (
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={paused ? Play : Pause}
+            onClick={() => setPaused((p) => !p)}
+          >
+            {paused ? 'Play' : 'Pause'}
+          </Button>
+        )}
       </div>
-      <div className={cn('overflow-hidden pt-4 pb-6', MASK)}>
+      <div
+        onFocus={() => setStopped(true)}
+        className={cn(
+          'pt-4 pb-6',
+          stopped
+            ? 'snap-x snap-mandatory scroll-px-5 overflow-x-auto px-5 sm:scroll-px-14 sm:px-14'
+            : 'overflow-hidden',
+          MASK,
+        )}
+      >
         {/* Two identical halves: the track moves by -50% and starts over seamlessly. */}
         <div
           className={cn(
-            'flex w-max animate-marquee hover:[animation-play-state:paused] focus-within:[animation-play-state:paused]',
+            'flex w-max',
+            stopped
+              ? ''
+              : 'animate-marquee hover:[animation-play-state:paused] focus-within:[animation-play-state:paused]',
             paused && '[animation-play-state:paused]',
           )}
         >
           <ul aria-label={label} className="flex gap-4 pr-4">
             {items}
           </ul>
-          <ul aria-hidden inert className="flex gap-4 pr-4">
+          <ul aria-hidden inert className={cn('flex gap-4 pr-4', stopped && 'hidden')}>
             {items}
           </ul>
         </div>

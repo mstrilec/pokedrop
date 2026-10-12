@@ -22,7 +22,7 @@ export function Hero({
   const figures = [
     cardCount === null ? null : { label: 'Cards catalogued', value: count.format(cardCount) },
     sets.length === 0 ? null : { label: 'Sets to complete', value: count.format(sets.length) },
-    { label: 'Welcome coins', value: '1,000', gold: true },
+    signedIn ? null : { label: 'Welcome coins', value: '1,000', gold: true },
   ].filter((figure) => figure !== null);
 
   return (
@@ -82,9 +82,9 @@ export function Hero({
             <Coins aria-hidden className="size-4 text-gold" />
             Free to play. No real money, no cash-out.
           </p>
-          <dl className="mt-10 flex flex-wrap gap-8">
+          <dl className="mt-10 grid grid-cols-3 gap-4 sm:flex sm:flex-wrap sm:gap-8">
             {figures.map((figure) => (
-              <div key={figure.label} className="flex flex-col-reverse gap-0.5">
+              <div key={figure.label} className="flex flex-col-reverse justify-end gap-0.5">
                 <dt className="text-small text-faint">{figure.label}</dt>
                 <dd
                   className={

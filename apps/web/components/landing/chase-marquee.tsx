@@ -33,12 +33,12 @@ export function ChaseItem({ card, setName }: { card: Card; setName: string }) {
               className="size-1.75 shrink-0 rounded-pill"
               style={{ background: style.color }}
             />
-            <span className="truncate">{style.label}</span>
+            <span className="truncate">{card.rarity ?? style.label}</span>
           </span>
           <span className="font-mono text-body font-semibold text-tx">
             {formatUsd(card.latestPriceUsd)}
           </span>
-          <span className="truncate font-mono text-caption font-normal tracking-normal text-faint">
+          <span className="line-clamp-2 font-mono text-caption font-normal tracking-normal text-faint">
             {setName} · {number}
           </span>
         </span>
