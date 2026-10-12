@@ -5,6 +5,7 @@ import { CardArt } from '@/components/cards/card-art';
 import { cardView, formatUsd } from '@/components/cards/card-data';
 import { RARITY_STYLES, rarityTier } from '@/lib/design/rarity';
 import { cn } from '@/lib/utils';
+import { MarqueeMotion } from './marquee-motion';
 import { SectionHeading } from './section-heading';
 
 export function ChaseItem({ card, setName }: { card: Card; setName: string }) {
@@ -65,12 +66,7 @@ export function ChaseMarquee({ cards, sets }: { cards: Card[]; sets: CardSet[] }
           lead="The catalog’s most valuable cards, at their latest market price."
         />
       </div>
-      <ul
-        aria-label="Most valuable cards"
-        className="flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pt-4 pb-6 [mask-image:linear-gradient(90deg,transparent,#000_6%,#000_94%,transparent)] sm:px-14"
-      >
-        {items}
-      </ul>
+      <MarqueeMotion items={items} label="Most valuable cards" />
     </section>
   );
 }

@@ -179,7 +179,7 @@ void main(){
 const FLASH_FRAG = `
 precision highp float;
 uniform float uOpacity; uniform vec3 uColor; varying vec2 vUv;
-void main(){ float r = length(vUv - 0.5) * 2.0; float a = smoothstep(1.0, 0.0, r); gl_FragColor = vec4(mix(uColor, vec3(1.0), a * a) * a * uOpacity, 1.0); }`;
+void main(){ float r = length(vUv - 0.5) * 2.0; float a = smoothstep(1.0, 0.0, r); gl_FragColor = vec4(mix(uColor, vec3(1.0), a * a), a * uOpacity); }`;
 
 /**
  * The booster pouch in 3D: shakes, tears at the top, and fans its cards out in
@@ -379,6 +379,8 @@ export async function init(
     return mesh;
   });
 
+  const arc = () => (compact ? { R: 5.5, spread: 0.12 } : { R: 6.2, spread: 0.2 });
+
   const frameCamera = () => {
     if (!renderer) return;
     const w = container.clientWidth || 1;
@@ -386,7 +388,9 @@ export async function init(
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     const t = Math.tan((camera.fov * Math.PI) / 360);
-    const needW = compact ? 5.0 : 8.2;
+    // Wide enough for the fanned arc of however many cards there are.
+    const { R, spread } = arc();
+    const needW = 2 * R * Math.sin((spread * (cardMeshes.length - 1)) / 2) + CW + 0.6;
     const needH = compact ? 5.6 : 5.0;
     camera.position.set(0, 0.2, Math.max(needH / (2 * t), needW / (2 * t * camera.aspect)));
     camera.updateProjectionMatrix();
@@ -419,8 +423,7 @@ export async function init(
     hinge.visible = p < 0.37;
     // Rise out of the pouch, then fan into an arc and flip face-up.
     const rise = seg(p, 0.26, 0.5);
-    const spread = compact ? 0.12 : 0.2;
-    const R = compact ? 5.5 : 6.2;
+    const { R, spread } = arc();
     const sweep = lerp(-2.2, 2.6, seg(p, 0.8, 0.97));
     cardMeshes.forEach((mesh, i) => {
       const fan = seg(p, 0.46 + i * 0.025, 0.72 + i * 0.025);

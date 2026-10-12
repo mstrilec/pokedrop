@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
 import { ChaseMarquee } from '@/components/landing/chase-marquee';
+import { DeckPreview } from '@/components/landing/deck-preview';
 import { FinalCta } from '@/components/landing/final-cta';
 import { Hero } from '@/components/landing/hero';
 import { HowItWorks } from '@/components/landing/how-it-works';
 import { LandingFaq } from '@/components/landing/landing-faq';
 import { landingData } from '@/components/landing/landing-data';
+import { PackShowcase } from '@/components/landing/pack-showcase';
 import { SetStrip } from '@/components/landing/set-strip';
 import { TradeBeats } from '@/components/landing/trade-beats';
 import { getOptionalProfile } from '@/lib/session/server';
@@ -35,8 +37,10 @@ export default async function LandingPage() {
     <div className="-m-8 overflow-x-clip">
       <Hero signedIn={signedIn} cardCount={data.cardCount} sets={data.sets} />
       <HowItWorks />
+      <PackShowcase signedIn={signedIn} />
       <ChaseMarquee cards={data.chase} sets={data.sets} />
       <SetStrip sets={data.sets} completion={data.completion} />
+      <DeckPreview />
       <TradeBeats />
       <LandingFaq />
       <FinalCta signedIn={signedIn} />
