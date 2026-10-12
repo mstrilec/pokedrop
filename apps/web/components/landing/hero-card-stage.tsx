@@ -64,17 +64,19 @@ export function HeroCardStage() {
     let handle: HeroCardHandle | null = null;
     let gone = false;
     const cancel = whenIdle(() => {
-      void import('./three/hero-card').then(async ({ init }) => {
-        if (gone) return;
-        const h = await init(mount, {
-          image: HERO_CARD_IMAGE,
-          pointerTarget: mount.closest('section') ?? mount,
-          onReady: () => setReady(true),
-          onFallback: () => setReady(false),
-        });
-        if (gone) h.dispose();
-        else handle = h;
-      });
+      void import('./three/hero-card')
+        .then(async ({ init }) => {
+          if (gone) return;
+          const h = await init(mount, {
+            image: HERO_CARD_IMAGE,
+            pointerTarget: mount.closest('section') ?? mount,
+            onReady: () => setReady(true),
+            onFallback: () => setReady(false),
+          });
+          if (gone) h.dispose();
+          else handle = h;
+        })
+        .catch(() => setReady(false));
     });
     return () => {
       gone = true;

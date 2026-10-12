@@ -101,30 +101,33 @@ export function PackShowcase({ signedIn }: { signedIn: boolean }) {
       ([entry]) => {
         if (!entry?.isIntersecting) return;
         io.disconnect();
-        void import('./three/pack-showcase').then(async ({ init }) => {
-          if (gone) return;
-          const h = await init(mount, {
-            cards: FAN.map((card) => ({
-              image: image(card.id),
-              holo: card.rarity === 'Rare Holo',
-            })),
-            cover: image('base1-4'),
-            logo: LOGO,
-            packName: PACK_NAME,
-            compact: window.innerWidth < 640,
-            onReady: () => setReady(true),
-            onFallback: () => {
-              setReady(false);
-              setFailed(true);
-            },
-          });
-          if (gone) {
-            h.dispose();
-            return;
-          }
-          handle = h;
-          h.setProgress(progress());
-        });
+        const fallBack = () => {
+          setReady(false);
+          setFailed(true);
+        };
+        void import('./three/pack-showcase')
+          .then(async ({ init }) => {
+            if (gone) return;
+            const h = await init(mount, {
+              cards: FAN.map((card) => ({
+                image: image(card.id),
+                holo: card.rarity === 'Rare Holo',
+              })),
+              cover: image('base1-4'),
+              logo: LOGO,
+              packName: PACK_NAME,
+              compact: window.innerWidth < 640,
+              onReady: () => setReady(true),
+              onFallback: fallBack,
+            });
+            if (gone) {
+              h.dispose();
+              return;
+            }
+            handle = h;
+            h.setProgress(progress());
+          })
+          .catch(fallBack);
       },
       { rootMargin: '800px 0px' },
     );
@@ -171,10 +174,11 @@ export function PackShowcase({ signedIn }: { signedIn: boolean }) {
               id="show-title"
               className="text-[clamp(1.75rem,3.4vw,2.5rem)] leading-[1.1] font-bold tracking-[-0.02em] text-balance"
             >
-              Rip a pack. See the odds first.
+              Rip a pack. Know what’s inside.
             </h2>
             <p className="max-w-105 text-[1rem] leading-relaxed text-pretty text-mut">
-              Every pack lists its odds before you open it.
+              Every pack shows how many cards it holds and the rarity it guarantees before you open
+              it.
             </p>
             {scrub ? (
               <ol aria-hidden className="mt-2 flex flex-wrap gap-2">

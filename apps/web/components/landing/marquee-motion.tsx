@@ -18,15 +18,25 @@ const subscribe = (change: () => void) => {
  * A scroll-snap rail that becomes a marquee on wider screens with motion
  * allowed. The server and hydration render the rail.
  */
-export function MarqueeMotion({ items, label }: { items: ReactNode[]; label: string }) {
+export function MarqueeMotion({
+  items,
+  copy,
+  label,
+}: {
+  items: ReactNode[];
+  /** The same items rendered out of the tab order, for the seamless second half. */
+  copy: ReactNode[];
+  label: string;
+}) {
   const moving = useSyncExternalStore(
     subscribe,
     () => matchMedia(QUERY).matches,
     () => false,
   );
   const [paused, setPaused] = useState(false);
-  // Focus inside stops the marquee for good and makes the track a scrollable rail in place,
-  // so the browser can scroll each focused card into view; swapping the markup would drop focus.
+  // Keyboard focus inside stops the marquee for good and makes the track a scrollable rail in
+  // place, so the browser can scroll each focused card into view; swapping the markup would drop
+  // focus. A mouse press focuses a link too, but moving the track under it would lose the click.
   const [stopped, setStopped] = useState(false);
 
   if (!moving) {
@@ -58,7 +68,9 @@ export function MarqueeMotion({ items, label }: { items: ReactNode[]; label: str
         )}
       </div>
       <div
-        onFocus={() => setStopped(true)}
+        onFocus={(event) => {
+          if (event.target.matches(':focus-visible')) setStopped(true);
+        }}
         className={cn(
           'pt-4 pb-6',
           stopped
@@ -80,8 +92,8 @@ export function MarqueeMotion({ items, label }: { items: ReactNode[]; label: str
           <ul aria-label={label} className="flex gap-4 pr-4">
             {items}
           </ul>
-          <ul aria-hidden inert className={cn('flex gap-4 pr-4', stopped && 'hidden')}>
-            {items}
+          <ul aria-hidden className={cn('flex gap-4 pr-4', stopped && 'hidden')}>
+            {copy}
           </ul>
         </div>
       </div>

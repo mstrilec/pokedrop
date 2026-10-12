@@ -288,7 +288,7 @@ The gallery's *BoosterPack* specimen shows the four sizes, no art, and a broken 
 | `HowItWorks` | `how-it-works.tsx` | Four step cards with CSS micro-animations and links to the sections |
 | `PackShowcase` (client) | `pack-showcase.tsx` | The example pull's legend; a CSS fan as the poster, or a sticky 3D tear-and-fan driven by scroll |
 | `ChaseMarquee`, `ChaseItem` | `chase-marquee.tsx` | The most valuable cards: art, name, rarity tier with its colour and label, price, set and number |
-| `MarqueeMotion` (client) | `marquee-motion.tsx` | A scroll-snap rail that becomes a pausable marquee from 640 px with motion allowed; the second copy `aria-hidden` and `inert` |
+| `MarqueeMotion` (client) | `marquee-motion.tsx` | A scroll-snap rail that becomes a pausable marquee from 640 px with motion allowed; the second copy (`copy`, `ChaseItem copy`) is `aria-hidden` and out of the tab order but clickable; keyboard focus turns the track into a rail in place |
 | `SetStrip`, `SetLogo` (client) | `set-strip.tsx`, `set-logo.tsx` | Newest and classic sets with card counts or `CompletionMeter`s; a failed logo falls back to the name |
 | `DeckPreview` (client) | `deck-preview.tsx` | A 60-slot deck filling 52 → 60 while visible, above `DeckValidationBanner` fed a static `DeckValidation` (`inert`, so its live badge stays quiet) |
 | `TradeBeats` | `trade-beats.tsx` | Three escrow beats and a counter-offer chain with `TRADE_STATUS_STYLES` badges |

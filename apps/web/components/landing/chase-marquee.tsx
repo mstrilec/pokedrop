@@ -8,13 +8,23 @@ import { cn } from '@/lib/utils';
 import { MarqueeMotion } from './marquee-motion';
 import { SectionHeading } from './section-heading';
 
-export function ChaseItem({ card, setName }: { card: Card; setName: string }) {
+export function ChaseItem({
+  card,
+  setName,
+  copy = false,
+}: {
+  card: Card;
+  setName: string;
+  /** The marquee's second, decorative copy: clickable, but out of the tab order. */
+  copy?: boolean;
+}) {
   const style = RARITY_STYLES[rarityTier(card.rarity)];
   const number = card.id.slice(card.id.lastIndexOf('-') + 1);
   return (
     <li className="w-37.5 flex-none snap-start sm:w-44">
       <Link
         href={`/cards/${encodeURIComponent(card.id)}`}
+        tabIndex={copy ? -1 : undefined}
         className="focus-ring flex flex-col gap-2.5 rounded-tile border border-pri/30 bg-surface p-2 text-tx shadow-[0_0_22px_color-mix(in_srgb,var(--pri)_10%,transparent)] transition-[translate,border-color,box-shadow] duration-200 hover:-translate-y-1 hover:border-pri hover:shadow-md"
       >
         <span className="relative block aspect-[63/88] overflow-hidden rounded-control">
@@ -50,9 +60,14 @@ export function ChaseItem({ card, setName }: { card: Card; setName: string }) {
 export function ChaseMarquee({ cards, sets }: { cards: Card[]; sets: CardSet[] }) {
   if (cards.length === 0) return null;
   const names = new Map(sets.map((set) => [set.id, set.name]));
-  const items = cards.map((card) => (
-    <ChaseItem key={card.id} card={card} setName={names.get(card.setId) ?? card.setId} />
-  ));
+  const item = (card: Card, copy: boolean) => (
+    <ChaseItem
+      key={card.id}
+      card={card}
+      setName={names.get(card.setId) ?? card.setId}
+      copy={copy}
+    />
+  );
 
   return (
     <section aria-labelledby="chase-title" className="py-14 sm:py-20 lg:py-28">
@@ -66,7 +81,11 @@ export function ChaseMarquee({ cards, sets }: { cards: Card[]; sets: CardSet[] }
           lead="The catalog’s most valuable cards, at their latest market price."
         />
       </div>
-      <MarqueeMotion items={items} label="Most valuable cards" />
+      <MarqueeMotion
+        items={cards.map((card) => item(card, false))}
+        copy={cards.map((card) => item(card, true))}
+        label="Most valuable cards"
+      />
     </section>
   );
 }
