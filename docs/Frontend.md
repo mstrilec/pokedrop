@@ -20,7 +20,6 @@ apps/web/
     ui/               shadcn/ui primitives: button, sonner, dropdown-menu
     shell/            the app shell: sidebar, topbar controls, nav links
     route-error.tsx   the error boundaries' shared fallback
-    page-placeholder.tsx
   lib/
     env.ts            API_INTERNAL_URL, WEB_ORIGIN
     api/              typed client: core, server, browser, endpoints/

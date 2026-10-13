@@ -295,8 +295,6 @@
 
   --color-scrim: var(--scrim);
   --color-bar: var(--bar);
-  --color-skeleton-base: var(--skeleton-base);
-  --color-skeleton-highlight: var(--skeleton-highlight);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
