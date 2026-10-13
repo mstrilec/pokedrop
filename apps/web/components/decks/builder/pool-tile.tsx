@@ -61,7 +61,7 @@ function PoolTileImpl({ card, owned, inDeck, refusal, onAdd, draggable }: PoolTi
           </span>
         ) : null}
         {owned ? (
-          <span className="absolute top-2 right-2 rounded-tag bg-black/50 px-1.5 py-0.5 font-mono text-[10px] leading-4 font-semibold text-white">
+          <span className="absolute top-2 right-2 rounded-tag bg-art-scrim/50 px-1.5 py-0.5 font-mono text-[10px] leading-4 font-semibold text-on-art">
             {ownedText(owned)}
           </span>
         ) : null}

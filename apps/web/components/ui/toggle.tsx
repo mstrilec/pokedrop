@@ -53,7 +53,7 @@ export function Toggle({
         aria-describedby={descriptionId}
         className="focus-ring inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-pill border border-bd-2 bg-surface-2 p-0.5 transition disabled:cursor-not-allowed disabled:opacity-40 data-[state=checked]:border-pri data-[state=checked]:bg-pri"
       >
-        <Switch.Thumb className="block size-4.5 rounded-pill bg-mut shadow-sm transition data-[state=checked]:translate-x-5 data-[state=checked]:bg-white" />
+        <Switch.Thumb className="block size-4.5 rounded-pill bg-mut shadow-sm transition data-[state=checked]:translate-x-5 data-[state=checked]:bg-on-pri" />
       </Switch.Root>
     </div>
   );

@@ -63,14 +63,14 @@ function CardTileImpl({
           <CardArt card={card} sizes={sizes} />
         </div>
         {owned !== undefined && owned > 0 ? (
-          <span className="absolute top-2 right-2 rounded-tag bg-black/50 px-1.5 py-0.5 font-mono text-[10px] leading-4 font-semibold text-white">
+          <span className="absolute top-2 right-2 rounded-tag bg-art-scrim/50 px-1.5 py-0.5 font-mono text-[10px] leading-4 font-semibold text-on-art">
             ×{owned}
             {locked > 0 && locked < owned ? ` · ${locked} locked` : null}
           </span>
         ) : null}
         {unavailable ? (
           <div className="absolute inset-0 flex items-center justify-center bg-bg/60">
-            <Lock className="size-4.5 text-white/55" />
+            <Lock className="size-4.5 text-on-art/55" />
           </div>
         ) : null}
       </div>

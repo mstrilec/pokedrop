@@ -94,7 +94,7 @@ export function HeroCardStage() {
           className={`absolute top-[24%] aspect-[63/88] w-[min(30%,176px)] opacity-70 ${place}`}
         >
           <div
-            className={`relative size-full animate-float overflow-hidden rounded-card border border-white/20 shadow-lg ${delay}`}
+            className={`relative size-full animate-float overflow-hidden rounded-card border border-on-art/20 shadow-lg ${delay}`}
           >
             <CardArt card={card} sizes="176px" />
           </div>

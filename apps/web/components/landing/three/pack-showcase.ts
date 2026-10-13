@@ -245,7 +245,7 @@ export async function init(
     return handle;
   }
   const energy = token('--e-fire');
-  const rarity = token('--c-rare');
+  const rarity = token('--art-rare');
   drawPack(g, coverImg, logoImg, packName, {
     energy,
     rarity,

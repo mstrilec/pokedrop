@@ -62,13 +62,13 @@ export function RevealCard({
           <div
             aria-hidden
             className={cn(
-              'absolute inset-0 flex items-center justify-center overflow-hidden border border-white/15 bg-card-back shadow-lg [backface-visibility:hidden]',
+              'absolute inset-0 flex items-center justify-center overflow-hidden border border-on-art/15 bg-card-back shadow-lg [backface-visibility:hidden]',
               radius,
             )}
           >
-            <div className={cn('absolute inset-3 border border-white/10', radius)} />
+            <div className={cn('absolute inset-3 border border-on-art/10', radius)} />
             <div className="flex size-2/5 items-center justify-center rounded-pill bg-linear-135 from-pri to-rarity-rare shadow-glow">
-              <Zap className="size-1/2 text-white" />
+              <Zap className="size-1/2 text-on-art" />
             </div>
           </div>
           <div
@@ -87,7 +87,7 @@ export function RevealCard({
             }
           >
             <CardArt card={card} size={size} sizes={sizes} />
-            <span className="absolute right-2 bottom-2 flex items-center gap-1.5 rounded-pill bg-black/40 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm">
+            <span className="absolute right-2 bottom-2 flex items-center gap-1.5 rounded-pill bg-art-scrim/40 px-2.5 py-1 text-[11px] font-bold text-on-art backdrop-blur-sm">
               <span className="size-1.75 rounded-pill" style={{ background: style.color }} />
               {rarityLabel}
             </span>

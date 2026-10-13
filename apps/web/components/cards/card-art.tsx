@@ -38,15 +38,15 @@ export function CardFace({ card, size = 'tile' }: { card: CardView; size?: Size 
       style={{ '--energy': energy.face } as CSSProperties}
     >
       <div className={cn('absolute flex items-center justify-between gap-2', s.inset)}>
-        <span className={cn('truncate font-bold text-white', s.name)}>{card.name}</span>
+        <span className={cn('truncate font-bold text-on-art', s.name)}>{card.name}</span>
         {card.hp !== null ? (
-          <span className={cn('shrink-0 font-mono font-semibold text-white/90', s.hp)}>
+          <span className={cn('shrink-0 font-mono font-semibold text-on-art/90', s.hp)}>
             HP {card.hp}
           </span>
         ) : null}
       </div>
-      <Icon className={cn('text-white/90', s.icon)} />
-      <span className="absolute bottom-2.5 left-2.5 font-mono text-[9.5px] text-white/75">
+      <Icon className={cn('text-on-art/90', s.icon)} />
+      <span className="absolute bottom-2.5 left-2.5 font-mono text-[9.5px] text-on-art/75">
         {setNumber(card.id)}
       </span>
     </div>

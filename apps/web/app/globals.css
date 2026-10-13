@@ -79,11 +79,27 @@
   --e-dragon: #cf9b2e;
   --e-fairy: #e987bd;
   --e-colorless: #b9bec9;
+  /* Ink: an energy colour used as text or a UI fill. The art above stays the same in both themes. */
+  --ink-fire: var(--e-fire);
+  --ink-water: var(--e-water);
+  --ink-grass: var(--e-grass);
+  --ink-lightning: var(--e-lightning);
+  --ink-psychic: var(--e-psychic);
+  --ink-fighting: #d4804f;
+  --ink-darkness: #8c93a3;
+  --ink-metal: var(--e-metal);
+  --ink-dragon: var(--e-dragon);
+  --ink-fairy: var(--e-fairy);
+  --ink-colorless: var(--e-colorless);
   --card-face-end: #0d0f14;
   --card-back: linear-gradient(160deg, #233056, #12172a);
   --booster-ink: #fff;
   --booster-shade: rgba(0, 0, 0, 0.28);
   --booster-sheen: rgba(255, 255, 255, 0.5);
+  /* Art: the same in both themes, for whatever sits on card art or 3D. */
+  --art-rare: #4c8dff;
+  --on-art: #fff;
+  --art-scrim: #000;
 
   --elevation-sm: 0 4px 14px rgba(0, 0, 0, 0.35);
   --elevation-md: 0 16px 34px rgba(0, 0, 0, 0.45);
@@ -135,14 +151,81 @@
 
   @variant light {
     color-scheme: light;
+
+    --bg: #f5f6f8;
+    --surface: #ffffff;
+    --surface2: #eef0f3;
+    --elev: #ffffff;
+    --tx: #12141a;
+    --mut: #4f5664;
+    --faint: #626977;
+    --bd: rgba(18, 20, 26, 0.1);
+    --bd2: rgba(18, 20, 26, 0.16);
+
+    --pri: #2160e0;
+    --pri-hover: #1d56cf;
+    --pri-strong: #1d56cf;
+    --pri-strong-hover: #1849b3;
+    --pri-dim: rgba(33, 96, 224, 0.1);
+    --on-pri: #fff;
+    --gold: #a05a00;
+    --gold-dim: rgba(160, 90, 0, 0.1);
+    --on-gold: #fff;
+    --grn: #057a52;
+    --on-grn: #fff;
+    --red: #c82e2c;
+    --red-strong: #b42318;
+    --red-dim: rgba(200, 46, 44, 0.1);
+    --on-red: #fff;
+
+    --c-com: #5f6673;
+    --c-com-tint: rgba(95, 102, 115, 0.1);
+    --c-com-border: rgba(95, 102, 115, 0.28);
+    --c-unc: #157b3a;
+    --c-unc-tint: rgba(21, 123, 58, 0.1);
+    --c-unc-border: rgba(21, 123, 58, 0.28);
+    --c-rare: #2160e0;
+    --c-rare-tint: rgba(33, 96, 224, 0.1);
+    --c-rare-border: rgba(33, 96, 224, 0.28);
+    --c-ultra: #7c3aed;
+    --c-ultra-tint: rgba(124, 58, 237, 0.1);
+    --c-ultra-border: rgba(124, 58, 237, 0.28);
+    --c-ultra-edge: rgba(124, 58, 237, 0.4);
+    --c-ultra-glow: 0 0 18px rgba(124, 58, 237, 0.18);
+    --c-secret: #a05a00;
+    --c-secret-tint: rgba(160, 90, 0, 0.1);
+    --c-secret-border: rgba(160, 90, 0, 0.28);
+    --c-secret-edge: rgba(160, 90, 0, 0.4);
+    --c-secret-glow: 0 0 18px rgba(160, 90, 0, 0.18);
+
+    --ink-fire: #bc411b;
+    --ink-water: #1d6db8;
+    --ink-grass: #2a7a33;
+    --ink-lightning: #856600;
+    --ink-psychic: #8d3fb0;
+    --ink-fighting: #a14f22;
+    --ink-darkness: #4a4f5d;
+    --ink-metal: #5b6577;
+    --ink-dragon: #896611;
+    --ink-fairy: #b1417b;
+    --ink-colorless: #5f6673;
+
+    --elevation-sm: 0 4px 14px rgba(18, 20, 26, 0.1);
+    --elevation-md: 0 16px 34px rgba(18, 20, 26, 0.12);
+    --elevation-lg: 0 40px 90px rgba(18, 20, 26, 0.16);
+    --glow-pri: 0 8px 24px rgba(33, 96, 224, 0.25);
+
+    --scrim: rgba(15, 18, 25, 0.45);
+    --bar: rgba(245, 246, 248, 0.85);
+    --skeleton-base: #e6e8ec;
+    --skeleton-highlight: #f2f3f6;
+    --backdrop: radial-gradient(1000px 500px at 85% -10%, rgba(33, 96, 224, 0.06), transparent 60%);
   }
 }
 
 @theme inline {
   /* The default palette is switched off, so a color outside the system has no utility. */
   --color-*: initial;
-  --color-white: #fff;
-  --color-black: #000;
 
   --color-bg: var(--bg);
   --color-surface: var(--surface);
@@ -188,21 +271,23 @@
   --color-rarity-secret-border: var(--c-secret-border);
   --color-rarity-secret-edge: var(--c-secret-edge);
 
-  --color-energy-fire: var(--e-fire);
-  --color-energy-water: var(--e-water);
-  --color-energy-grass: var(--e-grass);
-  --color-energy-lightning: var(--e-lightning);
-  --color-energy-psychic: var(--e-psychic);
-  --color-energy-fighting: var(--e-fighting);
-  --color-energy-darkness: var(--e-darkness);
-  --color-energy-metal: var(--e-metal);
-  --color-energy-dragon: var(--e-dragon);
-  --color-energy-fairy: var(--e-fairy);
-  --color-energy-colorless: var(--e-colorless);
+  --color-energy-fire: var(--ink-fire);
+  --color-energy-water: var(--ink-water);
+  --color-energy-grass: var(--ink-grass);
+  --color-energy-lightning: var(--ink-lightning);
+  --color-energy-psychic: var(--ink-psychic);
+  --color-energy-fighting: var(--ink-fighting);
+  --color-energy-darkness: var(--ink-darkness);
+  --color-energy-metal: var(--ink-metal);
+  --color-energy-dragon: var(--ink-dragon);
+  --color-energy-fairy: var(--ink-fairy);
+  --color-energy-colorless: var(--ink-colorless);
   --color-card-face-end: var(--card-face-end);
   --color-booster-ink: var(--booster-ink);
   --color-booster-shade: var(--booster-shade);
   --color-booster-sheen: var(--booster-sheen);
+  --color-on-art: var(--on-art);
+  --color-art-scrim: var(--art-scrim);
 
   --color-scrim: var(--scrim);
   --color-bar: var(--bar);
