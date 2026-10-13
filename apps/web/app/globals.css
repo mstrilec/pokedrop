@@ -2,7 +2,17 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 
-@custom-variant dark (&:is(.dark *));
+/* Light when chosen, or when the OS prefers it and dark was not chosen (docs/Frontend.md). */
+@custom-variant light {
+  &:where([data-theme='light'], [data-theme='light'] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: light) {
+    &:where(:root:not([data-theme='dark']), :root:not([data-theme='dark']) *) {
+      @slot;
+    }
+  }
+}
 
 /*
  * docs/DesignSystem.md, value for value. This file is the only place a raw
@@ -122,6 +132,10 @@
   --sidebar-accent-foreground: var(--tx);
   --sidebar-border: var(--bd);
   --sidebar-ring: var(--pri);
+
+  @variant light {
+    color-scheme: light;
+  }
 }
 
 @theme inline {
@@ -600,4 +614,11 @@
     transition-delay: 0s !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ThemeProvider sets this for one frame while the theme changes. */
+:root[data-theme-switching] *,
+:root[data-theme-switching] *::before,
+:root[data-theme-switching] *::after {
+  transition: none !important;
 }
