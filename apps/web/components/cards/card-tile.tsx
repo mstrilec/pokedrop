@@ -70,7 +70,7 @@ function CardTileImpl({
         ) : null}
         {unavailable ? (
           <div className="absolute inset-0 flex items-center justify-center bg-bg/60">
-            <Lock className="size-4.5 text-on-art/55" />
+            <Lock className="size-4.5 text-mut" />
           </div>
         ) : null}
       </div>

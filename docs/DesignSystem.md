@@ -156,8 +156,8 @@ The values above are the **dark** palette, the default. The **light** palette re
 | `--on-red` on `--red-strong` | 6.57 | | |
 | `--on-gold` on `--gold` | 6.49 | | |
 | `--on-grn` on `--grn` | 6.64 | | |
-dark: lowest chip contrast 3.50 (--ink-psychic /0.14 over pri panel)
-light: lowest chip contrast 4.57 (--c-ultra /0.14 over pri panel)
+
+On its own tint: lowest light pair 4.57 (`--c-ultra` at 0.14 inside a primary panel); lowest dark pair 3.50 (`--ink-psychic`, deferred).
 
 ## 2. Typography
 

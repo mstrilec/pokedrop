@@ -7,12 +7,15 @@ export interface RarityStyle {
   emphasis: string | null;
   /** The tier's color as a CSS value, for borders and glows drawn outside utilities. */
   color: string;
+  /** The tier's color on card art and boosters: the same in both themes. */
+  art: string;
 }
 
 // Color never carries the tier alone: render `label` wherever these classes are used.
 export const RARITY_STYLES: Record<RarityTier, RarityStyle> = {
   Common: {
     color: 'var(--c-com)',
+    art: 'var(--art-com)',
     label: 'Common',
     text: 'text-rarity-common',
     chip: 'bg-rarity-common-tint border-rarity-common-border text-rarity-common',
@@ -20,6 +23,7 @@ export const RARITY_STYLES: Record<RarityTier, RarityStyle> = {
   },
   Uncommon: {
     color: 'var(--c-unc)',
+    art: 'var(--art-unc)',
     label: 'Uncommon',
     text: 'text-rarity-uncommon',
     chip: 'bg-rarity-uncommon-tint border-rarity-uncommon-border text-rarity-uncommon',
@@ -27,6 +31,7 @@ export const RARITY_STYLES: Record<RarityTier, RarityStyle> = {
   },
   Rare: {
     color: 'var(--c-rare)',
+    art: 'var(--art-rare)',
     label: 'Rare',
     text: 'text-rarity-rare',
     chip: 'bg-rarity-rare-tint border-rarity-rare-border text-rarity-rare',
@@ -34,6 +39,7 @@ export const RARITY_STYLES: Record<RarityTier, RarityStyle> = {
   },
   'Ultra Rare': {
     color: 'var(--c-ultra)',
+    art: 'var(--art-ultra)',
     label: 'Ultra Rare',
     text: 'text-rarity-ultra',
     chip: 'bg-rarity-ultra-tint border-rarity-ultra-border text-rarity-ultra',
@@ -41,6 +47,7 @@ export const RARITY_STYLES: Record<RarityTier, RarityStyle> = {
   },
   'Secret Rare': {
     color: 'var(--c-secret)',
+    art: 'var(--art-secret)',
     label: 'Secret Rare',
     text: 'text-rarity-secret',
     chip: 'bg-rarity-secret-tint border-rarity-secret-border text-rarity-secret',

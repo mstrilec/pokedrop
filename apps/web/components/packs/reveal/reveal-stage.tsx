@@ -64,12 +64,12 @@ export function RevealStage({
             <span
               className="pointer-events-none absolute -inset-75 animate-ray-spin rounded-pill opacity-15"
               style={{
-                background: `conic-gradient(from 0deg, transparent 0deg, ${style.color} 12deg, transparent 24deg, transparent 36deg, ${style.color} 48deg, transparent 60deg, transparent 72deg, ${style.color} 84deg, transparent 96deg)`,
+                background: `conic-gradient(from 0deg, transparent 0deg, ${style.art} 12deg, transparent 24deg, transparent 36deg, ${style.art} 48deg, transparent 60deg, transparent 72deg, ${style.art} 84deg, transparent 96deg)`,
               }}
             />
             <span
               className="pointer-events-none absolute -inset-30 animate-burst rounded-pill"
-              style={{ background: `radial-gradient(circle, ${style.color}, transparent 66%)` }}
+              style={{ background: `radial-gradient(circle, ${style.art}, transparent 66%)` }}
             />
           </>
         ) : null}

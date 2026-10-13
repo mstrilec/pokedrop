@@ -83,11 +83,11 @@ Tailwind **v4**, configured in CSS — there is no `tailwind.config.*`. shadcn/u
 | Motion | `animate-flip-in` `-pulse-glow` `-shimmer` `-spin`, `ease-reveal`; every transition defaults to 160 ms `ease` |
 | Other | `bg-backdrop` (body), `bg-skeleton`, `bg-scrim`, `bg-bar`, `backdrop-blur-scrim`, `backdrop-blur-bar` |
 
-**Tailwind's default palette is switched off** (`--color-*: initial`); only `white` and `black` survive, for shadcn internals. `bg-red-500` generates nothing, so a color outside the system cannot be written by accident. Spacing keeps Tailwind's own scale, which is already the 4px unit: `p-3` is 12px, `p-8` 32px. The design system said `space-8` is 34px, which broke its own rhythm; the mockups used 34 only as page padding, so it became 32 and the doc was corrected.
+**Tailwind's default palette is switched off** (`--color-*: initial`); not even `white` and `black` survive since PD-139 (text on card art uses `on-art`, scrims on art `art-scrim`). `bg-red-500` generates nothing, so a color outside the system cannot be written by accident. Spacing keeps Tailwind's own scale, which is already the 4px unit: `p-3` is 12px, `p-8` 32px. The design system said `space-8` is 34px, which broke its own rhythm; the mockups used 34 only as page padding, so it became 32 and the doc was corrected.
 
 **The rest is enforced by lint.** `no-restricted-syntax` in `apps/web` refuses a hex value in any string (`'#fff'`, `bg-[#4c8dff]`) and an arbitrary length on a spacing utility (`p-[13px]`, `hover:mt-[1.5rem]`). Arbitrary radii and font sizes pass: shadcn's own components use them.
 
-**Dark is the only theme.** `:root` is dark and declares `color-scheme: dark`; there is no light palette to switch to.
+**Two themes since PD-139.** `:root` is the dark palette with `color-scheme: dark`; the light palette redefines the same tokens inside `@variant light` (*Theme, toasts and error boundaries* below).
 
 **Reduced motion is one global rule.** Under `prefers-reduced-motion: reduce` every animation and transition runs for 0.01 ms, once, with no delay — including third-party components, which no per-component discipline would reach. Motion then lands on its end state.
 

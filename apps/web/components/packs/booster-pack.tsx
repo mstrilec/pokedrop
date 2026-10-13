@@ -136,7 +136,7 @@ function DrawnWrapper({
   return (
     <div
       className="absolute inset-0 overflow-hidden rounded-tag bg-booster text-booster-ink booster-crimp"
-      style={{ '--energy': energy.face, '--rarity': rarity.color } as CSSProperties}
+      style={{ '--energy': energy.face, '--rarity': rarity.art } as CSSProperties}
     >
       <div aria-hidden className="absolute inset-x-0 top-0 h-1/16 bg-booster-shade" />
       <div aria-hidden className="absolute inset-x-0 bottom-0 h-1/16 bg-booster-shade" />

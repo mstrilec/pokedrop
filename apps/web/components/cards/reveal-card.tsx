@@ -51,7 +51,7 @@ export function RevealCard({
             'pointer-events-none absolute -inset-1/4 rounded-pill',
             isHighRarity(tier) ? 'animate-pulse-glow opacity-90' : 'opacity-50',
           )}
-          style={{ background: `radial-gradient(circle, ${style.color}, transparent 66%)` }}
+          style={{ background: `radial-gradient(circle, ${style.art}, transparent 66%)` }}
         />
       ) : null}
       <div className="relative aspect-[5/7] [perspective:1600px]">
@@ -79,16 +79,16 @@ export function RevealCard({
             )}
             style={
               {
-                borderColor: style.color,
+                borderColor: style.art,
                 boxShadow: glowing
-                  ? `0 0 34px color-mix(in srgb, ${style.color} 66%, transparent)`
+                  ? `0 0 34px color-mix(in srgb, ${style.art} 66%, transparent)`
                   : undefined,
               } as CSSProperties
             }
           >
             <CardArt card={card} size={size} sizes={sizes} />
             <span className="absolute right-2 bottom-2 flex items-center gap-1.5 rounded-pill bg-art-scrim/40 px-2.5 py-1 text-[11px] font-bold text-on-art backdrop-blur-sm">
-              <span className="size-1.75 rounded-pill" style={{ background: style.color }} />
+              <span className="size-1.75 rounded-pill" style={{ background: style.art }} />
               {rarityLabel}
             </span>
           </div>

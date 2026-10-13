@@ -97,7 +97,11 @@
   --booster-shade: rgba(0, 0, 0, 0.28);
   --booster-sheen: rgba(255, 255, 255, 0.5);
   /* Art: the same in both themes, for whatever sits on card art or 3D. */
+  --art-com: #9aa1ad;
+  --art-unc: #4fc98a;
   --art-rare: #4c8dff;
+  --art-ultra: #b06cf0;
+  --art-secret: #f2b23c;
   --on-art: #fff;
   --art-scrim: #000;
 

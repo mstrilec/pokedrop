@@ -24,7 +24,7 @@ export function OpeningStage({
         </div>
         <span
           aria-hidden
-          className="absolute inset-0 m-auto size-75 animate-flash rounded-pill bg-[radial-gradient(circle,var(--tx),var(--pri)_40%,transparent_70%)]"
+          className="absolute inset-0 m-auto size-75 animate-flash rounded-pill bg-[radial-gradient(circle,var(--on-art),var(--art-rare)_40%,transparent_70%)]"
         />
       </div>
       <p role="status" className="h-6 text-body text-mut">

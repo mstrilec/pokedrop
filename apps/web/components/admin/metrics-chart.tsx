@@ -29,7 +29,7 @@ export function MetricsChart({ series, metric }: { series: MetricsDay[]; metric:
           tick={{ fill: 'var(--faint)', fontSize: 11 }}
         />
         <Tooltip
-          cursor={{ fill: 'var(--surface-2)' }}
+          cursor={{ fill: 'var(--surface2)' }}
           contentStyle={{
             background: 'var(--surface)',
             border: '1px solid var(--bd)',
