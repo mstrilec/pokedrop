@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { Logo } from './logo';
+import { ThemeSwitch } from './theme-switch';
 
 const LINK = 'focus-ring w-max rounded-control text-body text-tx hover:text-pri';
 
@@ -67,12 +68,15 @@ export function SiteFooter({ signedIn }: { signedIn: boolean }) {
           <span className="text-body text-mut">Prices: TCGplayer / Cardmarket</span>
         </Group>
       </div>
-      <div className="mx-4 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-3 border-t border-bd pt-5 pb-8 sm:mx-14">
+      <div className="mx-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-t border-bd pt-5 pb-8 sm:mx-14">
         <p className="max-w-160 text-small text-mut">
           PokéDrop is a fan project, not affiliated with Nintendo, Creatures, GAME FREAK or The
           Pokémon Company. No real money, no cash-out.
         </p>
-        <p className="font-mono text-small text-faint">© {new Date().getFullYear()} PokéDrop</p>
+        <div className="flex items-center gap-4">
+          <ThemeSwitch size="icon" />
+          <p className="font-mono text-small text-faint">© {new Date().getFullYear()} PokéDrop</p>
+        </div>
       </div>
     </footer>
   );

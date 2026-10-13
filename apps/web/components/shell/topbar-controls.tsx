@@ -9,6 +9,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -19,6 +21,8 @@ import { useMe } from '@/lib/query/me';
 import { useUnreadCount } from '@/lib/query/notifications';
 import { useSession } from '@/lib/session/context';
 import { useUi } from '@/lib/stores/ui';
+import { parseTheme } from '@/lib/theme/theme';
+import { useTheme } from '@/lib/theme/theme-provider';
 
 export function MenuButton() {
   const navOpen = useUi((s) => s.navOpen);
@@ -52,6 +56,7 @@ export function NotificationBell() {
 export function AvatarMenu() {
   const identity = useSession();
   const queryClient = useQueryClient();
+  const { preference, setPreference } = useTheme();
   if (!identity) return null;
 
   async function signOut(everywhere: boolean) {
@@ -97,6 +102,16 @@ export function AvatarMenu() {
         <DropdownMenuItem asChild>
           <Link href="/wallet">Currency & history</Link>
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-caption text-faint uppercase">Theme</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          value={preference}
+          onValueChange={(value) => setPreference(parseTheme(value))}
+        >
+          <DropdownMenuRadioItem value="system">System</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="light">Light</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="dark">Dark</DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => void signOut(false)}>
           <LogOut aria-hidden className="size-4" />
