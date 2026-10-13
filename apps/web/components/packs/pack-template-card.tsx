@@ -48,7 +48,7 @@ export function PackTemplateCard({
           className="-rotate-6 transition duration-300 motion-safe:group-hover/pack:-translate-y-1.5 motion-safe:group-hover/pack:rotate-0"
         />
         {tag ? (
-          <span className="absolute top-3 left-3 rounded-pill bg-booster-shade px-2.5 py-1 text-[11px] font-semibold text-booster-ink backdrop-blur-sm">
+          <span className="absolute top-3 left-3 rounded-pill bg-art-scrim/60 px-2.5 py-1 text-[11px] font-semibold text-on-art backdrop-blur-sm">
             {tag}
           </span>
         ) : null}

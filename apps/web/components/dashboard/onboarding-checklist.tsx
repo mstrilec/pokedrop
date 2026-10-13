@@ -76,7 +76,7 @@ export function OnboardingChecklist({ progress }: { progress: OnboardingProgress
           return (
             <li key={step.key}>
               {complete ? (
-                <span className="flex items-center gap-1.5 rounded-pill border border-grn/30 bg-grn/14 px-3 py-1 text-small text-grn">
+                <span className="flex items-center gap-1.5 rounded-pill border border-grn/30 bg-surface px-3 py-1 text-small text-grn">
                   <Check aria-hidden className="size-3.5" />
                   <span className="sr-only">Done: </span>
                   {step.label}
