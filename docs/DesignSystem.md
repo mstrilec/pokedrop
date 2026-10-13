@@ -3,7 +3,7 @@
 > The visual foundation for PokéDex TCG — extracted from `design/Design System.dc.html` and `design/CardTile.dc.html`.
 > This is the **source of truth** for CSS variables / Tailwind theme tokens. Component contracts live in [ComponentSpecs.md](ComponentSpecs.md).
 
-**Language:** A dark-first, desktop-first system for a premium collectible-card experience. Electric-blue accents, gold economy cues, and a full rarity spectrum — built on Geist with a strict 4px rhythm.
+**Language:** A dark-first, desktop-first system with a light theme beside it (PD-139: System · Light · Dark) for a premium collectible-card experience. Electric-blue accents, gold economy cues, and a full rarity spectrum — built on Geist with a strict 4px rhythm.
 
 ---
 
@@ -76,6 +76,88 @@ Booster foil (`bg-booster`, PD-136): `linear-gradient(165deg, <energyColor> 10%,
 **Accessibility:** text sits at AA+ contrast on the near-black canvas. Color is never the sole carrier of meaning — rarity, status, and ownership are always paired with text or an icon.
 
 ---
+
+### Two palettes (PD-139)
+
+The values above are the **dark** palette, the default. The **light** palette redefines the same tokens inside `@variant light` in `globals.css` (Frontend.md *Theme*). Tokens fall into three groups:
+
+| Group | Tokens | Light theme |
+| --- | --- | --- |
+| UI neutrals | `--bg` `--surface` `--surface2` `--elev` `--tx` `--mut` `--faint` `--bd` `--bd2` `--bar` `--scrim` `--skeleton-*` `--backdrop` `--elevation-*` `--glow-pri` | own values: `#f5f6f8` page, white surfaces, `#eef0f3` raised, `#12141a` text |
+| Ink: colour as text, icon or UI fill | `--pri*` `--gold*` `--grn` `--red*` `--on-*` `--c-*` and `--ink-<type>` (the `text-/bg-energy-*` utilities) | darkened until text passes on every ground **and on its own tint** |
+| Art: the same in both themes | `--e-*` (card faces, boosters, 3D), `--card-face-end` `--card-back` `--booster-*` `--art-rare` `--on-art` `--art-scrim` | unchanged |
+
+**Energy ink.** `--color-energy-*` point at `--ink-<type>`; card faces and boosters read `var(--e-<type>)` directly, so art never changes with the theme. In dark, `--ink-<type>` equals `--e-<type>` except two that failed as text: `--ink-darkness` `#8c93a3` (the art `#4a4f5d` read 2.4:1) and `--ink-fighting` `#d4804f` (4.30:1 on `surface2`).
+
+**Light values (PD-139):** `--bg #f5f6f8`, `--surface #fff`, `--surface2 #eef0f3`, `--elev #fff`, `--tx #12141a`, `--mut #4f5664`, `--faint #585e6b`, `--bd`/`--bd2` `rgba(18,20,26,.1/.16)`; `--pri #1d55c6`, `--pri-hover`/`--pri-strong` `#1a4cb1`, `--pri-strong-hover #16419a`; `--gold`/`--c-secret` `#8c4f00`, `--grn #046a48`, `--red #af2826`, `--red-strong #b42318`, every `--on-*` white; rarity `--c-com #585f6b`, `--c-unc #126b33`, `--c-rare #1d55c6`, `--c-ultra #7135d8` (tints 0.1, borders 0.28, edges 0.4); ink fire `#a43918`, water `#195fa1`, grass `#256a2d`, lightning `#765a00`, psychic `#853ba6`, fighting `#93481f`, darkness `#4a4f5d`, metal `#565f70`, dragon `#78590f`, fairy `#9a396b`, colorless `#585f6b`; elevations `rgba(18,20,26,.10/.12/.16)`, `--scrim rgba(15,18,25,.45)`, `--bar rgba(245,246,248,.85)`, skeleton `#e6e8ec`/`#f2f3f6`.
+
+**Thresholds**, checked by a script over `globals.css`: every text token ≥ 4.5:1 on `--bg`, `--surface`, `--surface2` in both themes; `--on-*` on its fill ≥ 4.5:1; in light, also every ink on its own tint (`/0.1`, `/0.14`) over `surface`, `surface2` and a `pri-dim` panel — the case the screenshot pass caught (success and selected chips at 4.08–4.44:1 before the light inks were darkened a second time). The dark palette was not reworked: 30 of its chip pairs measure below 4.5 (lowest `--ink-psychic` on its tint inside a primary panel, 3.50), left for a later pass. Borders stay decorative in both themes.
+
+#### Dark
+
+| token | --bg | --surface | --surface2 |
+| --- | --- | --- | --- |
+| `--tx` #eef0f4 | 17.25 | 15.85 | 14.60 |
+| `--mut` #969cab | 7.16 | 6.58 | 6.06 |
+| `--faint` #858a96 | 5.69 | 5.23 | 4.82 |
+| `--pri` #4c8dff | 6.15 | 5.65 | 5.21 |
+| `--gold` #f2b23c | 10.50 | 9.65 | 8.89 |
+| `--grn` #34d399 | 10.24 | 9.41 | 8.67 |
+| `--red` #f05151 | 5.62 | 5.17 | 4.76 |
+| `--c-com` #9aa1ad | 7.57 | 6.95 | 6.41 |
+| `--c-unc` #4fc98a | 9.42 | 8.66 | 7.98 |
+| `--c-rare` #4c8dff | 6.15 | 5.65 | 5.21 |
+| `--c-ultra` #b06cf0 | 5.86 | 5.38 | 4.96 |
+| `--c-secret` #f2b23c | 10.50 | 9.65 | 8.89 |
+| `--ink-fire` #ef6a43 | 6.38 | 5.87 | 5.41 |
+| `--ink-water` #4aa6ef | 7.49 | 6.88 | 6.34 |
+| `--ink-grass` #5ec269 | 8.81 | 8.09 | 7.46 |
+| `--ink-lightning` #f4c73a | 12.25 | 11.26 | 10.38 |
+| `--ink-psychic` #b06bcf | 5.48 | 5.04 | 4.64 |
+| `--ink-fighting` #d4804f | 6.56 | 6.03 | 5.55 |
+| `--ink-darkness` #8c93a3 | 6.39 | 5.87 | 5.41 |
+| `--ink-metal` #8f9aad | 6.93 | 6.37 | 5.87 |
+| `--ink-dragon` #cf9b2e | 7.85 | 7.22 | 6.65 |
+| `--ink-fairy` #e987bd | 8.12 | 7.46 | 6.88 |
+| `--ink-colorless` #b9bec9 | 10.56 | 9.71 | 8.94 |
+| `--on-pri` on `--pri-strong` | 4.53 | | |
+| `--on-red` on `--red-strong` | 4.54 | | |
+| `--on-gold` on `--gold` | 9.90 | | |
+| `--on-grn` on `--grn` | 9.96 | | |
+
+#### Light
+
+| token | --bg | --surface | --surface2 |
+| --- | --- | --- | --- |
+| `--tx` #12141a | 17.02 | 18.41 | 16.12 |
+| `--mut` #4f5664 | 6.82 | 7.37 | 6.46 |
+| `--faint` #585e6b | 6.02 | 6.50 | 5.70 |
+| `--pri` #1d55c6 | 6.13 | 6.63 | 5.81 |
+| `--gold` #8c4f00 | 6.01 | 6.49 | 5.69 |
+| `--grn` #046a48 | 6.14 | 6.64 | 5.82 |
+| `--red` #af2826 | 6.16 | 6.66 | 5.83 |
+| `--c-com` #585f6b | 5.95 | 6.43 | 5.64 |
+| `--c-unc` #126b33 | 6.11 | 6.61 | 5.79 |
+| `--c-rare` #1d55c6 | 6.13 | 6.63 | 5.81 |
+| `--c-ultra` #7135d8 | 6.06 | 6.56 | 5.74 |
+| `--c-secret` #8c4f00 | 6.01 | 6.49 | 5.69 |
+| `--ink-fire` #a43918 | 6.11 | 6.61 | 5.79 |
+| `--ink-water` #195fa1 | 6.08 | 6.58 | 5.76 |
+| `--ink-grass` #256a2d | 6.11 | 6.61 | 5.79 |
+| `--ink-lightning` #765a00 | 6.01 | 6.50 | 5.69 |
+| `--ink-psychic` #853ba6 | 6.12 | 6.62 | 5.80 |
+| `--ink-fighting` #93481f | 6.09 | 6.59 | 5.77 |
+| `--ink-darkness` #4a4f5d | 7.56 | 8.18 | 7.16 |
+| `--ink-metal` #565f70 | 5.95 | 6.43 | 5.63 |
+| `--ink-dragon` #78590f | 6.00 | 6.49 | 5.69 |
+| `--ink-fairy` #9a396b | 6.12 | 6.62 | 5.80 |
+| `--ink-colorless` #585f6b | 5.95 | 6.43 | 5.64 |
+| `--on-pri` on `--pri-strong` | 7.74 | | |
+| `--on-red` on `--red-strong` | 6.57 | | |
+| `--on-gold` on `--gold` | 6.49 | | |
+| `--on-grn` on `--grn` | 6.64 | | |
+dark: lowest chip contrast 3.50 (--ink-psychic /0.14 over pri panel)
+light: lowest chip contrast 4.57 (--c-ultra /0.14 over pri panel)
 
 ## 2. Typography
 

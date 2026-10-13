@@ -16,7 +16,7 @@ The tickets were written before the API, and a few of them asked for what the AP
 | D4 | The deck builder validates its draft in the browser with the API's own validator, from `@pokedrop/shared`; rule failures never block a save — only what the API would refuse with a 400 does | PD-112, PD-113 |
 | D5 | The trade composer asks for any catalog card (the counterparty's showcase first) — inventories stay private and settlement checks; counterparties come from a member name search, `GET /users?q=`; counter-offers use the same composer | PD-115, PD-116 |
 | D6 | Trade moderation and the audit log read through three admin endpoints — `GET /admin/trades`, `GET /admin/trades/:id/void-check` (the void run and rolled back, so the dialog offers only a void the server would accept) and `GET /admin/audit`; the trade gets its own admin page, `/admin/trades/[id]` | PD-123 |
-| D7 | Settings shows the email read-only and has no theme choice: dark is the only theme | PD-118 |
+| D7 | Settings shows the email read-only. ~~Dark is the only theme~~ — reversed by PD-139: an *Appearance* section offers System · Light · Dark per device, and the account menu and the public footer switch it too | PD-118, PD-139 |
 | D9 | The card page's Pokédex section reads PokéAPI from the web server (`lib/pokeapi.ts`) — a day's cache, a two-second timeout, nothing on failure; the API is not involved | PD-110 |
 | D10 | *Add to deck* on a card page picks one of the member's decks (or creates one) and opens the builder with `?add=<cardId>`: one more copy as an unsaved change, saved by the member | PD-110 |
 | D11 | The dashboard checklist comes from a new `GET /users/me/progress` — four existence checks — rather than from the first pages of lists the page already reads, which miss an old deck or trade | PD-103 |
@@ -50,7 +50,7 @@ The tickets were written before the API, and a few of them asked for what the AP
 
 ### Public header and footer (PD-138)
 
-The guest header carries *Browse cards* and *Sets* from 640 px (the footer carries them below), and a *Skip to content* link to `#main`. The footer runs full width on the header's edges (16 px, 56 px from `sm`), so on `/cards` and `/sets` its logo and divider line up with the header's logo. `components/shell/site-footer.tsx` closes every public page: the guest branch of `(public)/layout.tsx` renders it after `main`, and `AppShell` takes it as an optional `footer` that only the public layout passes, so app pages end at their content. Groups: *Explore* (Browse cards, Sets), *Account* (Dashboard, or Sign in and Create account), *Data* (pokemontcg.io, TCGdex, PokéAPI with `rel="noopener noreferrer"`, prices from TCGplayer / Cardmarket); then the fan-project disclaimer and the year.
+The guest header carries *Browse cards* and *Sets* from 640 px (the footer carries them below), and a *Skip to content* link to `#main`. The footer runs full width on the header's edges (16 px, 56 px from `sm`), so on `/cards` and `/sets` its logo and divider line up with the header's logo. `components/shell/site-footer.tsx` closes every public page: the guest branch of `(public)/layout.tsx` renders it after `main`, and `AppShell` takes it as an optional `footer` that only the public layout passes, so app pages end at their content. Groups: *Explore* (Browse cards, Sets), *Account* (Dashboard, or Sign in and Create account), *Data* (pokemontcg.io, TCGdex, PokéAPI with `rel="noopener noreferrer"`, prices from TCGplayer / Cardmarket); then the fan-project disclaimer and the year. Since PD-139 the bottom row also carries the icon-only `ThemeSwitch`, so a guest can choose a theme.
 
 **Traps.**
 
@@ -504,7 +504,7 @@ So the client may show fewer cards than the server will return, never others. **
 
 ## Account settings (PD-118)
 
-`/settings` (`components/settings/`): four sections, each saving on its own. No theme choice — dark is the only theme (D7).
+`/settings` (`components/settings/`): five sections, each saving on its own. **Appearance** (PD-139), first: `ThemeSwitch` — System · Light · Dark, *Applies to this device. System follows your operating system.* (Frontend.md *Theme*).
 
 - **Profile** — *Display name* and *Avatar image address* against `ProfileIdentitySchema`, the rules `PATCH /users/me` and sign-up use (an empty avatar field means none, sent as `null`); the avatar preview follows the field. *Email* is shown read-only (D7). *Save profile* is enabled once something changed; after the save `router.refresh()` re-renders the shell, whose name and avatar come from the server. Since PD-118 the shared schema says *Use an https:// address* instead of zod's *Invalid URL*, and the API answers with the same words.
 - **Privacy** — *Show my collection value* and *Show my set completion*, each a `PATCH` of its own the moment it flips, with a toast saying what visitors now see; the public profile reads the toggle on its next request.

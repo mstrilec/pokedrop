@@ -244,6 +244,10 @@ After the review fixes, the same way:
 - each empty state's first focusable element is its call to action (three links, one button);
 - the pending timeline reads *Done: Proposed by MistyW … / Current step: Awaiting your response / Not yet: Cards swap and the trade settles*; the voided one ends *Done: Voided by an admin*.
 
+## Theme switch (PD-139)
+
+`components/shell/theme-switch.tsx`: `ThemeSwitch({ size: 'labelled' | 'icon' })` — System (`Monitor`), Light (`Sun`), Dark (`Moon`) as native radios in a `radiogroup` named *Theme*, so arrow keys move between them and apply each; the checked option sits on `surface` with a small shadow, focus shows the ring. `labelled` in Settings → Appearance; `icon` (names kept for screen readers) in the public footer. The account menu has its own *Theme* group of `DropdownMenuRadioItem`s. All three read and write `useTheme()` (`lib/theme/theme-provider.tsx`).
+
 ## Menus (PD-134)
 
 `components/ui/dropdown-menu.tsx` (shadcn on Radix) is every menu in the app: the account menu, the admin users' row actions and each FilterBar menu. Their look comes from it alone.
