@@ -166,6 +166,7 @@ Versions are never repeated in YAML: `pnpm/action-setup` reads `packageManager` 
 
 ### Traps that will not announce themselves
 
+- **`pnpm audit --prod` reports two highs on purpose (PD-126).** `mysql2` 3.15.3 and `deepmerge-ts` 7.1.5 are pinned exactly by the Prisma 7.10.0 CLI (`prisma` → `mysql2`, `@prisma/config` → `deepmerge-ts`). Neither is reachable: `mysql2` is only loaded against a MySQL server and this project runs Postgres; `deepmerge-ts` merges our own `prisma.config.ts`, not user input. Overriding them would mean running the CLI against versions it was never released with. They go when Prisma moves its pins.
 - **`pnpm up prisma` will break the build.** The `latest` dist-tag for `prisma` is an 8.0 release candidate while `@prisma/client` is on stable 7.10.0, so a naive upgrade installs mismatched majors. Both are pinned to exactly `7.10.0` and must move together.
 - **Anything token-bearing in a query string will be logged.** The URL is logged whole, which is worth having for catalog searches. A password-reset token added as a query parameter would land in the logs — redact it in `logger.options.ts` before introducing one.
 - **`getOrSet` cannot cache `null`.** A stored `null` reads back as a miss, so a loader that legitimately returns `null` re-runs on every request. None of the current entries can be null; represent absence some other way if that changes.

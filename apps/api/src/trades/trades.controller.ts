@@ -41,6 +41,7 @@ export class TradesController {
     return this.trades.propose(user, body);
   }
 
+  @Throttle(MODERATE_THROTTLE)
   @HttpCode(HttpStatus.OK)
   @Doc('Accept a trade, settling coins and cards in one transaction', returns('Trade', TradeSchema))
   @Post(':id/accept')

@@ -39,7 +39,7 @@
   |---|---|---|---|
   | strict | 10 per 15 min | `sign-in/email`, `sign-up/email`, `reset-password`, `request-password-reset`, `send-verification-email`, `change-password` (since PD-118: it checks the current password) | `THROTTLE_AUTH_LIMIT` / `THROTTLE_AUTH_WINDOW` |
   | default | 100 per min | every other route | `THROTTLE_DEFAULT_LIMIT` / `THROTTLE_DEFAULT_WINDOW` |
-  | moderate | 30 per min | pack-open and trade creation, when those routes exist | `THROTTLE_MODERATE_LIMIT` / `THROTTLE_MODERATE_WINDOW` |
+  | moderate | 30 per min | `POST /packs/:templateId/open`, `POST /trades`, `POST /trades/:id/accept` (since PD-126), `POST /trades/:id/counter`, `POST /decks/random`, `GET /users?q=` | `THROTTLE_MODERATE_LIMIT` / `THROTTLE_MODERATE_WINDOW` |
 
   `/api/v1/*` is limited by a Nest guard keyed on the authenticated user, falling back to the address; `/api/auth/*` is limited by an Express middleware keyed on the address, because the Better Auth handler is mounted outside the Nest router where no guard reaches. Health probes are exempt: a 429 from a liveness probe reads to an orchestrator as a dead process, and it would restart a healthy instance on a loop.
 
