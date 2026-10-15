@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+**/.next
+**/*.tsbuildinfo
+.git
+.github
+.husky
+.claude
+.superpowers
+.env
+.env.*
+design
+docs
+*.log

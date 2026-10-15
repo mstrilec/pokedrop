@@ -14,6 +14,7 @@ Architecture & design reference for the Pokémon TCG web application (collection
 | [Pages.md](Pages.md) | What M13 built: each page, the decisions behind it, and what it measured. |
 | [PRD.md](PRD.md) | Product requirements — the source of truth for scope, goals, and decisions. |
 | [Architecture.md](Architecture.md) | System topology, module structure (backend + frontend), data flow, sync, caching, provider adapter. |
+| [Deployment.md](Deployment.md) | Where production runs (home server, Tailscale Funnel), how a release goes out, backups and first response. |
 | [Migrations.md](Migrations.md) | How the schema changes: the rules, the rollback path, and what CI enforces. |
 | [DataModel.md](DataModel.md) | Prisma entities, relationships, enums, indexes, integrity rules. |
 | [API.md](API.md) | REST endpoint reference, conventions, error envelope. |

@@ -529,14 +529,18 @@ Principles: **cache read-heavy, low-volatility catalog data aggressively**; keep
 
 ## 21. Deployment Overview
 
-- **Environments:** local (Docker Compose: Postgres + Redis), staging, production.
-- **Containers:** separate images for `api` and `worker` (same codebase, different entrypoint); Next.js deployed to a Node host or a platform like Vercel (frontend) with the API on a container platform (Fly.io/Render/Railway/AWS ECS).
-- **Managed services:** managed Postgres (with backups/PITR) and managed Redis in production.
-- **Migrations:** `prisma migrate deploy` as a release step; never auto-migrate at runtime.
-- **Config:** env vars validated at boot; secrets from the platform secret store; Pokémon API keys server-side only.
-- **CI/CD:** on PR → install, typecheck, lint, build (no test step during v1, see §20); on merge to main → build+push images, run migrations, deploy api + worker + frontend; smoke test `/health/ready`.
-- **Observability:** structured logs (pino) shipped to a log sink; health checks (`@nestjs/terminus`); basic metrics/dashboards for sync freshness, queue depth, error rate; alerting on failed syncs and rising 429s.
-- **Backups & DR:** automated DB backups + periodic restore drills; the catalog is re-syncable from source, so the irreplaceable data is users/inventory/decks/trades.
+> **Decision — 2026-10-14 (M14): one environment on a home server.** v1 is a diploma project and uses no paid services, so the cloud plan below the line is not what was built. The procedure is in [Deployment.md](Deployment.md).
+
+- **Environments:** local (Docker Compose: Postgres, Redis, Mailpit) and production. No staging.
+- **Host:** the author's Ubuntu server, shared with game servers; public access through Tailscale Funnel (free HTTPS, no domain, no open port).
+- **Containers:** one `api` image runs the API, the worker and the migration step with different commands; a `web` image runs Next's standalone server. Built on the host from `main`; no registry.
+- **Migrations:** `prisma migrate deploy` as a release step in `deploy/deploy.sh`; never at runtime.
+- **Config:** env vars validated at boot, from `.env.production` on the host (mode 600); Pokémon API calls server-side only.
+- **CI:** typecheck, lint, build and the migration check on every push (no test step during v1, see §20). Deployment is `deploy/deploy.sh` over SSH, with a health check at the end.
+- **Observability:** structured logs (pino) in Docker's rotated `json-file` logs; health checks (`@nestjs/terminus`); the admin dashboard for sync freshness and activity. No log shipping or alerting.
+- **Backups:** nightly `pg_dump`, seven kept on the host; the catalog is re-syncable from source, so the irreplaceable data is users/inventory/decks/trades.
+
+*The original plan, kept for a later scale-up:* separate staging; API and worker on a container platform (Fly.io/Render/Railway/AWS ECS) and Next.js on Vercel or a Node host; managed Postgres with PITR and managed Redis; secrets from the platform store; images pushed by CI on merge to `main`; logs shipped to a sink with dashboards and alerts on failed syncs and rising 429s; periodic restore drills.
 
 ---
 
