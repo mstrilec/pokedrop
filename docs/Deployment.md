@@ -1,8 +1,8 @@
 # Deployment
 
-Where PokeDrop runs, how a release goes out, and what to do when something breaks. Built in M14 (PD-128).
+Where PokeDrop runs, how a release goes out, the first admin, and what to do when something breaks. Built in M14 (PD-128).
 
-This is a diploma project with one environment: production, on a home server. No staging, no registry, no monitoring stack — each was cut on purpose (PD-127, PD-129).
+This is a diploma project with one environment: production, on a home server. No staging, no registry, no monitoring stack, no backups — each was cut on purpose (PD-127, PD-128, PD-129).
 
 ---
 
@@ -71,27 +71,24 @@ deploy/deploy.sh --no-pull
 
 Measured 2026-10-15 on the development machine with a test `.env.production`: the script built both images, applied all 23 migrations to an empty database, and brought all five services up healthy. Through the web server: sign-up 200 → the verification link pointed at the web origin, 302 to `/verify-email` → sign-in 200 with a `Secure` `__Secure-` cookie → `GET /api/v1/users/me` 200 → `/dashboard` 200. Two `X-Forwarded-For` addresses drew from separate rate-limit buckets. A card image went through the optimizer into the `web-image-cache` volume, owned by `node`.
 
+First release on the host, 2026-10-16: the build took 97 s, all 23 migrations applied, both checks ok. From the internet, `/` answered 200 in 1.3 s and `/api/v1/health/ready` 200 in 0.4 s through Funnel; from the LAN, ports 3000, 4000, 5432 and 6379 on the host did not answer. A sign-up from a phone on mobile data got its verification mail from Gmail, and its link signed the account in.
+
+**Two Funnel traps from that first release.** `tailscale funnel --bg 3000` prints *Funnel is not enabled on your tailnet* with a link and then still says *Success*: the local proxy is configured, but the public DNS records appear only once the link is approved and the command is run again. And a lookup made before that is cached as "no address" — Cloudflare's resolver, the router and Firefox's DNS-over-HTTPS kept answering it for several minutes after Google's resolver already had the addresses. `ipconfig /flushdns` and Firefox's `about:networking#dns` clear the local part; the rest expires on its own.
+
 **Better Auth adds its own limit in production**, in memory and per address: after three failed sign-ins within ten seconds the fourth answered 429, before our own 10-per-15-minutes limit was reached. It is on by default when `NODE_ENV=production` and was never visible in development.
 
-## Backups
+## Data
 
-[`deploy/backup.sh`](../deploy/backup.sh) writes `pg_dump --format=custom` to `~/pokedrop-backups/pokedrop-<date>.dump` and keeps the newest seven. Nightly, from the deploy user's crontab, at night when nobody plays:
+No backups, on purpose: a diploma project with one environment. The catalog and prices are re-synced from the source by the worker every night (catalog at 03:00, full price sweep at 04:00, server time); accounts, inventories, decks and trades exist only in the `postgres-data` volume.
 
-```
-30 4 * * * $HOME/pokedrop/deploy/backup.sh >> $HOME/pokedrop-backups/backup.log 2>&1
-```
-
-The catalog and prices are re-syncable from the source; users, inventory, decks, trades and the currency ledger are not — that is what the dump is for.
-
-**Restore** into the running database (stop the writers first):
+**First admin.** There is no sign-up path to `ADMIN` (`docs/DataModel.md`, `input: false`). Register and verify the account on the site, then promote it once on the host:
 
 ```bash
 cd ~/pokedrop
-docker compose -f compose.production.yml --env-file .env.production stop api worker web
-docker compose -f compose.production.yml --env-file .env.production exec -T postgres \
-  sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists --no-owner' < ~/pokedrop-backups/<file>.dump
-deploy/deploy.sh --no-pull
+docker compose -f compose.production.yml --env-file .env.production exec postgres   psql -U pokedrop -d pokedrop -c "UPDATE users SET role = 'ADMIN' WHERE email = '<email>' AND \"emailVerified\" RETURNING email, role;"
 ```
+
+The role is read from the database on every request, so the next page load has the admin area. Further admins are promoted from the admin users page.
 
 ## When something breaks
 
@@ -103,6 +100,6 @@ All commands run in `~/pokedrop`; `c` stands for `docker compose -f compose.prod
 | 502 or errors on pages | `c logs --tail 100 web api` | the API is down or unhealthy: `c restart api` |
 | Nobody can sign in, sign-up says OK | `c logs api \| grep -i mail` | the Gmail app password or `MAIL_SMTP_URL` is wrong |
 | Catalog or prices stale | the admin sync page; `c logs --tail 100 worker` | re-run the sync from the admin page |
-| Disk filling | `docker system df` | `docker image prune -f`; old dumps rotate themselves |
+| Disk filling | `docker system df` | `docker image prune -f` |
 
 Logs rotate at 10 MB × 3 files per container.

@@ -538,7 +538,7 @@ Principles: **cache read-heavy, low-volatility catalog data aggressively**; keep
 - **Config:** env vars validated at boot, from `.env.production` on the host (mode 600); Pokémon API calls server-side only.
 - **CI:** typecheck, lint, build and the migration check on every push (no test step during v1, see §20). Deployment is `deploy/deploy.sh` over SSH, with a health check at the end.
 - **Observability:** structured logs (pino) in Docker's rotated `json-file` logs; health checks (`@nestjs/terminus`); the admin dashboard for sync freshness and activity. No log shipping or alerting.
-- **Backups:** nightly `pg_dump`, seven kept on the host; the catalog is re-syncable from source, so the irreplaceable data is users/inventory/decks/trades.
+- **Backups:** none in v1, by decision; the catalog is re-synced from source nightly.
 
 *The original plan, kept for a later scale-up:* separate staging; API and worker on a container platform (Fly.io/Render/Railway/AWS ECS) and Next.js on Vercel or a Node host; managed Postgres with PITR and managed Redis; secrets from the platform store; images pushed by CI on merge to `main`; logs shipped to a sink with dashboards and alerts on failed syncs and rising 429s; periodic restore drills.
 
