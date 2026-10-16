@@ -505,10 +505,11 @@ So the client may show fewer cards than the server will return, never others. **
 
 ## Account settings (PD-118)
 
-`/settings` (`components/settings/`): five sections, each saving on its own. **Appearance** (PD-139), first: `ThemeSwitch` — System · Light · Dark, *Applies to this device. System follows your operating system.* (Frontend.md *Theme*).
+`/settings` (`components/settings/`): six sections, each saving on its own. **Appearance** (PD-139), first: `ThemeSwitch` — System · Light · Dark, *Applies to this device. System follows your operating system.* (Frontend.md *Theme*).
 
 - **Profile** — *Display name* and *Avatar image address* against `ProfileIdentitySchema`, the rules `PATCH /users/me` and sign-up use (an empty avatar field means none, sent as `null`); the avatar preview follows the field. *Email* is shown read-only (D7). *Save profile* is enabled once something changed; after the save `router.refresh()` re-renders the shell, whose name and avatar come from the server. Since PD-118 the shared schema says *Use an https:// address* instead of zod's *Invalid URL*, and the API answers with the same words.
 - **Privacy** — *Show my collection value* and *Show my set completion*, each a `PATCH` of its own the moment it flips, with a toast saying what visitors now see; the public profile reads the toggle on its next request.
+- **Showcase** (PD-142) — the up-to-six cards `PATCH /users/me` has taken as `showcaseCardIds` since M9, and the composer has shown first since PD-115, finally had no place to be chosen: every showcase was empty. The section lists the chosen cards, each with *Remove*, and *Add a card* opens a dialog over the member's own collection (`useInventory`, `VirtualCardGrid`, the composer's `PickTile`), mounted only while open so the collection is not read before. A card already chosen, or any card once six are, is grey and says why. Every pick and removal is one `PATCH` with the whole list, saved at once with a toast, like the privacy toggles. The own profile's *Only you see this* panel links *Choose your showcase* to `/settings#showcase`. The rest of the collection stays private (D5): what a counterparty sees of it is the showcase.
 - **Password** — current, new and repeated, against `ChangePasswordSchema` (shared: the current one only non-empty, the new one `NewPasswordSchema`, the two equal), and *Sign out of every other device*, on by default, sent as Better Auth's `revokeOtherSessions`. A wrong current password lands on its field: *That isn’t your current password*. `change-password` joined the strict throttle tier: it checks the current password, so with a stolen session it was an unthrottled oracle for guessing it.
 - **Sessions** — `GET /api/auth/list-sessions` with `get-session` for *This device*: browser and system read from the user agent (*Chrome on Windows*), IP, when it signed in and was last active. *Sign out other devices* confirms *Sign out 15 other sessions?* and then says what it did — *Signed out 15 other sessions. This device is still signed in.* — in a status line that stays after the list refreshes. The list's answer also carries every session's token (Better Auth revokes by token); the schema drops it unread.
 
@@ -520,6 +521,8 @@ So the client may show fewer cards than the server will return, never others. **
 - *Repeat the new password* different: *The passwords do not match*; a wrong current password: *That isn’t your current password* with the focus on it; the right one with *Sign out of every other device*: *Password changed. Every other device was signed out.*, a fourth `curl` session `null`, this page still signed in (the password set back afterwards);
 - eleven `change-password` calls from one address within the window: the eleventh and later 429;
 - 375 px (device emulation): `scrollWidth` 375; no console errors.
+
+**Measured 2026-10-16** (PD-142) with the API and `next dev`, a test member after one Base Set pack: *Add a card* → Wigglytuff and Ivysaur picked, both turning grey with *Already on your showcase*; `GET /users/me` and the public `GET /users/:id` both answered `[Wigglytuff, Ivysaur]`; *Remove Ivysaur* → `[Wigglytuff]`, the counter *1 / 6*.
 
 **Traps:**
 

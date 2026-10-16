@@ -13,7 +13,7 @@ import { useInventory } from '@/lib/query/inventory';
 import { cn } from '@/lib/utils';
 import { type ComposerState, pickRefusal, type Side, summaryOf } from './composer-state';
 
-function PickTile({
+export function PickTile({
   card,
   badge,
   refusal,

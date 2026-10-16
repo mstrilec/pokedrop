@@ -9,6 +9,7 @@ import { PasswordSettings } from './password-settings';
 import { PrivacySettings } from './privacy-settings';
 import { ProfileSettings } from './profile-settings';
 import { SessionSettings } from './session-settings';
+import { ShowcaseSettings } from './showcase-settings';
 
 export function SettingsPage() {
   const me = useMe();
@@ -16,13 +17,14 @@ export function SettingsPage() {
     <>
       <PageHeader
         title="Account settings"
-        description="Appearance, your profile, what visitors see, your password and where you’re signed in."
+        description="Appearance, your profile, what visitors see, your showcase, your password and where you’re signed in."
       />
       {me.data ? (
         <div className="flex max-w-4xl flex-col gap-6">
           <AppearanceSettings />
           <ProfileSettings me={me.data} />
           <PrivacySettings me={me.data} />
+          <ShowcaseSettings me={me.data} />
           <PasswordSettings />
           <SessionSettings />
         </div>

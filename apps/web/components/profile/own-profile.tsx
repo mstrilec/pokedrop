@@ -109,6 +109,14 @@ function Sections() {
                   Change what visitors see
                 </Link>
               </li>
+              <li className="text-small">
+                <Link
+                  href="/settings#showcase"
+                  className="focus-ring rounded-tag text-pri hover:underline"
+                >
+                  Choose your showcase
+                </Link>
+              </li>
             </ul>
           ) : null}
         </Panel>
