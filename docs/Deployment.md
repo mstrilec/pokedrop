@@ -83,20 +83,31 @@ No backups, on purpose: a diploma project with one environment. Accounts, invent
 
 **Syncs run only on request.** `SYNC_SCHEDULES=false` makes the worker drop its crons at start (catalog at 03:00 UTC, the full price sweep at 04:00, the active-card refresh four times a day), so the catalog and prices change only when an admin presses **Run now** on `/admin/sync` — catalog first, then prices. The worker logs `Sync schedules off` when it starts.
 
-**Pack templates.** [`deploy/pack-templates.sql`](../deploy/pack-templates.sql) creates four packs modelled on real boosters, after the catalog is in. It refuses to write anything if a set lacks a rarity it names, and leaves an existing template alone, so it is safe to run again:
+**Pack templates.** [`deploy/pack-templates.sql`](../deploy/pack-templates.sql) creates nineteen packs modelled on real boosters, from Base Set (1999) to Mega Evolution (2025), after the catalog is in. It refuses to write anything if a pack's sets lack a rarity it names, and leaves an existing template alone, so it is safe to run again — and to run again after adding rows:
 
 ```bash
 docker compose -f compose.production.yml --env-file .env.production   exec -T postgres psql -U pokedrop -d pokedrop -v ON_ERROR_STOP=1 < deploy/pack-templates.sql
 ```
 
-| Pack | Set | Cost | Cards | Built from |
+| Era | Pack (sets) | Cost | Cards | The chase, per pack |
 | --- | --- | --- | --- | --- |
-| Base Set | `base1` | 500 | 5 C · 3 U · 1 rare slot (Rare Holo 1 in 3) | the 1999 pack: 11 cards, two of them basic Energy |
-| Evolving Skies | `swsh7` | 300 | 5 C · 3 U · reverse · rare slot (V 1/9.4, VMAX 1/17.7, Ultra 1/25, Rainbow 1/90, Secret 1/110) | Card Codex's per-pack rates for SWSH7 |
-| Scarlet & Violet | `sv1` | 150 | 4 C · 3 U · reverse · reverse-or-hit (IR 1/13, SIR 1/31, Hyper 1/55) · rare slot (Double Rare 1/7.1, Ultra 1/14.7) | Card Codex's rates for SV1 and SV2, which agree |
-| Scarlet & Violet 151 | `sv3pt5` | 200 | as Scarlet & Violet | the same era structure; no per-set table was found |
+| WotC | Base Set (`base1`) | 500 | 5 C · 3 U · rare | Rare Holo 1/3 |
+| WotC | Jungle (`base2`), Fossil (`base3`) | 450 | 7 C · 3 U · rare | Rare Holo 1/3 |
+| WotC | Team Rocket (`base5`) | 450 | 7 C · 3 U · rare | Rare Holo 1/3.2, Dark Raichu (Rare Secret) 1/50 |
+| WotC | Neo Genesis (`neo1`) | 400 | 6 C · 3 U · rare | Rare Holo 1/3 |
+| XY | Evolutions (`xy12`) | 300 | 5 C · 3 U · reverse · rare | EX 1/9.7, Secret 1/9.6, Ultra 1/18, BREAK 1/21 |
+| Sun & Moon | Cosmic Eclipse (`sm12`) | 250 | 5 C · 3 U · reverse · rare | GX 1/7.8, Ultra 1/26, Rainbow 1/72, Secret 1/111 |
+| Sword & Shield | Evolving Skies (`swsh7`) | 300 | 5 C · 3 U · reverse · rare | V 1/9.4, VMAX 1/17.7, Ultra 1/25, Rainbow 1/90, Secret 1/110 |
+| Sword & Shield | Lost Origin (`swsh11` + Trainer Gallery `swsh11tg`) | 250 | 5 C · 3 U · reverse-or-gallery · rare | V 1/7.8, TG 1/12, Radiant 1/20, VSTAR 1/26 |
+| Sword & Shield | Crown Zenith (`swsh12pt5` + Galarian Gallery `swsh12pt5gg`) | 300 | 5 C · 3 U · reverse-or-gallery · rare | GG 1/4.5, V 1/6.6, VSTAR 1/15, Radiant 1/22 |
+| Scarlet & Violet | Scarlet & Violet (`sv1`), 151 (`sv3pt5`), Paldea Evolved (`sv2`), Obsidian Flames (`sv3`) | 150–200 | 4 C · 3 U · reverse · reverse-or-hit · rare | Double Rare 1/7, IR 1/13, SIR 1/31, Hyper 1/55 |
+| Scarlet & Violet | Paradox Rift (`sv4`) | 150 | as above | SIR 1/48, Hyper 1/83 |
+| Scarlet & Violet | Surging Sparks (`sv8`) | 180 | as above | ACE SPEC 1/20, SIR 1/87, Hyper 1/189 |
+| Scarlet & Violet | Prismatic Evolutions (`sv8pt5`) | 250 | as above | ACE SPEC 1/21, SIR 1/45, Hyper 1/179 |
+| Scarlet & Violet | Destined Rivals (`sv10`) | 200 | as above | Double Rare 1/4.9, SIR 1/94, Hyper 1/149 |
+| Mega Evolution | Mega Evolution (`me1`) | 150 | as above | IR 1/9, SIR 1/101, Mega Hyper Rare 1/1,250 |
 
-Basic Energy is left out — the catalog gives it no rarity, so it can never be drawn — and a reverse-holo slot draws an ordinary Common, Uncommon or Rare at the rates reverse holos appear, because the mirror has no foil variants. Pull rates are community estimates from large openings; The Pokémon Company publishes none. Costs keep the real price order (modern < 151 < Evolving Skies < vintage) against the 1,000-coin welcome grant, and can be changed on `/admin/packs` like everything else here.
+The rates are [Card Codex](https://cardcodex.com)'s per-pack tables for each set — community estimates from large openings; The Pokémon Company publishes none — except 151, which uses Scarlet & Violet's (its own table differs by under a point). The weights were computed from those tables and checked against `packRates`, the arithmetic the admin preview shows. What the mirror cannot hold is approximated: basic Energy has no rarity and is never drawn, so packs are a card or two short of the real count; reverse holos, Poké Ball and Master Ball foils draw the ordinary Common, Uncommon or Rare at the rate they appear; a gallery set shares rarity names such as `Rare Holo V` with its main set, so those buckets mix the two. Costs keep the real price order against the 1,000-coin welcome grant and can be changed on `/admin/packs`.
 
 **First admin.** There is no sign-up path to `ADMIN` (`docs/DataModel.md`, `input: false`). Register and verify the account on the site, then promote it once on the host:
 
