@@ -79,7 +79,9 @@ First release on the host, 2026-10-16: the build took 97 s, all 23 migrations ap
 
 ## Data
 
-No backups, on purpose: a diploma project with one environment. The catalog and prices are re-synced from the source by the worker every night (catalog at 03:00, full price sweep at 04:00, server time); accounts, inventories, decks and trades exist only in the `postgres-data` volume.
+No backups, on purpose: a diploma project with one environment. Accounts, inventories, decks and trades exist only in the `postgres-data` volume.
+
+**Syncs run only on request.** `SYNC_SCHEDULES=false` makes the worker drop its crons at start (catalog at 03:00 UTC, the full price sweep at 04:00, the active-card refresh four times a day), so the catalog and prices change only when an admin presses **Run now** on `/admin/sync` — catalog first, then prices. The worker logs `Sync schedules off` when it starts.
 
 **First admin.** There is no sign-up path to `ADMIN` (`docs/DataModel.md`, `input: false`). Register and verify the account on the site, then promote it once on the host:
 

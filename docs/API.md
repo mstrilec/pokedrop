@@ -1135,7 +1135,7 @@ Both parties of each voided trade get `trade.voided` after commit. Trades come f
 
 ### Triggers
 
-`POST /admin/sync/catalog` queues `catalog-sync` (kind `CATALOG`), the job the 3 am cron runs; `POST /admin/sync/prices` queues `price-sweep` (kind `PRICE`), the full sweep the 4 am cron runs. The active refresh has no button — it already runs four times a day. Neither takes a body. The answer is **202** `{ jobId, kind }`: the run is queued, not done, and a processor picks it up in the worker or the API process.
+`POST /admin/sync/catalog` queues `catalog-sync` (kind `CATALOG`), the job the 3 am cron runs; `POST /admin/sync/prices` queues `price-sweep` (kind `PRICE`), the full sweep the 4 am cron runs. The active refresh has no button — it already runs four times a day. With `SYNC_SCHEDULES=false` (production, PD-130) the worker removes all three crons at start — catalog, sweep and active refresh — and these two buttons are the only way a sync runs; the on-demand refresh of a card a member opens still works. Neither takes a body. The answer is **202** `{ jobId, kind }`: the run is queued, not done, and a processor picks it up in the worker or the API process.
 
 **One run at a time, from either side.** Each queue has a BullMQ deduplication key, held while a job waits, is delayed, runs or retries, and released when it completes or finally fails. The crons enqueue under the same key, so a cron firing over a manual run is skipped and logged, and a trigger over a cron's run is refused. The refusal is **409 `SYNC_IN_PROGRESS`**, naming the job: `A catalog sync is already queued or running (job 680e…)`.
 

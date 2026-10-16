@@ -113,6 +113,7 @@ export function buildAppConfig(env: Env) {
     },
     queue: {
       concurrency: env.QUEUE_CONCURRENCY,
+      syncSchedules: env.SYNC_SCHEDULES,
       defaults: {
         attempts: 3,
         backoff: { type: 'exponential', delay: 5_000 },

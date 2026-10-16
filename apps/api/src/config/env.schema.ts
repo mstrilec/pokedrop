@@ -66,6 +66,11 @@ export const EnvSchema = z
 
     QUEUE_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(4),
 
+    SYNC_SCHEDULES: z
+      .enum(['true', 'false'])
+      .default('true')
+      .transform((value) => value === 'true'),
+
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
 
     THROTTLE_DEFAULT_LIMIT: z.coerce.number().int().min(1).default(100),
