@@ -83,6 +83,21 @@ No backups, on purpose: a diploma project with one environment. Accounts, invent
 
 **Syncs run only on request.** `SYNC_SCHEDULES=false` makes the worker drop its crons at start (catalog at 03:00 UTC, the full price sweep at 04:00, the active-card refresh four times a day), so the catalog and prices change only when an admin presses **Run now** on `/admin/sync` — catalog first, then prices. The worker logs `Sync schedules off` when it starts.
 
+**Pack templates.** [`deploy/pack-templates.sql`](../deploy/pack-templates.sql) creates four packs modelled on real boosters, after the catalog is in. It refuses to write anything if a set lacks a rarity it names, and leaves an existing template alone, so it is safe to run again:
+
+```bash
+docker compose -f compose.production.yml --env-file .env.production   exec -T postgres psql -U pokedrop -d pokedrop -v ON_ERROR_STOP=1 < deploy/pack-templates.sql
+```
+
+| Pack | Set | Cost | Cards | Built from |
+| --- | --- | --- | --- | --- |
+| Base Set | `base1` | 500 | 5 C · 3 U · 1 rare slot (Rare Holo 1 in 3) | the 1999 pack: 11 cards, two of them basic Energy |
+| Evolving Skies | `swsh7` | 300 | 5 C · 3 U · reverse · rare slot (V 1/9.4, VMAX 1/17.7, Ultra 1/25, Rainbow 1/90, Secret 1/110) | Card Codex's per-pack rates for SWSH7 |
+| Scarlet & Violet | `sv1` | 150 | 4 C · 3 U · reverse · reverse-or-hit (IR 1/13, SIR 1/31, Hyper 1/55) · rare slot (Double Rare 1/7.1, Ultra 1/14.7) | Card Codex's rates for SV1 and SV2, which agree |
+| Scarlet & Violet 151 | `sv3pt5` | 200 | as Scarlet & Violet | the same era structure; no per-set table was found |
+
+Basic Energy is left out — the catalog gives it no rarity, so it can never be drawn — and a reverse-holo slot draws an ordinary Common, Uncommon or Rare at the rates reverse holos appear, because the mirror has no foil variants. Pull rates are community estimates from large openings; The Pokémon Company publishes none. Costs keep the real price order (modern < 151 < Evolving Skies < vintage) against the 1,000-coin welcome grant, and can be changed on `/admin/packs` like everything else here.
+
 **First admin.** There is no sign-up path to `ADMIN` (`docs/DataModel.md`, `input: false`). Register and verify the account on the site, then promote it once on the host:
 
 ```bash
