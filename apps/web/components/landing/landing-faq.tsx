@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react';
+import { FaqAccordion } from './faq-accordion';
 import { Reveal } from './reveal';
 
 const FAQ: { q: string; a: string }[] = [
@@ -52,25 +52,7 @@ export function LandingFaq() {
           Questions
         </h2>
       </Reveal>
-      <div className="flex flex-col gap-2">
-        {FAQ.map(({ q, a }) => (
-          <details
-            key={q}
-            className="group rounded-card border border-bd bg-surface transition-colors open:border-bd-2"
-          >
-            <summary className="focus-ring flex cursor-pointer list-none items-center justify-between gap-4 rounded-card px-5 py-4.5 [&::-webkit-details-marker]:hidden">
-              <h3 className="text-h3">{q}</h3>
-              <span
-                aria-hidden
-                className="flex size-7 flex-none items-center justify-center rounded-pill bg-surface-2 text-mut transition-transform duration-200 group-open:rotate-45"
-              >
-                <Plus className="size-3.5" />
-              </span>
-            </summary>
-            <p className="px-5 pb-5 text-[0.9375rem] leading-relaxed text-pretty text-mut">{a}</p>
-          </details>
-        ))}
-      </div>
+      <FaqAccordion items={FAQ} />
     </section>
   );
 }

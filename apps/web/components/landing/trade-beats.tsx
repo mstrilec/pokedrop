@@ -14,28 +14,24 @@ import Image from 'next/image';
 import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { TRADE_STATUS_STYLES } from '@/lib/design/status';
-import { cn } from '@/lib/utils';
 import { Reveal } from './reveal';
 import { SectionHeading } from './section-heading';
 
-const BEATS: { icon: LucideIcon; title: string; body: string; delay: string }[] = [
+const BEATS: { icon: LucideIcon; title: string; body: string }[] = [
   {
     icon: Lock,
     title: 'Your cards lock',
     body: 'The cards you offer are held while the offer is open, so they can’t be promised twice. Coins are checked when you offer and again when the swap settles.',
-    delay: '',
   },
   {
     icon: MessageSquareReply,
     title: 'The other side answers',
     body: 'They accept, decline or counter. A counter replaces your offer: your cards unlock and theirs lock instead. An offer left unanswered expires after 7 days.',
-    delay: '[animation-delay:1.8s]',
   },
   {
     icon: ArrowLeftRight,
     title: 'One atomic swap',
     body: 'On accept, both sides move in a single transaction. Either everything changes hands, or nothing does.',
-    delay: '[animation-delay:3.6s]',
   },
 ];
 
@@ -47,10 +43,10 @@ function Thumb({ card }: { card: { src: string; alt: string } }) {
     <Image
       src={card.src}
       alt={card.alt}
-      width={40}
-      height={56}
-      sizes="40px"
-      className="h-14 w-10 rounded-sm"
+      width={72}
+      height={100}
+      sizes="72px"
+      className="h-25 w-18 shrink-0 rounded-sm shadow-md"
     />
   );
 }
@@ -62,7 +58,7 @@ const CHAIN: { title: string; status: TradeStatus; cards: ReactNode; body: strin
     cards: (
       <>
         <Thumb card={BLASTOISE} />
-        <ArrowRightLeft aria-hidden className="size-3.5 text-mut" />
+        <ArrowRightLeft aria-hidden className="size-4 text-mut" />
         <span className="sr-only">for</span>
         <Thumb card={VENUSAUR} />
       </>
@@ -80,7 +76,7 @@ const CHAIN: { title: string; status: TradeStatus; cards: ReactNode; body: strin
           <Coins aria-hidden className="size-3.5" />
           <span className="sr-only">plus coins</span>
         </span>
-        <ArrowRightLeft aria-hidden className="size-3.5 text-mut" />
+        <ArrowRightLeft aria-hidden className="size-4 text-mut" />
         <span className="sr-only">for</span>
         <Thumb card={VENUSAUR} />
       </>
@@ -93,7 +89,7 @@ const CHAIN: { title: string; status: TradeStatus; cards: ReactNode; body: strin
     cards: (
       <>
         <Thumb card={VENUSAUR} />
-        <Check aria-hidden className="size-3.5 text-grn" />
+        <Check aria-hidden className="size-5 text-grn" />
       </>
     ),
     body: 'One swap. Cards and coins move together, or nothing moves.',
@@ -121,11 +117,7 @@ export function TradeBeats() {
           <Reveal
             as="li"
             key={beat.title}
-            className={cn(
-              'flex animate-beat flex-col gap-3 rounded-card border border-bd bg-surface p-5',
-              'motion-reduce:animate-none motion-reduce:border-energy-water/55',
-              beat.delay,
-            )}
+            className="flex flex-col gap-3 rounded-card border border-bd bg-surface p-5 transition-[border-color,box-shadow] duration-300 hover:border-energy-water/55 hover:shadow-[0_0_32px_color-mix(in_srgb,var(--e-water)_18%,transparent)]"
           >
             <div className="flex items-center justify-between">
               <span className="flex size-11 items-center justify-center rounded-control bg-energy-water/14 text-energy-water">
@@ -141,7 +133,7 @@ export function TradeBeats() {
 
       <Reveal className="mt-6 rounded-card border border-bd bg-surface p-5">
         <h3 className="mb-4 text-h3">A counter-offer, start to finish</h3>
-        <ol className="grid gap-3 md:grid-cols-3">
+        <ol className="grid gap-3 lg:grid-cols-3">
           {CHAIN.map((step) => {
             const status = TRADE_STATUS_STYLES[step.status];
             return (

@@ -25,7 +25,7 @@ export function ChaseItem({
       <Link
         href={`/cards/${encodeURIComponent(card.id)}`}
         tabIndex={copy ? -1 : undefined}
-        className="focus-ring flex flex-col gap-2.5 rounded-tile border border-pri/30 bg-surface p-2 text-tx shadow-[0_0_22px_color-mix(in_srgb,var(--pri)_10%,transparent)] transition-[translate,border-color,box-shadow] duration-200 hover:-translate-y-1 hover:border-pri hover:shadow-md"
+        className="focus-ring flex h-full flex-col gap-2.5 rounded-tile border border-pri/30 bg-surface p-2 text-tx shadow-[0_0_22px_color-mix(in_srgb,var(--pri)_10%,transparent)] transition-[translate,border-color,box-shadow] duration-200 hover:-translate-y-1 hover:border-pri hover:shadow-md"
       >
         <span className="relative block aspect-[63/88] overflow-hidden rounded-control">
           <CardArt card={cardView(card)} sizes="176px" />
@@ -48,7 +48,7 @@ export function ChaseItem({
           <span className="font-mono text-body font-semibold text-tx">
             {formatUsd(card.latestPriceUsd)}
           </span>
-          <span className="line-clamp-2 font-mono text-caption font-normal tracking-normal text-faint">
+          <span className="truncate font-mono text-caption font-normal tracking-normal text-faint">
             {setName} · {number}
           </span>
         </span>

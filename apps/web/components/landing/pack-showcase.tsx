@@ -1,6 +1,5 @@
 'use client';
 
-import type { PackArt } from '@pokedrop/shared';
 import { ArrowRight, PackageOpen } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -9,6 +8,12 @@ import { BoosterPack } from '@/components/packs/booster-pack';
 import { Button } from '@/components/ui/button';
 import { RARITY_STYLES, rarityTier } from '@/lib/design/rarity';
 import { cn } from '@/lib/utils';
+import {
+  BASE_SET_ART as ART,
+  BASE_SET_LOGO as LOGO,
+  BASE_SET_PACK as PACK_NAME,
+  baseSetImage as image,
+} from './base-set';
 import type { PackShowcaseHandle } from './three/pack-showcase';
 import { useThreeMode } from './use-three-mode';
 
@@ -24,24 +29,6 @@ const FAN = [
   { id: 'base1-42', name: 'Wartortle', rarity: 'Uncommon' },
   { id: 'base1-4', name: 'Charizard', rarity: 'Rare Holo' },
 ] as const;
-
-const image = (id: string) => `https://images.pokemontcg.io/base1/${id.split('-')[1]}.png`;
-const LOGO = 'https://images.pokemontcg.io/base1/logo.png';
-const PACK_NAME = 'Base Set Booster Pack';
-
-// Asserted, not parsed: parsing would load zod for one constant.
-const ART = {
-  set: { id: 'base1', name: 'Base', series: 'Base', logoUrl: LOGO },
-  cover: {
-    id: 'base1-4',
-    name: 'Charizard',
-    image: image('base1-4'),
-    type: 'Fire',
-    rarity: 'Rare Holo',
-  },
-  coverIsDefault: true,
-  imageUrl: null,
-} as PackArt;
 
 const STAGES = ['Sealed', 'Torn open', 'Revealed'];
 const stageOf = (p: number) => (p < 0.12 ? 0 : p < 0.5 ? 1 : 2);
@@ -62,6 +49,22 @@ const FAN_STYLE = FAN.map(
     }) as CSSProperties,
 );
 
+// One loop of the opening, in seconds: sealed, tearing open into the fan,
+// revealed, and rewinding into the pack.
+const HOLD_SEALED = 1.2;
+const OPEN = 6;
+const HOLD_OPEN = 3.2;
+const REWIND = 1.6;
+const LOOP = HOLD_SEALED + OPEN + HOLD_OPEN + REWIND;
+
+function loopProgress(t: number) {
+  const s = t % LOOP;
+  if (s < HOLD_SEALED) return 0;
+  if (s < HOLD_SEALED + OPEN) return (s - HOLD_SEALED) / OPEN;
+  if (s < HOLD_SEALED + OPEN + HOLD_OPEN) return 1;
+  return 1 - (s - HOLD_SEALED - OPEN - HOLD_OPEN) / REWIND;
+}
+
 export function PackShowcase({ signedIn }: { signedIn: boolean }) {
   const mode = useThreeMode();
   const [failed, setFailed] = useState(false);
@@ -69,38 +72,41 @@ export function PackShowcase({ signedIn }: { signedIn: boolean }) {
   const [stage, setStage] = useState(0);
   const sectionRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
-  const scrub = mode === 'full' && !failed;
-  // The signed-in shell's bar is sticky and 60 px tall (h-15); the guest header scrolls away.
-  const top = signedIn ? 60 : 0;
+  const live = mode === 'full' && !failed;
 
   useEffect(() => {
     const section = sectionRef.current;
     const mount = mountRef.current;
-    if (!scrub || !section || !mount) return;
+    if (!live || !section || !mount) return;
     let handle: PackShowcaseHandle | null = null;
     let gone = false;
     let frame = 0;
+    let visible = false;
+    let elapsed = 0;
+    let last = 0;
 
-    const progress = () => {
-      const rect = section.getBoundingClientRect();
-      const span = rect.height - (window.innerHeight - top);
-      return Math.min(1, Math.max(0, (top - rect.top) / Math.max(1, span)));
-    };
-    const onScroll = () => {
-      if (frame) return;
-      frame = requestAnimationFrame(() => {
-        frame = 0;
-        const p = progress();
-        handle?.setProgress(p);
-        setStage(stageOf(p));
-      });
+    // Time only runs while the section is on screen, so the loop resumes where it left off.
+    const tick = (now: number) => {
+      frame = 0;
+      if (last) elapsed += (now - last) / 1000;
+      last = now;
+      const p = loopProgress(elapsed);
+      handle?.setProgress(p);
+      setStage(stageOf(p));
+      if (visible) frame = requestAnimationFrame(tick);
     };
     const onResize = () => handle?.setCompact(window.innerWidth < 640);
 
+    let loading = false;
     const io = new IntersectionObserver(
       ([entry]) => {
-        if (!entry?.isIntersecting) return;
-        io.disconnect();
+        visible = entry?.isIntersecting ?? false;
+        if (visible && !frame) {
+          last = 0;
+          frame = requestAnimationFrame(tick);
+        }
+        if (!visible || loading) return;
+        loading = true;
         const fallBack = () => {
           setReady(false);
           setFailed(true);
@@ -125,46 +131,32 @@ export function PackShowcase({ signedIn }: { signedIn: boolean }) {
               return;
             }
             handle = h;
-            h.setProgress(progress());
+            h.setProgress(loopProgress(elapsed));
           })
           .catch(fallBack);
       },
-      { rootMargin: '800px 0px' },
+      { rootMargin: '200px 0px' },
     );
     io.observe(section);
-    window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onResize);
-    onScroll();
     return () => {
       gone = true;
       io.disconnect();
       cancelAnimationFrame(frame);
-      window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onResize);
       handle?.dispose();
     };
-  }, [scrub, top]);
+  }, [live]);
 
   return (
     <section
       ref={sectionRef}
       id="pack-opening"
       aria-labelledby="show-title"
-      className={cn('relative scroll-mt-20', scrub && 'h-[260vh]')}
+      className="relative scroll-mt-20"
     >
-      <div
-        style={scrub ? { top, height: `calc(100dvh - ${top}px)` } : undefined}
-        className={cn(
-          'overflow-hidden border-y border-bd bg-[radial-gradient(900px_520px_at_70%_55%,color-mix(in_srgb,var(--e-fire)_14%,transparent),transparent_70%)]',
-          scrub ? 'sticky' : 'relative',
-        )}
-      >
-        <div
-          className={cn(
-            'mx-auto grid h-full max-w-300 items-center gap-8 px-5 sm:px-14 lg:grid-cols-[0.85fr_1.15fr] lg:gap-12',
-            scrub ? 'grid-rows-[auto_minmax(0,1fr)] py-8 lg:grid-rows-1' : 'py-14 sm:py-20',
-          )}
-        >
+      <div className="relative overflow-hidden border-y border-bd bg-[radial-gradient(900px_520px_at_70%_55%,color-mix(in_srgb,var(--e-fire)_14%,transparent),transparent_70%)]">
+        <div className="mx-auto grid h-full max-w-300 items-center gap-8 px-5 py-14 sm:px-14 sm:py-20 lg:grid-cols-[0.85fr_1.15fr] lg:gap-12">
           <div className="flex min-w-0 flex-col gap-4">
             <p className="inline-flex items-center gap-2 text-caption text-energy-fire uppercase">
               <PackageOpen aria-hidden className="size-4" />
@@ -180,7 +172,7 @@ export function PackShowcase({ signedIn }: { signedIn: boolean }) {
               Every pack shows how many cards it holds and the rarity it guarantees before you open
               it.
             </p>
-            {scrub ? (
+            {live ? (
               <ol aria-hidden className="mt-2 flex flex-wrap gap-2">
                 {STAGES.map((label, i) => (
                   <li
@@ -237,13 +229,13 @@ export function PackShowcase({ signedIn }: { signedIn: boolean }) {
           <div
             role="img"
             aria-label="A Base Set booster tears open and fans out eight cards: Pikachu, Bulbasaur, Squirtle, Charmander, Charmeleon, Ivysaur, Wartortle and Charizard."
-            className={cn('relative h-full min-w-0', scrub ? 'min-h-0' : 'min-h-90 sm:min-h-130')}
+            className="relative h-full min-h-90 min-w-0 sm:min-h-130"
           >
             <div
               aria-hidden
               className="absolute top-1/2 left-1/2 aspect-[1.4] w-[min(90%,620px)] -translate-1/2 rounded-pill bg-[radial-gradient(closest-side,color-mix(in_srgb,var(--e-fire)_32%,transparent),color-mix(in_srgb,var(--gold)_12%,transparent)_55%,transparent)] blur-md"
             />
-            {scrub ? (
+            {live ? (
               <div
                 aria-hidden
                 className={cn(

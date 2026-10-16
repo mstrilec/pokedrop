@@ -7,13 +7,38 @@ import { useEffect, useRef, useState } from 'react';
 import { DeckValidationBanner } from '@/components/decks/deck-validation-banner';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { baseSetImage } from './base-set';
 import { Reveal } from './reveal';
 
 const SIZE = 60;
 const START = 52;
 const HOLD = 4;
+
+const copies = (id: string, n: number) => Array.from({ length: n }, () => id);
+// A Base Set Lightning deck in slot order: 24 basic Energy, 20 Trainers, 16 Pokémon.
+const SLOTS = [
+  ...copies('base1-100', 24), // Lightning Energy
+  ...copies('base1-91', 4), // Bill
+  ...copies('base1-88', 3), // Professor Oak
+  ...copies('base1-92', 3), // Energy Removal
+  ...copies('base1-84', 3), // PlusPower
+  ...copies('base1-95', 3), // Switch
+  ...copies('base1-93', 2), // Gust of Wind
+  ...copies('base1-94', 2), // Potion
+  ...copies('base1-58', 4), // Pikachu
+  ...copies('base1-20', 3), // Electabuzz
+  ...copies('base1-53', 3), // Magnemite
+  ...copies('base1-14', 2), // Raichu
+  ...copies('base1-9', 2), // Magneton
+  ...copies('base1-16', 2), // Zapdos
+];
 // The cards that drop in, one per step from 52 to 60.
-const DROPS = [16, 14, 58, 58, 20, 67, 21, 53];
+const DROPS = SLOTS.slice(START);
+const LEGEND = [
+  { id: 'base1-58', label: 'Pokémon', count: (n: number) => Math.min(Math.max(n - 44, 0), 16) },
+  { id: 'base1-91', label: 'Trainer', count: (n: number) => Math.min(Math.max(n - 24, 0), 20) },
+  { id: 'base1-100', label: 'Energy', count: (n: number) => Math.min(n, 24) },
+];
 
 const RULES = [
   { icon: RectangleVertical, title: 'Exactly 60 cards', detail: null },
@@ -49,14 +74,6 @@ function validation(n: number): DeckValidation {
           },
         ],
   };
-}
-
-// Slots 0–23 basic Energy, 24–43 Trainers, 44–59 Pokémon.
-function slotClass(i: number, filled: boolean) {
-  if (!filled) return 'scale-86 border-bd bg-surface-2';
-  if (i < 24) return 'border-energy-lightning bg-energy-lightning/40';
-  if (i < 44) return 'border-transparent bg-energy-colorless';
-  return 'border-transparent bg-energy-lightning';
 }
 
 const noop = () => {};
@@ -144,7 +161,7 @@ export function DeckPreview() {
               {drop ? (
                 <Image
                   key={step}
-                  src={`https://images.pokemontcg.io/base1/${drop}.png`}
+                  src={baseSetImage(drop)}
                   alt=""
                   width={64}
                   height={90}
@@ -153,29 +170,32 @@ export function DeckPreview() {
                 />
               ) : null}
               <div className="grid grid-cols-10 gap-1 sm:grid-cols-15">
-                {Array.from({ length: SIZE }, (_, i) => (
+                {SLOTS.map((id, i) => (
                   <span
                     key={i}
                     className={cn(
-                      'aspect-[5/7] rounded-[3px] border transition-[scale,background-color] duration-300 ease-reveal',
-                      slotClass(i, i < n),
+                      'relative aspect-[63/88] overflow-hidden rounded-[3px] border transition-[scale,opacity] duration-300 ease-reveal',
+                      i < n ? 'border-transparent' : 'scale-86 border-bd bg-surface-2',
                     )}
-                  />
+                  >
+                    {i < n ? <Image src={baseSetImage(id)} alt="" fill sizes="44px" /> : null}
+                  </span>
                 ))}
               </div>
               <div className="mt-3.5 flex flex-wrap gap-x-4 gap-y-3 text-caption font-normal tracking-normal text-mut normal-case">
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-3.5 w-2.5 rounded-xs bg-energy-lightning" />
-                  Pokémon {Math.min(Math.max(n - 44, 0), 16)}
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-3.5 w-2.5 rounded-xs bg-energy-colorless" />
-                  Trainer {Math.min(Math.max(n - 24, 0), 20)}
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-3.5 w-2.5 rounded-xs border border-energy-lightning bg-energy-lightning/40" />
-                  Energy {Math.min(n, 24)}
-                </span>
+                {LEGEND.map((kind) => (
+                  <span key={kind.label} className="inline-flex items-center gap-1.5">
+                    <Image
+                      src={baseSetImage(kind.id)}
+                      alt=""
+                      width={12}
+                      height={17}
+                      sizes="12px"
+                      className="h-4.25 w-3 rounded-xs"
+                    />
+                    {kind.label} {kind.count(n)}
+                  </span>
+                ))}
               </div>
             </div>
           </div>

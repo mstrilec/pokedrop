@@ -1,6 +1,9 @@
-import { Flame, Lock, Route } from 'lucide-react';
+import { Lock, Route } from 'lucide-react';
+import Image from 'next/image';
 import type { ReactNode } from 'react';
+import { BoosterPack } from '@/components/packs/booster-pack';
 import { cn } from '@/lib/utils';
+import { BASE_SET_ART, BASE_SET_PACK, baseSetImage } from './base-set';
 import { Reveal } from './reveal';
 import { SectionHeading } from './section-heading';
 
@@ -19,6 +22,19 @@ const coins = [
   'bg-[color-mix(in_srgb,var(--gold)_80%,var(--bg))]',
   'bg-[color-mix(in_srgb,var(--gold)_90%,var(--bg))]',
 ];
+
+function CardImage({ id, className }: { id: string; className?: string }) {
+  return (
+    <Image
+      src={baseSetImage(id)}
+      alt=""
+      width={68}
+      height={95}
+      sizes="68px"
+      className={cn('rounded-[5px] shadow-md', className)}
+    />
+  );
+}
 
 const STEPS: Step[] = [
   {
@@ -45,10 +61,8 @@ const STEPS: Step[] = [
     tone: 'text-energy-fire',
     glow: 'var(--e-fire)',
     art: (
-      <div className="relative flex h-21 w-13 animate-wiggle items-center justify-center overflow-hidden rounded-sm bg-booster booster-crimp text-booster-ink [--energy:var(--e-fire)]">
-        <span className="absolute inset-x-0 top-0 h-[6%] bg-booster-shade" />
-        <span className="absolute inset-x-0 bottom-0 h-[6%] bg-booster-shade" />
-        <Flame className="size-5.5" />
+      <div className="animate-wiggle">
+        <BoosterPack art={BASE_SET_ART} name={BASE_SET_PACK} size="sm" />
       </div>
     ),
     link: { href: '#pack-opening', label: 'See a pack open' },
@@ -59,24 +73,16 @@ const STEPS: Step[] = [
     tone: 'text-energy-grass',
     glow: 'var(--e-grass)',
     art: (
-      <div className="relative h-16 w-11.5">
+      <div className="relative h-23.75 w-17">
         {[
-          { energy: '[--energy:var(--e-grass)]', place: '-translate-x-3.5 -rotate-8', delay: '' },
-          { energy: '[--energy:var(--e-water)]', place: '', delay: '[animation-delay:0.4s]' },
-          {
-            energy: '[--energy:var(--e-fire)]',
-            place: 'translate-x-3.5 rotate-8',
-            delay: '[animation-delay:0.8s]',
-          },
+          { id: 'base1-58', place: '-translate-x-6 -rotate-8', delay: '' },
+          { id: 'base1-14', place: '', delay: '[animation-delay:0.4s]' },
+          { id: 'base1-16', place: 'translate-x-6 rotate-8', delay: '[animation-delay:0.8s]' },
         ].map((card) => (
-          <span
-            key={card.energy}
-            className={cn(
-              'absolute inset-0 animate-stack-in rounded-sm border border-bd-2 bg-card-face',
-              card.energy,
-              card.place,
-              card.delay,
-            )}
+          <CardImage
+            key={card.id}
+            id={card.id}
+            className={cn('absolute inset-0 animate-stack-in', card.place, card.delay)}
           />
         ))}
       </div>
@@ -90,9 +96,11 @@ const STEPS: Step[] = [
     glow: 'var(--e-water)',
     art: (
       <div className="relative flex h-full w-full items-center justify-center gap-1">
-        <span className="h-14 w-10 animate-swap-l rounded-sm border border-bd-2 bg-card-face [--energy:var(--e-water)]" />
-        <span className="h-14 w-10 animate-swap-r rounded-sm border border-bd-2 bg-card-face [--energy:var(--e-lightning)]" />
-        <Lock className="absolute bottom-3 left-1/2 size-3.5 -translate-x-1/2 text-energy-water" />
+        <CardImage id="base1-2" className="h-20 w-14.25 animate-swap-l" />
+        <CardImage id="base1-15" className="h-20 w-14.25 animate-swap-r" />
+        <span className="absolute bottom-1 left-1/2 flex size-6 -translate-x-1/2 items-center justify-center rounded-pill bg-surface-2 text-energy-water">
+          <Lock className="size-3.5" />
+        </span>
       </div>
     ),
     link: { href: '#trading', label: 'How trades stay safe' },
@@ -125,7 +133,7 @@ export function HowItWorks() {
               style={{
                 backgroundImage: `radial-gradient(120px 80px at 50% 65%, color-mix(in srgb, ${step.glow} 28%, transparent), transparent 70%)`,
               }}
-              className="flex h-30 items-center justify-center overflow-hidden rounded-control bg-surface-2 pb-2"
+              className="flex h-36 items-center justify-center overflow-hidden rounded-control bg-surface-2 pb-2"
             >
               {step.art}
             </div>
