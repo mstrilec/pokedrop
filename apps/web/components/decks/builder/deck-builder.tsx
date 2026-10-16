@@ -189,7 +189,9 @@ function Builder({
       onSelectCard={selectCard}
     />
   );
-  const column = 'min-h-0 overflow-y-auto rounded-card border border-bd bg-surface p-4';
+  // relative: the slots' sr-only text is absolute and would otherwise escape the scroll and
+  // lengthen the page below the footer.
+  const column = 'relative min-h-0 overflow-y-auto rounded-card border border-bd bg-surface p-4';
 
   return (
     <div className="flex flex-col gap-4" style={wide ? { height: BUILDER_HEIGHT } : undefined}>
