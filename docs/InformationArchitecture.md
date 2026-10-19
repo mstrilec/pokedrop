@@ -1,7 +1,7 @@
 # Information Architecture
 
-> Page inventory, routing, navigation chrome, and RBAC gating. Extracted from `design/Information Architecture.dc.html`.
-> **32 pages across 4 access zones.** Flows between them are in [UserFlows.md](UserFlows.md).
+> Page inventory, routing, navigation chrome, and RBAC gating. First extracted from the Information Architecture mockup in Claude Design; the mockups are no longer in the repository, so this file and the routes in `apps/web/app/` are the source of truth.
+> **30 routes across 4 access zones**, plus a development-only component gallery. Five shareable routes — `/cards`, `/sets`, `/cards/:id`, `/profile/:id`, `/decks/:id` — belong to both Public and the User App, so the zone tables below list 35 entries. Flows between them are in [UserFlows.md](UserFlows.md). What each page does is in [Pages.md](Pages.md).
 
 ## Access zones
 
@@ -24,7 +24,7 @@
 
 ---
 
-## 01 — Public (4 pages)
+## 01 — Public (6 pages)
 
 | Page | Route | Notes |
 |---|---|---|
@@ -35,7 +35,7 @@
 | Catalog/Browse | `/cards` | Public since PD-108; owned badges only with a session. Also part of the User App below. |
 | Sets Gallery | `/sets` | Public since PD-109; completion only with a session. Also part of the User App below. |
 
-Any action (trade, add-to-deck) on a public page prompts sign-in.
+Any action (trade, add-to-deck) on a public page prompts sign-in. Catalog and Sets are counted here and again in the User App below; they are one route each.
 
 ## 02 — Auth (5 pages)
 
@@ -62,7 +62,7 @@ Flow: `Register → Verify → Sign In → Dashboard`; `Forgot → Reset → Sig
 | **Profile & account** | My Profile (`/profile/:id`) · Settings (`/settings`) · Currency/Wallet (`/wallet`) |
 | **Notifications** | Notification Center (`/notifications`) |
 
-## 04 — Admin (6 pages, role-gated under `/admin`)
+## 04 — Admin (7 pages, role-gated under `/admin`)
 
 | Page | Route |
 |---|---|
@@ -71,6 +71,7 @@ Flow: `Register → Verify → Sign In → Dashboard`; `Forgot → Reset → Sig
 | Sync Control | `/admin/sync` |
 | User Management | `/admin/users` |
 | Trade Moderation | `/admin/trades` |
+| Admin Trade Detail | `/admin/trades/:id` — any trade, with the void check and the void dialog |
 | Audit Log | `/admin/audit` |
 
 ---
@@ -109,3 +110,15 @@ Dashed connections that jump between sections (not part of primary nav):
 | Moderate/void suspicious trades | ❌ | ✅ |
 
 RBAC is enforced **server-side** via NestJS guards; the UI hides/disables what a role can't do but never relies on the client for enforcement.
+
+## How the gating is implemented
+
+- **`apps/web/proxy.ts`** (Next middleware) redirects a visitor with no session cookie away from the protected paths in `lib/route-access.ts` to `/sign-in?next=…`, and sends a non-admin away from `/admin/*` after asking the API for `GET /users/me`. It is navigation comfort, not access control.
+- **Layouts** ask the API for the session (`lib/session/server.ts`); a suspended account is shown as signed out.
+- **The API** refuses anything the session does not allow — 401 without a session, 403 for a member on an admin route — whatever the web app rendered.
+
+## Development-only
+
+| Page | Route | Notes |
+|---|---|---|
+| Component gallery | `/dev/components` | Every UI component in its states. On under `next dev`; under `next start` only with `COMPONENT_GALLERY=1`, otherwise 404 ([Components.md](Components.md)). |

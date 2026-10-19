@@ -1,6 +1,6 @@
 # Product Requirements Document — Pokémon TCG Web Application
 
-**Status:** Draft v1.0
+**Status:** v1.0 — the requirements v1 was built against. Where the implementation went another way, an *As built* note says so and links to the doc that describes what exists.
 **Type:** Production-oriented web application (collection, deck-building, trading)
 **Stack:** NestJS + Prisma + PostgreSQL + Redis + BullMQ (backend) · Next.js App Router + Tailwind + shadcn/ui (frontend)
 
@@ -104,12 +104,12 @@ Design note: model as a single `role` enum for v1 (simple, predictable). If fine
 ### 5.1 Booster Pack Opening
 - User spends in-app currency to open a pack of a chosen **pack template** (e.g., "Base Set", "Latest Set").
 - Server generates the pack contents using weighted rarity slots (see §13), records the opening, and mints card instances into the user's inventory **atomically**.
-- Frontend plays a reveal animation (Motion): cards flip one by one, rare pulls emphasized.
+- Frontend plays a reveal animation: cards flip one by one, rare pulls emphasized. *As built:* CSS keyframes, not the Motion library ([Pages.md](Pages.md)).
 - Idempotency: an `openId` guards against double-spend on retries/double-clicks.
 
 ### 5.2 Inventory (Collection)
 - Grid/list of owned cards with quantity, rarity, set, and current price.
-- Filter by set, rarity, type, owned-count; sort by price/name/date acquired; full-text/fuzzy search (server-side for scale; Fuse.js for instant client-side filtering of the loaded page).
+- Filter by set, rarity, type, owned-count; sort by price/name/date acquired; full-text/fuzzy search (server-side for scale; Fuse.js for instant client-side filtering of the loaded page). *As built:* no Fuse.js — the loaded page is narrowed with the server's own name predicate, so the client never shows a card the server would not return (PD-107).
 - Virtualized rendering for large collections; TanStack Table for the dense list view.
 - Aggregate stats: total cards, unique cards, collection value (sum of latest prices), completion % per set.
 
@@ -143,12 +143,13 @@ Design note: model as a single `role` enum for v1 (simple, predictable). If fine
 - Email/password (and optionally OAuth) via Better Auth; email verification; password reset.
 - Session or JWT-based auth validated by a Nest guard; role guard for admin routes.
 - Secure cookie handling, refresh rotation, and logout/all-sessions.
+- *As built:* email/password only (no OAuth); opaque session cookies, no JWT; no refresh token, so nothing to rotate — sessions are listed and revocable instead. Email verification is mandatory to sign in. See [Security.md](Security.md).
 
 ### 5.8 Admin
 - Manage pack templates and rarity weights.
 - Trigger catalog/price syncs; view sync status and last-run metrics.
 - Adjust user currency; manage roles; suspend users.
-- Dashboards: DAU, packs opened, trade volume, catalog/price freshness (Recharts/Tremor).
+- Dashboards: DAU, packs opened, trade volume, catalog/price freshness (Recharts/Tremor). *As built:* Recharts only.
 
 ---
 
@@ -207,6 +208,8 @@ Key principles: **read from our DB/cache, write to external only via jobs**, thi
 ---
 
 ## 8. Backend Module Structure (NestJS)
+
+> *As built:* the tree below is the plan. The real module list — with `CsrfGuard` and `SessionGuard` instead of a `JwtAuthGuard`, no interceptors, and the wallet, mail, audit, metrics, throttle and queue modules — is in [Architecture.md](Architecture.md) §4.
 
 ```
 src/
@@ -271,6 +274,8 @@ lib/
 
 **Rendering strategy:** Server Components for read-heavy pages (card detail, public profiles, set lists) for fast first paint + SEO; Client Components for interactive surfaces (deck builder, pack reveal, trade composer). **TanStack Query** owns server state; **Zustand** owns ephemeral client state (deck draft, reveal sequence, modals). Forms via **React Hook Form + Zod**. Toasts via **Sonner**. Theming via **next-themes**. Animations via **Motion**. Drag-and-drop via **dnd-kit**. Dense tables via **TanStack Table**. Charts via **Recharts** (or **Tremor** for admin dashboards). Instant client filtering via **Fuse.js** over already-fetched pages.
 
+*As built:* theming is a `theme` cookie and `data-theme` on `<html>` (PD-139, `next-themes` removed); animations are CSS keyframes, three.js on the landing; charts are Recharts everywhere; Fuse.js was replaced by the server's name predicate (PD-107); there is no `react-error-boundary` or `ky` — route `error.tsx` files and a small typed `fetch` client in `lib/api/`. See [Architecture.md](Architecture.md) §5.
+
 **Recommended frontend additions:** `@tanstack/react-query-devtools`, `react-error-boundary`, a small typed fetch layer (native `fetch` wrapper or `ky`). Testing: **deferred, see §20** — no test tooling is installed during v1. Quality: **ESLint** (`eslint-config-next`), **Prettier**, **Husky** + **lint-staged**.
 
 ---
@@ -283,6 +288,8 @@ REST, JSON, versioned under `/api/v1`. All list endpoints paginated (`page`, `pa
 - `POST /auth/sign-up`, `POST /auth/sign-in`, `POST /auth/sign-out`
 - `POST /auth/verify-email`, `POST /auth/reset-password`
 - `GET  /auth/session`
+
+*As built:* the provider's real paths are `sign-up/email`, `sign-in/email`, `get-session`, `GET verify-email`, `request-password-reset` and more; [API.md](API.md) is the reference for every endpoint and supersedes this section.
 
 **Users / Profile**
 - `GET  /users/me`
@@ -367,6 +374,7 @@ Relationships: User 1—N InventoryItem/Deck/Trade(initiator|recipient)/PackOpen
 - **AuthZ:** `@Roles(Role.ADMIN)` + `RolesGuard` protect admin routes. For finer control later, swap in CASL abilities without touching the stored `role`.
 - **Ownership checks:** service-level assertions (e.g., a user can only edit their own deck) — never trust IDs from the client.
 - **Session security:** httpOnly + Secure + SameSite cookies, refresh rotation, "sign out all sessions," CSRF protection for cookie-based flows, short-lived access tokens if using JWT.
+- *As built:* a session cookie, never a JWT, resolved by `SessionGuard`; no refresh rotation, because Better Auth extends a session in place rather than issuing a new token (reasoning in `apps/api/src/auth/README.md`); CSRF is `CsrfGuard` on `/api/v1/*` and Better Auth's origin check on `/api/auth/*`. [Security.md](Security.md) has the whole picture.
 - **Alternative considered:** Auth.js (NextAuth) is Next-centric and would push auth into the frontend/BFF, splitting the source of truth from the NestJS API; Lucia is now deprecated. Better Auth is the best fit for a Nest-owned auth service. Keep the decision isolated behind the `auth` module so it can be replaced.
 
 ---
@@ -397,7 +405,7 @@ Example `slotConfig`:
 
 **Fairness & integrity:**
 - Weights live in the DB and are **auditable/adjustable by admins**; the algorithm is deterministic given the RNG draws (log the seed for disputes if desired).
-- Use `crypto`-grade randomness (`crypto.randomInt`) rather than `Math.random`.
+- Use `crypto`-grade randomness (`crypto.randomInt`) rather than `Math.random`. *As built:* an HMAC-SHA256 stream over a `crypto.randomBytes` seed, stored on `PackOpening.seed` — `crypto.randomInt` cannot be seeded, so a stored seed would reproduce nothing ([UserFlows.md](UserFlows.md)).
 - **Idempotency:** the client sends an `openId` (UUID); a unique constraint on `PackOpening.openId` makes retries safe (double-click / network retry won't double-charge or double-mint).
 - Guard against empty rarity buckets (fallback to next-lower rarity) so a misconfigured template can't 500.
 
@@ -442,9 +450,9 @@ Prices are **never fetched on the user request path.** A BullMQ job keeps our DB
 1. Fetch latest from provider.
 2. `UPDATE Card SET latestPriceUsd, latestPriceEur, priceUpdatedAt`.
 3. `INSERT PriceSnapshot` (for history/sparklines) — throttle to at most one snapshot per card per day to bound table growth.
-4. `DEL price:card:{id}` in Redis so the next read repopulates.
+4. `DEL cache:price:card:{id}` in Redis so the next read repopulates.
 
-**Failure handling:** if the primary provider errors/hits limits, the job retries with backoff and, after N failures, switches to the fallback provider for that batch. Sync status + last-run timestamps are surfaced on the admin dashboard, and stale prices are shown with an "updated X ago" label rather than hidden.
+**Failure handling:** if the primary provider errors/hits limits, the job retries with backoff and, after N failures, switches to the fallback provider for that batch. *As built:* five escaped failures open a 30-minute breaker and the **next** run uses the fallback, never the same batch — the providers disagree on set ids, so a mid-run switch would fork the catalog ([Architecture.md](Architecture.md) §7). Sync status + last-run timestamps are surfaced on the admin dashboard, and stale prices are shown with an "updated X ago" label rather than hidden.
 
 ---
 
@@ -460,6 +468,8 @@ Prices are **never fetched on the user request path.** A BullMQ job keeps our DB
 | Rate-limit counters | `throttle:{route}:{userId}` | window | auto-expire |
 | Pack-open idempotency lock | `lock:open:{openId}` | short | after commit |
 | Trade expiry / job queues | BullMQ namespaces | — | job lifecycle |
+
+*As built:* every cache key carries a `cache:` prefix and the latest price is cached 1h; the real table is [Architecture.md](Architecture.md) §8.
 
 Principles: **cache read-heavy, low-volatility catalog data aggressively**; keep user-specific/volatile data (inventory, trades) with short TTLs or no cache; always pair a write with explicit invalidation. The same Redis powers cache and BullMQ, kept apart by a separate logical database and a `cache:` key prefix; the cache is a thin service over `ioredis` rather than `cache-manager` — see [Architecture.md](Architecture.md) §8 for why.
 
@@ -538,7 +548,7 @@ Principles: **cache read-heavy, low-volatility catalog data aggressively**; keep
 - **Config:** env vars validated at boot, from `.env.production` on the host (mode 600); Pokémon API calls server-side only.
 - **CI:** typecheck, lint, build and the migration check on every push (no test step during v1, see §20). Deployment is `deploy/deploy.sh` over SSH, with a health check at the end.
 - **Observability:** structured logs (pino) in Docker's rotated `json-file` logs; health checks (`@nestjs/terminus`); the admin dashboard for sync freshness and activity. No log shipping or alerting.
-- **Backups:** none in v1, by decision; the catalog is re-synced from source nightly.
+- **Backups:** none in v1, by decision. The catalog is re-syncable from source, but production runs with `SYNC_SCHEDULES=false`, so syncs happen only when an admin presses **Run now**.
 
 *The original plan, kept for a later scale-up:* separate staging; API and worker on a container platform (Fly.io/Render/Railway/AWS ECS) and Next.js on Vercel or a Node host; managed Postgres with PITR and managed Redis; secrets from the platform store; images pushed by CI on merge to `main`; logs shipped to a sink with dashboards and alerts on failed syncs and rising 429s; periodic restore drills.
 

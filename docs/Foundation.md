@@ -2,7 +2,9 @@
 
 What the first milestone built, why each piece looks the way it does, and where the sharp edges are. Twelve tickets, PD-10 through PD-21, all closed.
 
-This is the orientation for anyone opening the repository — including a later you. [Architecture.md](Architecture.md) says how the finished system is meant to be shaped; this says what actually exists today, and what it will do to you if you touch it carelessly.
+This is the orientation for anyone opening the repository — including a later you. [Architecture.md](Architecture.md) says how the finished system is shaped; this records what M0 left behind, and what it will do to you if you touch it carelessly.
+
+> **A snapshot of M0, kept as written.** "What exists" below describes the repository at the end of M0, before any feature. The subsystems and traps are still current; the gaps table is annotated with what closed them. For the system as it is now start at the [README](../README.md) and [Architecture.md](Architecture.md).
 
 ---
 
@@ -82,7 +84,7 @@ The apps resolve this package through its compiled `dist`. That matters more tha
 
 One Zod schema over the raw environment, parsed once at boot. Failure names the offending variables instead of dumping a stack. The parsed result becomes `AppConfig`: a namespaced, already-interpreted object injected through the `APP_CONFIG` token.
 
-`ConfigService` is deliberately unused. Its `get()` returns `T | undefined`, which is exactly the leak this module exists to prevent. `process.env` appears nowhere in `apps/api/src` outside this module.
+`ConfigService` is deliberately unused. Its `get()` returns `T | undefined`, which is exactly the leak this module exists to prevent. `process.env` appears nowhere in `apps/api/src` outside this module — with one later exception, `common/throttle.ts`, which runs the same parser because a decorator cannot inject `APP_CONFIG`.
 
 `DB_QUERY_LOGGING` defaults to off. Logging every statement throughout development trains you to ignore the output on the day you need it to hunt an N+1.
 
@@ -143,7 +145,7 @@ Measured healthy: ready 23ms, live 2ms.
 
 ### CI (PD-21)
 
-Three parallel jobs — typecheck, lint (plus `format:check`), build — on every push to `dev` and `main`, sharing a composite setup action. A warm run is 25–30s per job.
+Three parallel jobs — typecheck, lint (plus `format:check`), build — on every push to `dev` and `main`, sharing a composite setup action. A warm run is 25–30s per job. M1 added a fourth, `migrations`, with its own Postgres ([Migrations.md](Migrations.md), *What CI enforces*).
 
 Versions are never repeated in YAML: `pnpm/action-setup` reads `packageManager` and `actions/setup-node` reads `engines.node`, both from the root `package.json`, so CI cannot drift from the local toolchain through a line somebody forgot to update.
 
@@ -155,14 +157,14 @@ Versions are never repeated in YAML: `pnpm/action-setup` reads `packageManager` 
 
 ### Deliberate, and tracked
 
-| Gap | Consequence | Closes in |
-| --- | --- | --- |
-| **No automated tests during v1** | CI checks types, lint and build — nothing checks behaviour. A refactor that compiles and lints clean can still be wrong. Every claim in this repository was verified by running it once, by hand, at the time it was written. | PD-124, PD-125 |
-| **Health routes carry no `@Public()`** | The day a global auth guard merges, both probes return 401. An orchestrator reads that as a dead process and restarts a healthy instance, repeatedly. | PD-33 |
-| **Health routes are not exempt from throttling** | The same failure shape with 429: probes arrive from one source IP every few seconds. | PD-36 |
-| **No worker process** | PD-19's third criterion — worker and API sharing logger configuration — is true by construction (one exported factory) but has never been observed. | PD-41 |
-| **Prisma schema has zero models** | Nothing persists yet; all current database access is raw SQL. | PD-22 |
-| **`AppController` returns "Hello World!"** | `GET /api/v1` is scaffolding. `AppService` deliberately imports from `@pokedrop/shared` to exercise the contract boundary from the API side; delete both once real modules exist. | first feature ticket |
+| Gap | Consequence | Closes in | Status (2026-10-19) |
+| --- | --- | --- | --- |
+| **No automated tests during v1** | CI checks types, lint and build — nothing checks behaviour. A refactor that compiles and lints clean can still be wrong. Every claim in this repository was verified by running it once, by hand, at the time it was written. | PD-124, PD-125 | open — still no tests, by decision |
+| **Health routes carry no `@Public()`** | The day a global auth guard merges, both probes return 401. An orchestrator reads that as a dead process and restarts a healthy instance, repeatedly. | PD-33 | closed — `HealthController` is `@Public()` |
+| **Health routes are not exempt from throttling** | The same failure shape with 429: probes arrive from one source IP every few seconds. | PD-36 | closed — `@SkipThrottle()` on the health routes |
+| **No worker process** | PD-19's third criterion — worker and API sharing logger configuration — is true by construction (one exported factory) but has never been observed. | PD-41 | closed — `src/worker.ts`, sharing `buildLoggerOptions` |
+| **Prisma schema has zero models** | Nothing persists yet; all current database access is raw SQL. | PD-22 | closed — 20 models, 23 migrations |
+| **`AppController` returns "Hello World!"** | `GET /api/v1` is scaffolding. `AppService` deliberately imports from `@pokedrop/shared` to exercise the contract boundary from the API side; delete both once real modules exist. | first feature ticket | open — the root still answers "Hello World!" as a liveness-style greeting ([API.md](API.md), Health) |
 
 ### Traps that will not announce themselves
 

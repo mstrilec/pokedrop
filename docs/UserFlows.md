@@ -11,9 +11,9 @@
 Register → Verify email → Sign in → Dashboard (starter currency grant) → guided "open your first pack"
 ```
 
-- Register (`/register`) collects username + email + password (Better Auth).
-- Verify email (`/verify-email`) shows a "check your inbox" state; the link activates the account and releases a **1,000-coin welcome grant** (`CurrencyTransaction type=GRANT`).
-- On first dashboard load, an onboarding checklist ("3 of 5") nudges: first pack → verify email → build a deck → make a trade.
+- Register (`/register`) collects display name + email + password (Better Auth). Password length bounds are `PASSWORD_MIN_LENGTH` / `PASSWORD_MAX_LENGTH` in `@pokedrop/shared`.
+- Verify email (`/verify-email`) shows a "check your inbox" state; the link activates the account and releases a **1,000-coin welcome grant** (`CurrencyTransaction type=GRANT`), once per account. Signing in before verifying is refused and mails a fresh link.
+- The dashboard's onboarding checklist (*Get started · 1 of 4*) ticks verify email → open a pack → build a full deck → complete a trade from `GET /users/me/progress`, and disappears when all four are done.
 
 ## 2. Open a pack
 
@@ -23,8 +23,8 @@ Dashboard/Packs → choose template → Confirm-cost dialog → server generates
 ```
 
 - **Confirm-cost dialog** states cost + guarantee ("10 cards with at least 1 Rare. This action can't be undone.").
-- Client generates an `openId` (UUID) and posts it — see [pack state machine](#5-pack-opening-state-machine).
-- **Reveal** (`design/Booster Opening.dc.html`) has four stages: `sealed` (floating pack) → `opening` (shake + flash, ~2s) → `reveal` (tap to flip cards one by one; rare pulls glow) → `summary` (grid of pulls, "Open another" / "View in collection"). **Skippable** and reduced-motion aware.
+- Client generates an `openId` (UUID) and posts it — see [pack state machine](#7-pack-opening--state-machine--algorithm).
+- **Reveal** (`components/packs/reveal/`, state in `lib/stores/reveal-machine.ts`) has four stages: `sealed` (floating pack) → `opening` (shake + flash, ~2s) → `reveal` (tap to flip cards one by one; rare pulls glow) → `summary` (grid of pulls, "Open another" / "View in collection"). **Skippable** and reduced-motion aware.
 
 ## 3. Build a deck
 
@@ -54,17 +54,19 @@ Another user's profile/card → Propose trade → pick offered + requested (+ op
   → on Accept: atomic swap → both inventories update + notifications
 ```
 
-See the [trade state machine](#6-trade-lifecycle-state-machine).
+See the [trade state machine](#8-trade-lifecycle--state-machine).
 
 ## 6. Admin sync
 
 ```
-Admin → Sync control → "Sync prices now" → job enqueued (BullMQ) → progress + completion surfaced
+Admin → Sync control → "Run now" (catalog, then prices) → job enqueued (BullMQ) → status, last run and breakers on /admin/sync
 ```
+
+In production this is the only way a sync runs (`SYNC_SCHEDULES=false`); a second trigger while one is queued or running is refused with `SYNC_IN_PROGRESS`.
 
 ---
 
-## 5. Pack opening — state machine & algorithm
+## 7. Pack opening — state machine & algorithm
 
 ### UI stages
 
@@ -105,7 +107,7 @@ Packs are defined by an admin **PackTemplate** with an ordered `slotConfig`; eac
 
 ---
 
-## 6. Trade lifecycle — state machine
+## 8. Trade lifecycle — state machine
 
 ```
                  ┌──────────── decline ───────────▶ DECLINED
@@ -119,7 +121,7 @@ Packs are defined by an admin **PackTemplate** with an ordered `slotConfig`; eac
                  └── admin void ─▶ VOIDED     (reverse a fraudulent accepted trade where feasible)
 ```
 
-Stale `PENDING` trades (e.g. > 7 days) are auto-cancelled by a BullMQ expiry job, which releases locks.
+Stale `PENDING` trades (older than `TRADE_EXPIRY_DAYS`, 7 by default) are auto-cancelled by the hourly BullMQ expiry job in the worker, which releases locks and records `trade.expire` with no actor. A negotiation holds at most 10 trades (`COUNTER_LIMIT`).
 
 ### Escrow via quantity locking
 
@@ -144,7 +146,7 @@ Any failed check → the transaction rolls back. **No partial swaps, no duplicat
 
 ---
 
-## 7. Auth flows (Better Auth)
+## 9. Auth flows (Better Auth)
 
 ```
 /register ──▶ /verify-email ──▶ /sign-in ──▶ Dashboard
@@ -152,7 +154,9 @@ Any failed check → the transaction rolls back. **No partial swaps, no duplicat
 /forgot-password ──▶ (email) ──▶ /reset-password ──┘
 ```
 
-- Email/password (optionally OAuth); email verification; password reset with token expiry.
-- Session (httpOnly cookie) or JWT validated by a global Nest guard; `@Public()` opts out.
+- Email/password only; verification is required to sign in (link valid `AUTH_VERIFICATION_TTL`, 1 h); password reset with a single-use token (`AUTH_RESET_TTL`, 15 min) that revokes every session.
+- The verification link returns to `/verify-email?verified=1`, or with `?error=TOKEN_EXPIRED` and similar when it fails; the reset link lands on `/reset-password?token=…`.
+- A session is an opaque token in an httpOnly cookie (7 days, extended at most daily) — no JWT, no refresh token. A global `SessionGuard` resolves it on every `/api/v1` request; `@Public()` opts out.
+- Settings lists the active sessions and signs out every other one; the avatar menu has *Sign out* and *Sign out of all devices*.
 - Ownership checks are service-level; the client is never trusted for user IDs.
-- Session security: httpOnly + Secure + SameSite cookies, refresh rotation, "sign out all sessions," CSRF for cookie flows.
+- CSRF: a state-changing request carrying the session cookie needs a trusted `Origin`. Details in [Security.md](Security.md).

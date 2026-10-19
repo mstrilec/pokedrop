@@ -23,7 +23,7 @@ The tickets were written before the API, and a few of them asked for what the AP
 
 ## Landing (PD-101, PD-138, PD-140)
 
-`app/(public)/page.tsx`: a Server Component in the public layout that reads its data once (`landingData` in `components/landing/landing-data.ts`) and composes the sections in `components/landing/`. PD-138 replaced PD-101's one screen (hero plus four feature cards) with the story from `design/Landing.dc.html`; spec `docs/superpowers/specs/2026-10-12-pd-138-landing-design.md`.
+`app/(public)/page.tsx`: a Server Component in the public layout that reads its data once (`landingData` in `components/landing/landing-data.ts`) and composes the sections in `components/landing/`. PD-138 replaced PD-101's one screen (hero plus four feature cards) with the story from the Landing mockup made in Claude Design (since removed from the repository); spec `docs/superpowers/specs/2026-10-12-pd-138-landing-design.md`.
 
 | # | Section | Component | Data |
 | --- | --- | --- | --- |
@@ -207,7 +207,7 @@ Five pages in `(auth)`, each an `AuthCard` (`components/auth/auth-card.tsx`: ico
 - **A reload after the opening goes to the summary.** A successful answer sets `sessionStorage['pokedrop.opened.<openId>']`; a load that finds it shows *Loading your pack…*, replays the request — `POST` with the same `openId` answers the original cards and charges nothing — and skips to the summary. Without the mark the page shows the sealed pack, and a tap there replays just as safely (a second tab, a refused storage).
 - **Failures stay on the sealed stage**, from `useOpenPack`'s now-silent mutation (`meta: { toast: false }`): a 402 says *You don't have enough coins for this pack.* with *Go to wallet*; a 404 or 409 shows the API's sentence with *Back to packs*; anything else offers *Try again* on the same `openId`.
 - ***Open another*** `router.replace`s to a fresh `openUrl`, and the store, keyed by the `openId`, starts again at sealed.
-- **Motion tokens** in `globals.css`: `animate-float-pack`, `-sweep`, `-shake`, `-flash`, `-burst`, `-ray-spin`, `-card-in`, values from `design/Booster Opening.dc.html`.
+- **Motion tokens** in `globals.css`: `animate-float-pack`, `-sweep`, `-shake`, `-flash`, `-burst`, `-ray-spin`, `-card-in`, values from the Booster Opening mockup.
 
 **Traps.**
 

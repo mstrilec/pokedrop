@@ -25,6 +25,12 @@ pnpm exec prisma migrate dev --name what_changed
 
 Commit the generated folder with the code change that needs it. A migration merged without its schema, or a schema merged without its migration, fails CI.
 
+**`migrate dev` needs an interactive terminal.** It exits with "environment is non-interactive" from a script, a CI step or an AI agent. The equivalent there: `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script` into a new timestamped folder under `prisma/migrations/`, then `prisma migrate deploy` ([DataModel.md](DataModel.md), Check constraints).
+
+## In production
+
+`deploy/deploy.sh` runs `prisma migrate deploy` as a one-off `migrate` container from the API image, after Postgres is healthy and before the new API starts; the compose profile `release` keeps `docker compose up` from ever starting it. A failed migration stops the release with the old containers still serving ([Deployment.md](Deployment.md)).
+
 ## Rolling a change back
 
 Prisma has no down migrations, and that is deliberate — a reverse script written in advance is rarely the one you need in the moment.
@@ -90,7 +96,7 @@ Prisma has no syntax for them, so they are added by hand in their own migration 
 
 **This is safe, and it was verified before being relied on.** Prisma's migration engine models tables, columns, indexes and foreign keys. It has no concept of a check constraint, so it neither reports one as drift nor emits a `DROP` for it on a later migration. Tested by adding three by hand, then making an unrelated schema change: `migrate status` reported "up to date" and the new migration contained only the `ADD COLUMN`. Replaying the whole history into an empty database reproduced all of them.
 
-**It does not generalise to indexes.** Prisma _does_ model those, so a hand-written index would be seen as drift and dropped. That is why the "at most one price snapshot per card per day" rule is enforced by the price sync job rather than by a unique index over `capturedAt::date`.
+**It does not generalise to indexes.** Prisma _does_ model those, so a hand-written index would be seen as drift and dropped. The "at most one price snapshot per card per day" rule was first left to the price sync job for that reason; PD-48 moved it into the schema by materialising the UTC day as a `capturedOn` column, so the unique index `(cardId, source, capturedOn)` is an ordinary one Prisma declares ([DataModel.md](DataModel.md), PriceSnapshot).
 
 **An index Prisma models can still be hand-tuned where Prisma has no syntax for a detail.** `card_price_sort` declares `@@index([latestPriceUsd(sort: Desc), id(sort: Desc)])` in the schema and its SQL adds `NULLS LAST`, which Prisma cannot express. Verified 2026-10-12: a `--create-only` migration made right after was empty (Prisma does not compare null ordering), and `pg_indexes` shows `DESC NULLS LAST`. Keep the index in the schema so Prisma owns it; only the detail is hand-written.
 

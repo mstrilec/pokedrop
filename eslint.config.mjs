@@ -57,7 +57,6 @@ export default tseslint.config(
       '**/.next/**',
       '**/coverage/**',
       '**/*.tsbuildinfo',
-      'design/**',
       'apps/web/next-env.d.ts',
     ],
   },

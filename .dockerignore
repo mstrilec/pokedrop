@@ -9,6 +9,5 @@
 .superpowers
 .env
 .env.*
-design
 docs
 *.log

@@ -12,7 +12,11 @@
 | `TradeStatus` | `PENDING`, `ACCEPTED`, `DECLINED`, `COUNTERED`, `CANCELLED`, `VOIDED` |
 | `TradeItemSide` | `OFFERED`, `REQUESTED` |
 | `PriceSource` | `TCGPLAYER`, `CARDMARKET` |
-| `TransactionType` | `GRANT`, `PACK_SPEND`, `TRADE` |
+| `TransactionType` | `GRANT`, `PACK_SPEND`, `TRADE`, `TRADE_REVERSAL` |
+| `SyncKind` | `CATALOG`, `PRICE`, `PRICE_ACTIVE` |
+| `SyncStatus` | `RUNNING`, `SUCCEEDED`, `PARTIAL`, `FAILED` |
+
+`Rarity` is not a database enum: `Card.rarity` and `PackOpeningCard.rarity` are strings, because a closed enum would turn the next set with a new rarity into a failed sync. `@pokedrop/shared` maps them onto the five-step UI ramp (`RarityTier`).
 
 ## Entities
 
@@ -94,7 +98,7 @@ snapshot and still refreshes `latestPriceUsd`, `latestPriceEur` and
 
 ### SyncRun — *operational*
 
-`id, kind(CATALOG|PRICE), provider, status(RUNNING|SUCCEEDED|PARTIAL|FAILED), jobId?, startedAt, finishedAt?, processed, failed, cursor(json)?, error?`
+`id, kind(CATALOG|PRICE|PRICE_ACTIVE), provider, status(RUNNING|SUCCEEDED|PARTIAL|FAILED), jobId?, startedAt, finishedAt?, processed, failed, cursor(json)?, error?`
 **Index:** `(kind, startedAt DESC)` — every consumer asks for the most recent run of a kind.
 
 One row per execution of a background sync. Redis and BullMQ job state were both considered and rejected: Redis loses the history on `docker compose down -v` and its keys would have to live outside the `cache:` namespace or a routine invalidation would sweep them, and BullMQ's retention is bounded so "the last successful catalog run" is a scan there rather than a query.
@@ -109,7 +113,7 @@ One row per execution of a background sync. Redis and BullMQ job state were both
 
 ### PackTemplate — *admin-managed*
 `id, name, setFilter(json), cost, slotConfig(json), active, coverCardId?, imageUrl?`
-`slotConfig` = ordered slots each with a rarity-weight distribution (see [UserFlows.md](UserFlows.md#5-pack-opening--state-machine--algorithm)).
+`slotConfig` = ordered slots each with a rarity-weight distribution (see [UserFlows.md](UserFlows.md#7-pack-opening--state-machine--algorithm)).
 `coverCardId` → `Card` (`onDelete: SetNull`): the admin's featured card for the booster wrapper; null means the default, which the API computes on read and never stores. `imageUrl`: an admin's own photo of the pack (PD-136, migration `pack_template_art`).
 
 ### PackOpening
@@ -120,7 +124,7 @@ One row per execution of a background sync. Redis and BullMQ job state were both
 **Indexes:** `(userId, createdAt)` for a user's history, and `(createdAt)` for the admin metrics' packs opened per day — an index-only range scan, 107 ms over 329 000 openings in a 30-day window.
 
 ### Deck
-`id, userId, name, format, isPublic, ownedOnly, createdAt`
+`id, userId, name, format, isPublic, ownedOnly, createdAt, updatedAt`
 → many `DeckCard`.
 
 `ownedOnly` is the deck's mode: when true, validation treats a card beyond the owner's available copies as an error rather than a warning. It is read by the validation engine and nothing else; changing it never touches the decklist. Validity itself is never stored — it depends on inventory and on legalities a sync can change, so a stored verdict would go stale.
@@ -222,6 +226,7 @@ User 1─N Trade (as initiator | recipient)
 User 1─N PackOpening
 User 1─N CurrencyTransaction
 User 1─N Notification
+User 1─N Session | Account | UserActivity | AuditLog (as actor)
 Set  1─N Card
 Card 1─N InventoryItem | DeckCard | TradeItem | PriceSnapshot
 Trade 1─N TradeItem
@@ -285,4 +290,7 @@ Verified: deleting a user leaves zero inventory rows, openings and transactions,
 ### Balance
 
 `User.currency` is a denormalised balance beside the `CurrencyTransaction` ledger, and **nothing in the schema keeps them in agreement**. That invariant belongs to the transaction that writes both.
-- The catalog (Set/Card/PriceSnapshot) is re-syncable from source; the irreplaceable data is **users / inventory / decks / trades** — prioritize for backups.
+
+### What can be rebuilt
+
+The catalog (Set/Card/PriceSnapshot) is re-syncable from source; the irreplaceable data is **users / inventory / decks / trades**. Production keeps no backups, by decision ([Deployment.md](Deployment.md), *Data*) — that data exists only in the `postgres-data` volume.

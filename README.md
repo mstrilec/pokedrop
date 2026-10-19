@@ -1,158 +1,146 @@
 # PokéDrop
 
-A production-oriented **Pokémon TCG web application** for opening booster packs, building a personal collection, assembling decks, browsing rich card detail pages, and trading cards with other users — all behind role-gated authentication.
+A **Pokémon TCG web application** for opening booster packs, building a personal collection, assembling decks, browsing rich card detail pages, and trading cards with other users — all behind role-gated authentication.
 
-> **Status:** Foundation in progress. Planning and design deliverables are complete; the monorepo is scaffolded and the local service stack runs. Feature work has not started.
+> **Status:** the v1 feature set is built and runs in production on a home server behind Tailscale Funnel ([Deployment.md](docs/Deployment.md)). There are no automated tests, by decision ([PRD.md](docs/PRD.md) §20).
 
 ## What it does
 
-- **Booster pack opening** — spend in-app currency to open packs with realistic, admin-configurable weighted rarity logic and a satisfying card-by-card reveal animation.
-- **Inventory (collection)** — a fast, searchable, virtualized grid/list of owned cards with filters, sorting, aggregate stats, and set-completion tracking.
-- **Deck builder** — drag-and-drop deck assembly with live validation, format legality, and deck stats.
-- **Card detail pages** — high-quality art, full card stats, rarity, set info, and informational market prices (TCGPlayer USD / Cardmarket EUR) with a price-history sparkline.
-- **User profiles** — public showcase profiles and public decks, plus a private view with currency balance and trade history.
-- **Peer-to-peer trading** — safe, atomic offer / accept / decline / counter flows with escrow-style quantity locking (no duplication or loss).
-- **Admin tools** — manage pack templates & rarity weights, trigger catalog/price syncs, adjust currency, manage roles, and moderate trades.
+- **Booster pack opening** — spend in-app coins to open packs with admin-configurable weighted rarity slots, modelled on nineteen real boosters from Base Set (1999) to Mega Evolution (2025), and a card-by-card reveal.
+- **Inventory (collection)** — a virtualized grid/list of owned cards with filters, sorting, collection value and set completion.
+- **Deck builder** — drag-and-drop assembly with live validation, format legality, deck stats, cloning and a random legal deck generator.
+- **Card detail pages** — large art, full card stats, set info, TCGPlayer (USD) and Cardmarket (EUR) prices with a history sparkline, and a Pokédex section from PokéAPI.
+- **User profiles** — public profiles with a showcase and public decks; privacy toggles for collection value and set completion.
+- **Peer-to-peer trading** — offer / accept / decline / counter / cancel with escrow-style quantity locking, coins on either side, automatic expiry after 7 days.
+- **Wallet and notifications** — a coin ledger and a notification centre for trade events.
+- **Admin tools** — pack templates and rarity weights, catalog and price sync control, currency grants, roles and suspensions, trade moderation and voiding, the audit log and daily metrics.
 
-### Guiding assumptions & scope
+### Scope
 
-- **Free-to-play economy** — packs use in-app currency; no real-money purchases.
-- **No live battle engine** — this is collection, deck-building, and trading, not a playable card-game.
-- **Market prices are informational** — decoupled from the in-app pack economy.
-- **English-first**, responsive web only, direct user-to-user trades (no marketplace/auction house).
+Free-to-play economy (no real money) · no battle engine · market prices are informational and decoupled from the pack economy · English only · responsive web · direct user-to-user trades (no marketplace) · **no paid services** — every external API is free.
 
 ## Architecture
 
-The system uses a **local catalog-mirror architecture**: card metadata and prices are synced from external Pokémon APIs into our own PostgreSQL on a schedule, so **all user-facing reads are served from our DB + Redis and never block on a third party**. External APIs are touched only by scheduled background jobs.
+A **local catalog mirror**: card metadata and prices are synced from external Pokémon APIs into our own PostgreSQL by background jobs, so **user requests are served from our DB and Redis and never wait on a third party**. The one exception is the card page's Pokédex section, which the web server reads from PokéAPI at render time (two-second timeout, cached a day, hidden on failure).
 
 ```
-                     ┌──────────────────────────────────────────────┐
-   Browser  ───────▶ │  Next.js (App Router)                        │
+                     ┌───────────────────────────────────────────────┐
+   Browser  ───────▶ │  Next.js 16 (App Router) — the only origin    │
                      │  RSC + Client Components · TanStack Query ·   │
-                     │  Zustand · shadcn/ui · dnd-kit · Motion       │
-                     └───────────────┬──────────────────────────────┘
-                                     │  HTTPS (REST/JSON, cookie/JWT)
-                                     ▼
-                     ┌──────────────────────────────────────────────┐
-                     │  NestJS API                                   │
-                     │  Auth · Users · Catalog · Inventory · Decks · │
-                     │  Packs · Trades · Prices · Admin              │
-                     │  Guards (Auth/Role) · Swagger · Throttler     │
-                     └───┬───────────────┬───────────────┬──────────┘
+                     │  Zustand · shadcn/ui · dnd-kit · three.js     │
+                     │  /api/* rewrite ──┐                           │
+                     └───────────────────┼───────────────────────────┘
+                                         │  HTTP, session cookie (no JWT)
+                                         ▼
+                     ┌───────────────────────────────────────────────┐
+                     │  NestJS 12 API                                │
+                     │  /api/auth/*  Better Auth handler             │
+                     │  /api/v1/*    Users · Catalog · Inventory ·   │
+                     │  Packs · Decks · Trades · Prices · Wallet ·   │
+                     │  Notifications · Admin                        │
+                     │  Guards: Csrf → Session → Throttler → Roles   │
+                     └───┬───────────────┬───────────────┬───────────┘
                          │               │               │
-              ┌──────────▼───┐   ┌───────▼──────┐   ┌─────▼───────────┐
-              │ PostgreSQL   │   │    Redis     │   │  BullMQ workers │
-              │ (Prisma)     │   │ cache+queues │   │ price/catalog   │
-              │ source of    │   │              │   │ sync, trade     │
-              │ truth        │   │              │   │ cleanup         │
+              ┌──────────▼───┐   ┌───────▼──────┐   ┌────▼────────────┐
+              │ PostgreSQL 17│   │  Redis 7.4   │   │ BullMQ worker   │
+              │ (Prisma 7)   │   │ db0 cache    │   │ (same codebase) │
+              │ source of    │   │ db1 queues   │   │ crons: catalog, │
+              │ truth        │   │ limits/locks │   │ prices, expiry  │
               └──────────────┘   └──────────────┘   └───────┬─────────┘
-                                                            │ scheduled
+                                                            │
                                                             ▼
                                           ┌───────────────────────────────┐
-                                          │  External APIs (never on the  │
-                                          │  user request path):          │
-                                          │  pokemontcg.io v2 (primary),  │
-                                          │  TCGdex (fallback/i18n),      │
-                                          │  Scrydex (upgrade), PokéAPI   │
+                                          │  pokemontcg.io v2 (primary)   │
+                                          │  TCGdex (fallback)            │
                                           └───────────────────────────────┘
 ```
 
-**Key principles:** read from DB/cache, write to external only via jobs · thin controllers / fat services · typed end-to-end (shared Zod/DTO contracts) · money/item/trade mutations run inside DB transactions with idempotency keys and quantity locking (no dupe, loss, or double-spend) · external card sources sit behind one swappable adapter interface.
+**Key principles:** read from DB/cache, reach external APIs only from jobs · thin controllers, fat services · typed end-to-end through the Zod contracts in `@pokedrop/shared` · money, item and trade mutations run inside DB transactions with idempotency keys and quantity locking · external card sources sit behind one adapter interface.
+
+## Repository layout
+
+| Path | What it is |
+|---|---|
+| `apps/api` | NestJS API (`src/main.ts`) and the BullMQ worker (`src/worker.ts`), one codebase and one image. Prisma schema and migrations in `prisma/` |
+| `apps/web` | Next.js App Router frontend |
+| `packages/shared` | Zod schemas and inferred types both apps import, `ERROR_CODES`, the deck validator and stats, pack odds |
+| `docs/` | Architecture and design reference — start at [docs/README.md](docs/README.md) |
+| `deploy/` | `deploy.sh` (the release script) and `pack-templates.sql` |
+| `compose.production.yml`, `Dockerfile` | Production stack |
+| `docker-compose.yml` | Local services: Postgres, Redis, Mailpit |
 
 ## Tech stack
 
 | Layer | Technologies |
 |---|---|
-| **Backend** | NestJS · Prisma · PostgreSQL · Redis · BullMQ · Better Auth · Swagger · Zod |
-| **Frontend** | Next.js (App Router) · React · Tailwind · shadcn/ui · TanStack Query · Zustand · React Hook Form · dnd-kit · Motion · Recharts |
-| **External data** | pokemontcg.io v2 (primary) · TCGdex (fallback/i18n) · Scrydex (upgrade path) · PokéAPI (species enrichment) |
-| **Testing** | *Deferred* — no automated tests are written during v1 development (see [PRD.md](docs/PRD.md) §20) |
-| **Quality** | ESLint · Prettier · Husky · lint-staged · commitlint |
+| **Backend** | NestJS 12 (Express 5) · Prisma 7 with `@prisma/adapter-pg` · PostgreSQL 17 · Redis 7.4 via ioredis · BullMQ · `@nestjs/schedule` · Better Auth · `@nestjs/throttler` · helmet · nestjs-pino · `@nestjs/terminus` · `@nestjs/swagger` · nodemailer · Zod 4 |
+| **Frontend** | Next.js 16 · React 19 · Tailwind v4 · shadcn/ui on Radix · lucide-react · TanStack Query / Table / Virtual · Zustand · React Hook Form + Zod · dnd-kit · Recharts · Sonner · three.js (landing) · CSS keyframe animations |
+| **External data** | pokemontcg.io v2 (primary) · TCGdex (fallback) · PokéAPI (species section) |
+| **Testing** | *Deferred* — no automated tests during v1 ([PRD.md](docs/PRD.md) §20) |
+| **Quality** | ESLint 9 · Prettier · Husky · lint-staged · commitlint · GitHub Actions CI |
 
 ## Local development
 
 ### Prerequisites
 
-- **Node 22.20.0** (`.nvmrc`) and **pnpm 10.17.1** (enable with `corepack enable`)
+- **Node 22.20.0** (`.nvmrc`) and **pnpm 10.17.1** (`corepack enable`)
 - **Docker Desktop** running
 
-### Bring the stack up
+### First run
 
 ```bash
 cp .env.example .env
 docker compose up -d --wait
-```
-
-`--wait` blocks until every healthcheck passes, so the next command can assume
-the database is actually accepting connections rather than merely started.
-Mailpit's web interface is then at <http://localhost:8025> — every mail the API
-sends in development lands there and goes nowhere else.
-
-Then apply the schema and fill it with something to look at:
-
-```bash
+pnpm install
 pnpm --filter @pokedrop/api exec prisma migrate deploy
 pnpm db:seed
 ```
 
-The seed is small and hand-written: five users across both roles, three sets and twelve cards spanning the rarity ramp, one pack template, a deck, a pack opening, and six trades covering every `TradeStatus` — including a counter-offer chain and a pending trade whose escrow lock matches what it promises.
+`AUTH_SECRET` in `.env` must be replaced with a real value of at least 32 characters (`openssl rand -base64 48`); the API refuses to boot otherwise.
 
-Sign-in accounts do not exist yet; seeded users have no credentials until Better Auth lands. Re-running the seed is safe: every row has a fixed id and the script removes only its own rows before inserting.
+### Run
 
-Each user's `currency` is computed from their ledger rather than written beside it, and the script fails loudly if the two ever disagree — nothing in the schema keeps them in step.
+```bash
+pnpm dev                                 # shared (watch) + API on 4000 + web on 3000
+pnpm --filter @pokedrop/api dev:worker   # the worker: crons and the trade-expiry queue
+```
+
+Open <http://localhost:3000>. Swagger is at <http://localhost:4000/docs> (the document at `/docs-json`); Mailpit, which catches every mail the API sends, is at <http://localhost:8025>.
+
+The API processes the sync queues itself, so admin-triggered syncs run without the worker; the crons and the trade-expiry job need it.
+
+### Getting real data and an admin
+
+The seed is small and hand-written: five users, three sets, twelve cards, one pack template, a deck, an opening and six trades covering every `TradeStatus`. **Seeded users have no credentials** — to sign in, register on `/register` and open the verification link in Mailpit (verification grants 1,000 coins). Then promote yourself:
+
+```bash
+docker compose exec postgres psql -U pokedrop -d pokedrop -c "UPDATE users SET role = 'ADMIN' WHERE email = '<you>';"
+```
+
+On `/admin/sync` run a catalog sync, then prices. With the worker running and `SYNC_SCHEDULES=true` (the default) they also run nightly. `deploy/pack-templates.sql` adds the nineteen real-booster templates once the catalog is in ([Deployment.md](docs/Deployment.md), *Pack templates*).
+
+### Local services
 
 | Service | Host port | Credentials |
 |---|---|---|
 | PostgreSQL 17 | **5433** | `pokedrop` / `pokedrop_local_dev`, database `pokedrop` |
-| Redis 7.4 | 6379 | none |
+| Redis 7.4 | 6379 | none — db 0 cache, db 1 queues |
+| Mailpit | 1025 (SMTP), 8025 (UI) | none |
 
-> **Postgres is on 5433, not 5432.** A natively installed PostgreSQL service
-> already owns 5432 on at least one machine here, and Docker Desktop publishes
-> over it without raising an error — so `localhost:5432` silently reaches the
-> wrong server and migrations would land in the wrong database. Both ports are
-> settable in `.env` (`POSTGRES_PORT`, `REDIS_PORT`) if they clash on yours.
-
-### Run the API and the worker
-
-```bash
-pnpm --filter @pokedrop/api dev          # API on 4000
-pnpm --filter @pokedrop/api dev:worker   # background worker, no port
-```
-
-The worker is a second entrypoint into the same codebase (`src/worker.ts`). It
-consumes the BullMQ queues in Redis db 1 and holds no port of its own, so
-killing it leaves the API serving — enqueued jobs simply wait. It registers no
-processors yet; PD-42 adds the first. See
-[`apps/api/src/queue/README.md`](apps/api/src/queue/README.md) for the retry and
-dead-letter behaviour, and for the one trap: `defaultJobOptions` is applied by
-the producer, so anything that enqueues must use the injected queue.
-
-### Connect
+> **Postgres is on 5433, not 5432.** A natively installed PostgreSQL already owns 5432 on at least one machine here, and Docker Desktop publishes over it without an error — so `localhost:5432` silently reaches the wrong server. Both ports are settable in `.env`.
 
 ```bash
 docker compose exec postgres psql -U pokedrop -d pokedrop
 docker compose exec redis redis-cli
-```
-
-From the host, `DATABASE_URL` and `REDIS_URL` in `.env` work verbatim with any
-client — `psql`, `pgcli`, Prisma, `redis-cli -u`.
-
-Redis is split by logical database so that clearing the cache cannot drop
-queued jobs: **db 0** is the read cache, **db 1** is the BullMQ queues.
-
-### Reset
-
-```bash
 docker compose down          # stop, keep data
-docker compose down -v       # stop and delete volumes - next up is a clean DB
+docker compose down -v       # stop and delete volumes
 ```
 
-### Check status
+The component gallery is at `/dev/components` under `next dev`, and under `next start` only with `COMPONENT_GALLERY=1` ([Components.md](docs/Components.md)).
 
-```bash
-docker compose ps
-docker compose logs -f postgres
-```
+### Configuration
+
+Every API variable is validated at boot by a Zod schema (`apps/api/src/config/env.schema.ts`) and explained in [`.env.example`](.env.example); production values are in [`.env.production.example`](.env.production.example). The web app reads only `API_INTERNAL_URL` and `WEB_ORIGIN`, from its own process environment — Next does not load the root `.env`.
 
 ## Quality gates
 
@@ -163,57 +151,25 @@ pnpm format:check
 pnpm build
 ```
 
-`typecheck` and `lint` compile `packages/shared` before they run, and `apps/web` runs `next typegen` before `tsc`. Both are load-bearing rather than tidiness: the apps resolve `@pokedrop/shared` through its `dist`, and `layout.tsx` uses the `LayoutProps` type Next generates. On a machine that has built once, leftovers hide this; on a fresh clone the commands would fail with `Cannot find module`. CI is where it surfaced.
+`typecheck` and `lint` build `packages/shared` first, and `apps/web` runs `next typegen` before `tsc`: the apps resolve `@pokedrop/shared` through its `dist`, and layouts use the `LayoutProps` type Next generates.
 
-A pre-commit hook runs ESLint and Prettier over staged files, and commitlint checks the message. The message format is `[PD-NN]: short lowercase description`.
+A pre-commit hook runs ESLint and Prettier over staged files; commitlint checks the message, `[PD-NN]: short lowercase description`. Work goes straight to `dev`; `main` is production.
 
-## Continuous integration
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs four jobs on every push to `dev` and `main`: typecheck, lint plus `format:check`, build, and **migrations** — the history applied to an empty Postgres and diffed against `schema.prisma`.
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs typecheck, lint (plus `format:check`) and build as three parallel jobs on every push to `dev` and `main`, sharing the composite setup in [`.github/actions/setup`](.github/actions/setup/action.yml). A warm run finishes in well under a minute.
+## Production
 
-Versions are never repeated in the workflow: `pnpm/action-setup` reads `packageManager` and `actions/setup-node` reads `engines.node`, both from the root `package.json`, so CI cannot drift from the local toolchain through a line somebody forgot to update.
+One environment on the author's home server: Docker Compose (`web`, `api`, `worker`, `postgres`, `redis`), with only the web server published on `127.0.0.1:3000` and Tailscale Funnel providing public HTTPS. Releases are `deploy/deploy.sh` on the host (pull, build, migrate, start, health check). No staging, registry, monitoring or backups — each cut on purpose. Syncs run only when an admin presses **Run now**. Everything is in [docs/Deployment.md](docs/Deployment.md).
 
-## Design system
+## Roles and security
 
-A **dark-first, desktop-first** system for a premium collectible-card experience: electric-blue accents, gold economy cues, a full rarity spectrum, built on **Geist** with a strict 4px rhythm. All motion honors `prefers-reduced-motion`; color is never the sole carrier of meaning. See [docs/DesignSystem.md](docs/DesignSystem.md) for the full token set.
+Two roles, enforced **server-side** — the UI hides what a role cannot do but never relies on that:
+
+- **Member** — open packs, manage inventory, build decks, view public content, trade.
+- **Admin** — everything a member can do, plus pack templates, syncs, currency, roles, suspensions, trade moderation, the audit log and metrics.
+
+Sessions are opaque Better Auth tokens in an httpOnly cookie — no JWT and no refresh token. Email verification is mandatory. [docs/Security.md](docs/Security.md) is the one-page map of authentication, authorization, CSRF, rate limits and secrets.
 
 ## Documentation
 
-All architecture and design decisions live in [`docs/`](docs/). Start with the [documentation index](docs/README.md).
-
-| Doc | What it covers |
-|---|---|
-| [Foundation.md](docs/Foundation.md) | What M0 built, why, how it works, and the traps it left behind. |
-| [PRD.md](docs/PRD.md) | Product requirements — the source of truth for scope, goals, and decisions. |
-| [Architecture.md](docs/Architecture.md) | System topology, module structure, data flow, sync, caching, provider adapter. |
-| [Migrations.md](docs/Migrations.md) | How the schema changes: the rules, the rollback path, and what CI enforces. |
-| [DataModel.md](docs/DataModel.md) | Prisma entities, relationships, enums, indexes, integrity rules. |
-| [API.md](docs/API.md) | REST endpoint reference, conventions, error envelope. |
-| [InformationArchitecture.md](docs/InformationArchitecture.md) | Page inventory (32 pages), routing, navigation, RBAC gating. |
-| [UserFlows.md](docs/UserFlows.md) | End-to-end flows + pack-opening and trade-lifecycle state machines. |
-| [DesignSystem.md](docs/DesignSystem.md) | Design tokens (color, type, spacing, radius, shadow, motion). |
-| [ComponentSpecs.md](docs/ComponentSpecs.md) | Contracts for all 24 UI components (props, variants, states, a11y). |
-
-The [`design/`](design/) folder holds the interactive HTML mockups these docs were extracted from (design system, component specs, information architecture, all app screens, the booster-opening reveal animation, and the CardTile component).
-
-## Roles
-
-Two roles in v1, enforced **server-side** via NestJS guards (the UI hides what a role can't do but never relies on the client for enforcement):
-
-- **Member** — open packs, manage inventory, build decks, view public content, and trade.
-- **Admin** — everything a member can do, plus managing pack templates & rarity weights, triggering syncs, adjusting currency, managing roles, and moderating trades.
-
-## Project status
-
-Planning is complete: PRD, architecture, data model, API reference, information
-architecture, user flows, design system and component specs, plus the source
-HTML mockups in [`design/`](design/).
-
-Foundation work is underway. The pnpm monorepo is scaffolded (`apps/api`,
-`apps/web`, `packages/shared`) and `docker compose up -d` brings up Postgres and
-Redis locally. Still outstanding in the foundation: lint and formatting
-toolchain, NestJS bootstrap, typed configuration, the Prisma and Redis modules,
-the error envelope, structured logging, health probes and CI.
-
-No feature modules exist yet. Backend and frontend implementation follow the
-structure laid out in [docs/Architecture.md](docs/Architecture.md).
+All architecture and design decisions live in [`docs/`](docs/); the [index](docs/README.md) gives a reading order. The UI mockups these docs were first extracted from were made in Claude Design and have been removed from the repository — [DesignSystem.md](docs/DesignSystem.md), [ComponentSpecs.md](docs/ComponentSpecs.md) and the code are now the source of truth.

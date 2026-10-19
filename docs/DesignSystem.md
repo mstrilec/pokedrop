@@ -1,6 +1,6 @@
 # Design System
 
-> The visual foundation for PokéDex TCG — extracted from `design/Design System.dc.html` and `design/CardTile.dc.html`.
+> The visual foundation for PokéDrop. First extracted from the Design System and CardTile mockups made in Claude Design; the mockups are no longer in the repository, so this file and `apps/web/app/globals.css` are the source of truth.
 > This is the **source of truth** for CSS variables / Tailwind theme tokens. Component contracts live in [ComponentSpecs.md](ComponentSpecs.md).
 
 **Language:** A dark-first, desktop-first system with a light theme beside it (PD-139: System · Light · Dark) for a premium collectible-card experience. Electric-blue accents, gold economy cues, and a full rarity spectrum — built on Geist with a strict 4px rhythm.
@@ -245,7 +245,7 @@ Dialog scrim: `rgba(6,7,10,.72)` + 6px blur. Sticky bars (navbar/topbar) use `rg
 - **Rare-pull burst:** radial glow + `pulseGlow 2s` behind the tile.
 - **Skeleton shimmer:** `shimmer 1.5s ease-in-out infinite` over a `linear-gradient(90deg,#191c24,#262a34,#191c24)`.
 - **Spinner:** 2.5px ring, `--pri` top color, `spin 0.8s linear infinite`.
-- **Booster opening stages:** sealed (float) → opening (shake + flash) → reveal (card-by-card flip) → summary. See `design/Booster Opening.dc.html`.
+- **Booster opening stages:** sealed (float) → opening (shake + flash) → reveal (card-by-card flip) → summary. The reveal lives in `apps/web/components/packs/reveal/`; [Pages.md](Pages.md) (Pack opening) describes it.
 - **Landing micro-animations (PD-138):** `coin-drop` 2.6s, `wiggle` 3s, `stack-in` 3.6s, `swap-l`/`swap-r` 3s (the How it works steps), `marquee` 70s linear (the chase cards, from 640 px), `deck-drop` 0.6s (the deck preview), `beat` 5.4s (the escrow beats, staggered 1.8s), all on the reveal easing where they ease. The looping ones have no fill mode, so the reduced-motion rule leaves each element in its own resting style; where the resting style is not the end state (the escrow beats), the component sets it with `motion-reduce:`. `stack-in` animates `transform`, not `translate`, so the cards' translate and rotate utilities still apply.
 
 **All motion must honor `prefers-reduced-motion`** — freeze shimmer, drop the flip, render results instantly.

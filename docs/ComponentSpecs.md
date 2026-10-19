@@ -1,6 +1,6 @@
 # Component Specs
 
-> The contract for every UI primitive and composite. Extracted from `design/Component Specs.dc.html` and `design/CardTile.dc.html`.
+> The contract for every UI primitive and composite. First extracted from the Component Specs and CardTile mockups made in Claude Design; the mockups are no longer in the repository. What was built, and where it bends these specs, is in [Components.md](Components.md); the gallery at `/dev/components` shows every component in its states.
 > Props map 1:1 to the React/shadcn implementation. Tokens referenced here are defined in [DesignSystem.md](DesignSystem.md).
 
 **Legend**
