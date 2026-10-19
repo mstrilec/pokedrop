@@ -9,13 +9,11 @@ export function apiErrorMessage(error: unknown): string {
     return 'Something went wrong on our side. Try again in a moment.';
   }
   if (error.statusCode === 429) return 'Too many requests. Wait a moment and try again.';
-  // Better Auth's own 401s (a wrong password) carry a sentence for people; ours mean no session.
   if (error.statusCode === 401 && error.kind === 'api') return 'Sign in to continue.';
   return error.message;
 }
 
 export function toastApiError(error: unknown): void {
-  // On a protected page a 401 is already on its way to the sign-in page.
   if (error instanceof ApiError && error.statusCode === 401 && !isPublicPath(location.pathname)) {
     return;
   }

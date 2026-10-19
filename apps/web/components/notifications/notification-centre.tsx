@@ -38,7 +38,6 @@ function Row({ notification }: { notification: NotificationView }) {
           onClick={read}
         />
       ) : (
-        // Keeps every row the same width, read or not.
         <span aria-hidden className="size-10 shrink-0" />
       )}
     </li>

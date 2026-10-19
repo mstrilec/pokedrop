@@ -4,9 +4,6 @@
 #   deploy/deploy.sh             pull the current branch and release it
 #   deploy/deploy.sh --no-pull   release the checkout as it is (a rollback:
 #                                git checkout <commit> first)
-#
-# Migrations roll forward only (docs/Migrations.md). docs/Deployment.md has
-# the whole procedure.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

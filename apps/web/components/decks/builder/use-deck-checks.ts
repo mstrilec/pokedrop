@@ -5,11 +5,6 @@ import { useEffect, useMemo } from 'react';
 import { useOwnedCounts } from '@/lib/query/inventory';
 import { useDeckDraft } from '@/lib/stores/deck-draft';
 
-/**
- * The server's own validator over the draft, on every change. A card whose available copies
- * are not known yet counts as available, so nothing reads "not owned" before the count
- * arrives; `checkingCopies` says the ownership verdict is still settling.
- */
 export function useDeckChecks(deckSize: number): {
   validation: DeckValidation;
   stats: DeckStats;

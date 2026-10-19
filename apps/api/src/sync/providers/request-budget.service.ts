@@ -3,11 +3,6 @@ import { APP_CONFIG, type AppConfig } from '../../config/index.js';
 import { RedisService, budgetKeys } from '../../redis/index.js';
 import type { CardSourceName } from './card-source-provider.js';
 
-/**
- * Two days. A run that starts before midnight and finishes after it writes to
- * two keys, and both should still be readable while an operator works out what
- * happened. Anything longer accumulates keys nobody reads.
- */
 const KEY_TTL_SECONDS = 172_800;
 
 export interface BudgetState {
@@ -17,13 +12,6 @@ export interface BudgetState {
   remaining: number | null;
 }
 
-/**
- * The UTC day, as the key spells it.
- *
- * UTC for the reason `price.writer.ts` gives about `capturedOn`: two processes
- * that disagree about where a day begins disagree about how much of it has been
- * spent, and they would disagree the first time a server moved timezone.
- */
 export function utcDay(at: Date): string {
   return at.toISOString().slice(0, 10);
 }
@@ -41,15 +29,6 @@ export class RequestBudgetService {
     this.limits = config.providers.dailyRequestBudget;
   }
 
-  /**
-   * One request left for this provider. Called immediately before the fetch,
-   * from inside the retry loop, so retries are counted - at a 30% success rate
-   * they are most of what a sweep spends.
-   *
-   * Never throws. A request that has already been made cannot be un-made by a
-   * counter failing to record it, and turning that into an error would fail the
-   * batch over bookkeeping.
-   */
   async record(provider: CardSourceName): Promise<void> {
     const key = budgetKeys.spent(provider, utcDay(new Date()));
 
@@ -83,15 +62,6 @@ export class RequestBudgetService {
     }
   }
 
-  /**
-   * Whether more than `reserve` requests remain unspent today.
-   *
-   * Fails open. With Redis unreachable `stateOf` already reports nothing spent,
-   * so this answers true and the sweep proceeds. Failing closed would stop all
-   * synchronisation on a Redis blip, while the cost of overshooting a budget is
-   * a 429 - which the sweep is obliged to handle anyway, because this counter is
-   * our estimate and never the provider's.
-   */
   async hasHeadroom(provider: CardSourceName, reserve: number): Promise<boolean> {
     const state = await this.stateOf(provider);
     return state.remaining === null || state.remaining > reserve;

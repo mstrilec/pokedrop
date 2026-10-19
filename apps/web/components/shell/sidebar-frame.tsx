@@ -12,9 +12,6 @@ function subscribe(onChange: () => void) {
   return () => query.removeEventListener('change', onChange);
 }
 
-// Wide screens show the sidebar in place; narrow ones slide it in over the
-// page. A closed drawer is inert, so keyboard focus never lands on links
-// nobody can see.
 export function SidebarFrame({ children }: { children: ReactNode }) {
   const navOpen = useUi((s) => s.navOpen);
   const setNavOpen = useUi((s) => s.setNavOpen);
@@ -25,7 +22,6 @@ export function SidebarFrame({ children }: { children: ReactNode }) {
   );
   const aside = useRef<HTMLElement>(null);
 
-  // Focus goes back to the button that opened the drawer, not to the page body.
   const close = useCallback(() => {
     setNavOpen(false);
     document.querySelector<HTMLElement>('[aria-controls="app-sidebar"]')?.focus();

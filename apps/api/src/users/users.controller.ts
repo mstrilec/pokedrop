@@ -27,7 +27,6 @@ import {
 export class UsersController {
   constructor(private readonly users: UsersService) {}
 
-  // A name search enumerates members, so it is throttled like proposing a trade.
   @Throttle(MODERATE_THROTTLE)
   @Doc(
     'Collectors by display name, for choosing a trade counterparty',

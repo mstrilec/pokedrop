@@ -158,10 +158,8 @@ export class InventoryService {
   }
 
   /**
-   * Settles card moves inside the caller's transaction. Rows are taken in
-   * (userId, cardId) order, the order every other writer uses, so two
-   * settlements - or a settlement and a pack open - cannot deadlock. Emptied
-   * rows are deleted. The summary is the caller's to invalidate after commit.
+   * Rows are taken in (userId, cardId) order, every writer's order, so two settlements or a
+   * settlement and a pack open cannot deadlock.
    */
   async applyMoves(tx: TransactionClient, moves: InventoryMove[]): Promise<void> {
     const seen = new Set<string>();
@@ -228,7 +226,6 @@ export class InventoryService {
     }
   }
 
-  /** How many of each card the caller holds: one indexed read for a catalog page's badges. */
   async owned(userId: string, cardIds: string[]): Promise<OwnedCounts> {
     const rows = await this.prisma.inventoryItem.findMany({
       where: { userId, cardId: { in: cardIds }, quantity: { gt: 0 } },
@@ -300,8 +297,6 @@ function onKey(key: SortKey, filter: KeyFilter): Prisma.InventoryItemWhereInput 
   }
 }
 
-// Unpriced rows sort last in both directions, so the NULL tail follows every
-// priced value whichever way "beyond" points.
 function afterCursor(spec: SortSpec, cursor: InventoryCursor): Prisma.InventoryItemWhereInput {
   const beyond = <T>(value: T) => (spec.dir === 'asc' ? { gt: value } : { lt: value });
   const idBeyond: Prisma.InventoryItemWhereInput = { id: beyond(cursor.id) };

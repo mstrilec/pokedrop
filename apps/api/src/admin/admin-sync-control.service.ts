@@ -27,9 +27,8 @@ import { openUntilOf } from './admin-sync.service.js';
 import { withTimeout } from './with-timeout.js';
 
 /**
- * A catalog sync and a price sweep share one provider budget and one rate
- * ceiling; the crons keep them an hour apart, and a button would not. So each
- * trigger is refused while the other one holds its key.
+ * A catalog sync and a price sweep share one provider budget, so each trigger is refused while
+ * the other holds its key.
  */
 const TRIGGERS: Record<SyncTriggerKind, { queue: DedupedSyncQueue; blocker: DedupedSyncQueue }> = {
   CATALOG: { queue: QUEUE.catalogSync, blocker: QUEUE.priceSweep },
@@ -56,11 +55,8 @@ export class AdminSyncControlService {
   }
 
   /**
-   * The audit row goes first and the enqueue second, inside one transaction:
-   * Redis cannot join it, so the order decides what a failure leaves behind.
-   * A failed or refused enqueue rolls the row back; a job is left unaudited
-   * only by a failed COMMIT after the add, or by an add that timed out and
-   * reached Redis later.
+   * Audit row first, enqueue second, inside one transaction: Redis cannot join it, so a failed or
+   * refused enqueue must roll the row back.
    */
   async trigger(admin: AuthUser, kind: SyncTriggerKind): Promise<SyncTriggerResult> {
     const { queue, blocker } = TRIGGERS[kind];
@@ -86,9 +82,6 @@ export class AdminSyncControlService {
         entityId: jobId,
         meta: { kind, queue },
       });
-      // Another trigger may have taken the key since the read above. A
-      // deduplicated add stores nothing and returns the holder's id, from the
-      // same atomic script that checked the key.
       const added = await this.redisCall(
         this.queues[queue].add(queue, {}, syncJobOptions(queue, jobId)),
         'enqueue',

@@ -10,16 +10,11 @@ import { type CardView, formatUsd } from './card-data';
 
 type CardTileProps = {
   card: CardView;
-  /** Copies owned: omit where ownership is not the question, 0 locks the tile. */
   owned?: number;
-  /** Of `owned`, how many are promised to pending trades. */
   locked?: number;
-  /** Where the tile leads; defaults to the card's page. Ignored with `onSelect`. */
   href?: string;
-  /** Makes the tile a toggle button instead of a link (pickers, the trade composer). */
   onSelect?: () => void;
   selected?: boolean;
-  /** How wide the tile renders, for the image optimizer. */
   sizes?: string;
   className?: string;
 };
@@ -121,5 +116,4 @@ function CardTileImpl({
   );
 }
 
-// Grids render hundreds of these; a parent re-render must not re-render every tile.
 export const CardTile = memo(CardTileImpl);

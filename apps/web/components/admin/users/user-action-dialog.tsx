@@ -15,8 +15,8 @@ export type Asking = { kind: 'grant' | 'role' | 'suspend' | 'unsuspend'; user: A
 const MAX_GRANT = 1_000_000;
 
 /**
- * Every action on an account asks first. Mounted per question (keyed by the caller), so a grant
- * gets one `grantId` for the dialog's life: a confirm that is retried is the same grant.
+ * Mounted per question, so a grant keeps one `grantId` for the dialog's life: a retried confirm
+ * is the same grant.
  */
 export function UserActionDialog({
   asking,

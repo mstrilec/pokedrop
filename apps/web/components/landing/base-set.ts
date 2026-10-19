@@ -1,6 +1,5 @@
 import type { PackArt } from '@pokedrop/shared';
 
-/** A Base Set card's art by its catalog id, `base1-4` → Charizard. */
 export const baseSetImage = (id: string) =>
   `https://images.pokemontcg.io/base1/${id.split('-')[1]}.png`;
 

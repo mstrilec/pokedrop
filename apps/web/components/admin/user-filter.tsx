@@ -6,10 +6,6 @@ import { Input } from '@/components/ui/input';
 import { useAdminUsers } from '@/lib/query/admin';
 import { useDebounced } from '@/lib/use-debounced';
 
-/**
- * `value` is a user id from the URL; `label` is the name the caller already knows for it (from
- * the rows the filter produced), so a shared link still reads well without another request.
- */
 export function UserFilter({
   label,
   value,
@@ -20,7 +16,6 @@ export function UserFilter({
   label: string;
   value: string | undefined;
   valueLabel: string | undefined;
-  /** An extra choice offered first, e.g. `{ value: 'system', label: 'System' }`. */
   extra?: { value: string; label: string };
   onChange: (value: string | undefined) => void;
 }) {

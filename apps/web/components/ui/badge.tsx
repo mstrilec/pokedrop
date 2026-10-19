@@ -28,13 +28,11 @@ const badgeVariants = cva('inline-flex shrink-0 items-center font-semibold white
 type BadgeProps = {
   label: string;
   tone?: BadgeTone;
-  /** Takes the rarity ramp's colors and border; `label` defaults to the tier's name. */
   rarity?: RarityTier;
   shape?: 'pill' | 'tag';
   bordered?: boolean;
   dot?: boolean;
   icon?: LucideIcon;
-  /** Announce changes to the label politely. */
   live?: boolean;
   onDismiss?: () => void;
   className?: string;

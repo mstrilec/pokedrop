@@ -4,7 +4,6 @@ import { cursorPageOf, PaginationQuerySchema } from '../primitives/pagination.js
 
 const DaySchema = z.iso.date();
 
-// `to` is inclusive; a range that ends before it starts names nothing.
 const range = <T extends { from?: string; to?: string }>(query: T) =>
   query.from === undefined || query.to === undefined || query.from <= query.to;
 const RANGE_MESSAGE = { message: '`from` must not be after `to`', path: ['from'] };
@@ -21,7 +20,6 @@ export const AdminTradeQuerySchema = z
   .refine(range, RANGE_MESSAGE);
 export type AdminTradeQuery = z.infer<typeof AdminTradeQuerySchema>;
 
-/** What `POST /admin/trades/:id/void` would answer, found by running it and rolling it back. */
 export const VoidCheckSchema = z.discriminatedUnion('voidable', [
   z.object({ voidable: z.literal(true) }),
   z.object({ voidable: z.literal(false), code: z.string(), reason: z.string() }),
@@ -32,7 +30,6 @@ export const AUDIT_ENTITIES = ['Trade', 'User', 'PackTemplate', 'SyncJob', 'Prov
 export const AuditEntitySchema = z.enum(AUDIT_ENTITIES);
 export type AuditEntity = z.infer<typeof AuditEntitySchema>;
 
-/** `trade` matches every `trade.*` action; anything with a dot is one exact action. */
 export const AUDIT_ACTION_GROUPS = ['trade', 'user', 'pack_template', 'sync'] as const;
 
 export const AuditQuerySchema = z
@@ -61,9 +58,7 @@ export const AuditEntrySchema = z.object({
   action: z.string(),
   entity: z.string(),
   entityId: z.string(),
-  /** null: the system acted (the expiry job). */
   actor: z.object({ id: z.string(), displayName: z.string(), email: z.string() }).nullable(),
-  /** Who or what the row is about, for its link: a user's name and email, a template's name. */
   subject: z.object({ label: z.string(), email: z.string().nullable() }).nullable(),
   meta: z.record(z.string(), z.unknown()),
   createdAt: z.coerce.date(),

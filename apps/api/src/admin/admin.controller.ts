@@ -17,11 +17,6 @@ import {
   SyncTriggerResultSchema,
 } from '@pokedrop/shared';
 
-/**
- * No @Public() here on purpose: the global SessionGuard answers 401 without a
- * session and RolesGuard answers 403 for a member, which is the polarity PD-33
- * chose so that forgetting a decorator is noisy rather than silent.
- */
 @ApiTags('admin')
 @Roles(['ADMIN'])
 @Controller('admin/sync')
@@ -40,7 +35,6 @@ export class AdminController {
     return this.sync.status();
   }
 
-  /** 202: the run is queued, not done. */
   @HttpCode(HttpStatus.ACCEPTED)
   @Doc(
     'Queue a catalog sync; refused while one, or a price sweep, is queued or running',

@@ -21,9 +21,7 @@ const TRAINER_MIN = 8;
 const SUPPORTERS = [4, 6] as const;
 const STADIUM_MAX = 2;
 
-/** Subtypes allowed once in the whole deck. */
 const DECK_SINGLETONS = ['Radiant', 'Star', 'ACE SPEC'] as const;
-/** A subtype allowed once per name. */
 const NAME_SINGLETON = 'Prism Star';
 
 const SHORTFALL_RANK: Record<Shortfall['code'], number> = {
@@ -41,7 +39,6 @@ const isSupporter = (card: PoolCard) => isTrainer(card) && card.subtypes.include
 const isStadium = (card: PoolCard) => isTrainer(card) && card.subtypes.includes('Stadium');
 const any = () => true;
 
-/** A deck under construction: counts by card id, and copies used by copy-limit key. */
 class Draft {
   readonly counts = new Map<string, number>();
   private readonly byName = new Map<string, number>();
@@ -67,7 +64,6 @@ class Draft {
     this.log.push({ card, n });
   }
 
-  /** Copies of the card's name already in the deck, across printings. */
   used(card: PoolCard): number {
     const key = copyLimitKey(card);
     return key === null ? 0 : (this.byName.get(key) ?? 0);
@@ -113,7 +109,6 @@ function bump(map: Map<string, number>, key: string, n: number): void {
   else map.set(key, next);
 }
 
-/** The pool split the way the generator reads it, every list in card id order. */
 class Catalog {
   readonly byId: Map<string, PoolCard>;
   readonly pokemon: PoolCard[];
@@ -155,11 +150,6 @@ export function generateDeck(pool: PoolCard[], options: GenerateOptions, rng: Rn
   return best?.shortfall ?? pokemonShortfall([...options.types], 0);
 }
 
-/**
- * The requested types, or for Surprise me each generatable type in random order, at even odds
- * first paired with another; the single type follows its pair so every type is tried alone.
- * A pool without basic Energy tries the types of its Pokémon, so the shortfall names one.
- */
 function candidateTypeSets(
   pool: PoolCard[],
   requested: BasicEnergyType[],
@@ -189,7 +179,6 @@ function candidateTypeSets(
   return sets;
 }
 
-/** The furthest stage reached, then the closest to its minimum, then a single type. */
 function informative(shortfall: Shortfall, typeCount: number): number {
   return (
     SHORTFALL_RANK[shortfall.code] * 4 +
@@ -216,7 +205,6 @@ function build(
     [isTrainer, trainerTarget],
   ]);
   addTrainers(catalog.otherTrainers, draft, rng, [[isTrainer, trainerTarget]]);
-  // A small collection: every copy it holds, so a shortfall states what it can really field.
   if (draft.total(isTrainer) < trainerTarget) {
     addTrainers(catalog.otherTrainers, draft, rng, [[isTrainer, trainerTarget]], true);
     addTrainers(
@@ -257,8 +245,6 @@ function build(
     ]);
   }
 
-  // A pair whose second type got no line plays as one type: Energy and the answer follow the
-  // Pokémon actually in the deck.
   const used = types.filter((type) =>
     [...draft.counts].some(([id, count]) => {
       const card = catalog.byId.get(id);
@@ -287,10 +273,6 @@ function pokemonShortfall(types: BasicEnergyType[], have: number): Shortfall {
   };
 }
 
-/**
- * Whole lines until the Pokémon count reaches a target drawn in 16–18, never past 18, at most
- * four lines. A draw that ends under 16 is redrawn; the best of the draws is kept.
- */
 function buildPokemon(catalog: Catalog, draft: Draft, types: BasicEnergyType[], rng: Rng): number {
   const target = between(POKEMON_TARGET, rng);
   const ofTypes = (card: PoolCard) => types.some((type) => type === card.types[0]);
@@ -307,10 +289,6 @@ function buildPokemon(catalog: Catalog, draft: Draft, types: BasicEnergyType[], 
   return best.total;
 }
 
-/**
- * The first pass takes only lines that share no name with the deck and still leave room for
- * the remaining lines to reach 16; the second pass takes any line that fits.
- */
 function drawLines(
   tops: PoolCard[],
   target: number,
@@ -343,12 +321,6 @@ function drawLines(
   return draft.total(isPokemon);
 }
 
-/**
- * The stages from Basic to the top, each the pool's printings that evolve from the stage below
- * (a Basic: printings with no evolvesFrom and the Basic subtype, so a Stage 1 mirrored without
- * its evolvesFrom never passes for one). Null when a stage is missing
- * from the pool or out of room, when the line loops, or when it is longer than three stages.
- */
 function resolveLine(
   top: PoolCard,
   catalog: Catalog,
@@ -379,7 +351,6 @@ function resolveLine(
   }
 }
 
-/** The line's shape, then the shorter one when the first is the longer of two. */
 function shapesFor(stages: number, rng: Rng): number[][] {
   if (stages === 3) {
     return rng.int(2) === 1
@@ -393,7 +364,6 @@ function shapesFor(stages: number, rng: Rng): number[][] {
   return rng.int(2) === 1 ? [[3], [2]] : [[2]];
 }
 
-/** Copies placed, or 0 when a stage could not get one (the caller rolls the line back). */
 function placeLine(line: Stage[], shape: number[], draft: Draft, rng: Rng): number {
   let placed = 0;
   for (const [i, stage] of line.entries()) {
@@ -414,10 +384,6 @@ function placeLine(line: Stage[], shape: number[], draft: Draft, rng: Rng): numb
   return placed;
 }
 
-/**
- * Each type's tops shuffled, then taken in turn, so a pair's first two lines are one of each
- * type whenever both types have a line.
- */
 function interleave(types: BasicEnergyType[], tops: PoolCard[], rng: Rng): PoolCard[] {
   const queues = types.map((type) =>
     shuffle(
@@ -432,10 +398,6 @@ function interleave(types: BasicEnergyType[], tops: PoolCard[], rng: Rng): PoolC
   return out;
 }
 
-/**
- * 1–4 copies of each printing in random order (or, with `fill`, as many as it has room for),
- * within room and every cap's remaining copies.
- */
 function addTrainers(
   printings: PoolCard[],
   draft: Draft,
@@ -455,7 +417,6 @@ function addTrainers(
   }
 }
 
-/** The rest of the deck split across the types, an odd copy to the first. */
 function addEnergy(
   catalog: Catalog,
   draft: Draft,

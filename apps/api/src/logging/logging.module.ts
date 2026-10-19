@@ -14,10 +14,6 @@ import { buildLoggerOptions, buildWorkerLoggerOptions } from './logger.options.j
 })
 export class AppLoggingModule {}
 
-/**
- * The same wrapper for the worker entrypoint, differing only in which options
- * factory it calls. Both read one transport decision.
- */
 @Module({
   imports: [
     LoggerModule.forRootAsync({

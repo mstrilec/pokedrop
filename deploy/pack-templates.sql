@@ -1,13 +1,6 @@
--- Production pack templates modelled on real booster packs (PD-130): nineteen
--- sets from Base Set (1999) to Mega Evolution (2025).
--- docs/Deployment.md has the sources and the rates they produce.
---
+-- Production pack templates (docs/Deployment.md). Safe to re-run: existing ids are left alone.
 --   docker compose -f compose.production.yml --env-file .env.production \
 --     exec -T postgres psql -U pokedrop -d pokedrop -v ON_ERROR_STOP=1 < deploy/pack-templates.sql
---
--- Safe to run again: an existing id is left as it is, so edits made on
--- /admin/packs survive. Nothing is written when a set lacks a rarity the
--- template names, the rule POST /admin/pack-templates enforces.
 
 BEGIN;
 

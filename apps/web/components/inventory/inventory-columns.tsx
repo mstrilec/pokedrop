@@ -82,7 +82,6 @@ export const INVENTORY_COLUMNS = [
   }),
 ];
 
-// The list's sortable headers drive the server's sort; the table never reorders a page itself.
 const SORTS: Record<string, readonly [InventorySort, InventorySort]> = {
   card: ['name_asc', 'name_desc'],
   price: ['price_asc', 'price_desc'],

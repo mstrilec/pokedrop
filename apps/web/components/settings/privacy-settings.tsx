@@ -30,7 +30,6 @@ const TOGGLES: {
   },
 ];
 
-/** Each toggle saves on its own; the public profile reads it on the next request. */
 export function PrivacySettings({ me }: { me: MyProfile }) {
   const update = useUpdateMe();
   const pending = update.isPending ? update.variables : undefined;

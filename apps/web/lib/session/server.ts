@@ -27,7 +27,6 @@ export const getSession = cache(async (): Promise<SessionResult> => {
   }
 });
 
-/** The sign-in and sign-up pages send a visitor who already has a session on. */
 export async function redirectIfSignedIn(next?: string | string[]): Promise<void> {
   if (await getOptionalProfile()) redirect(safeNext(typeof next === 'string' ? next : undefined));
 }

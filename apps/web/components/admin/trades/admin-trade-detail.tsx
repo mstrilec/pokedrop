@@ -26,7 +26,6 @@ const side = (trade: TradeDetail, which: 'OFFERED' | 'REQUESTED') =>
       locked: which === 'OFFERED' && trade.status === 'PENDING',
     }));
 
-// Admin links: the timeline's and the chain's `/trades/…` become `/admin/trades/…`.
 const adminHref = (href: string) => href.replace(/^\/trades\//, '/admin/trades/');
 
 export function AdminTradeDetail({

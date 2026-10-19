@@ -13,9 +13,8 @@ export interface Rng {
 }
 
 /**
- * HMAC-SHA256(seed, counter) in counter mode: deterministic for a seed, and as
- * unpredictable as the seed is. The block layout is part of what a stored seed
- * reproduces - changing it silently changes every past pack's replay.
+ * The block layout is part of what a stored seed reproduces: changing it silently changes every
+ * past pack's replay.
  */
 export class SeededRng implements Rng {
   private readonly seed: Buffer;

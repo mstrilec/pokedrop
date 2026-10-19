@@ -4,8 +4,6 @@ import { useSearchParams } from 'next/navigation';
 import { useCallback, useMemo } from 'react';
 import { z } from 'zod';
 
-// A string is accepted for any field (a FilterBar speaks strings); the URL is re-parsed on read,
-// so a value the schema refuses falls back like any hand-edited link.
 export type UrlPatch<S extends z.ZodObject> = {
   [K in keyof z.output<S>]?: z.output<S>[K] | string | undefined;
 };
@@ -18,7 +16,6 @@ function defaultOf(field: z.core.$ZodType): unknown {
   return parsed.success ? parsed.data : undefined;
 }
 
-// Field by field: one bad value falls back to its own default and leaves the others alone.
 export function parseUrlState<S extends z.ZodObject>(
   schema: S,
   params: URLSearchParams,

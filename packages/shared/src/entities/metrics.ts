@@ -10,10 +10,6 @@ export const AdminMetricsQuerySchema = z.object({
 export type AdminMetricsQuery = z.infer<typeof AdminMetricsQuerySchema>;
 export type MetricsWindow = AdminMetricsQuery['days'];
 
-/**
- * One UTC day. Flat, so a chart takes any field as its dataKey. The counter
- * fields are null when Redis could not be read; a day with no traffic is 0.
- */
 export const MetricsDaySchema = z.object({
   day: DaySchema,
   partial: z.boolean(),

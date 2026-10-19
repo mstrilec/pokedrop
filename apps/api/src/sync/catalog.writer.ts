@@ -4,30 +4,14 @@ import type { TransactionClient } from '../prisma/index.js';
 import type { CardDTO, SetDTO } from './providers/index.js';
 
 /**
- * The only raw SQL in this module.
- *
- * It is raw because Prisma has no conditional-update upsert, and the guard is
- * the entire point: `prisma.card.upsert` issues an UPDATE on conflict
- * unconditionally, which rewrites every row of a 20 670-card catalog on every
- * sweep. Measured with `xmin`, which changes whenever PostgreSQL rewrites a
- * tuple - an unguarded upsert of a byte-identical payload moved it, the guarded
- * form did not.
- *
- * Four rules hold this together, and breaking any of them is silent:
- *
- * - Column names are quoted. They are camelCase in the database, so unquoted
- *   PostgreSQL folds them and looks for `setid`.
- * - `"updatedAt"` is set with now(), because Prisma's `@updatedAt` applies in
- *   its query layer and raw SQL bypasses it.
- * - `"updatedAt"` is NOT in the comparison tuple. Including it would make every
- *   row differ from itself, restoring the churn this exists to remove while the
- *   SQL still looks guarded.
- * - A column written by the upsert is in the comparison tuple too; one left out
- *   is never updated on an existing row.
+ * Raw SQL because Prisma has no conditional-update upsert. Breaking any of these is silent:
+ * - column names are quoted (camelCase in the database);
+ * - `"updatedAt"` is set with now(), since raw SQL bypasses Prisma's `@updatedAt`;
+ * - `"updatedAt"` is NOT in the comparison tuple, or every row differs from itself;
+ * - every column the upsert writes is in the comparison tuple, or it never updates.
  */
 @Injectable()
 export class CatalogWriter {
-  /** jsonb has to be handed over as text with an explicit cast; a bound object does not work. */
   private json(value: unknown): Prisma.Sql {
     return Prisma.sql`${JSON.stringify(value)}::jsonb`;
   }

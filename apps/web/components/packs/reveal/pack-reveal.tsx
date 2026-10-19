@@ -19,7 +19,6 @@ const STILL_OPENING_MS = 6000;
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 const noSubscription = () => () => {};
 
-/** The client root of /packs/open: the reveal store lives here, one per openId. */
 export function PackRevealScreen(params: OpenParams) {
   return (
     <PackRevealProvider key={params.openId}>
@@ -46,7 +45,6 @@ function PackReveal({ templateId, openId }: OpenParams) {
   const [replaying, setReplaying] = useState(false);
   const [slow, setSlow] = useState(false);
   const started = useRef(false);
-  // Read once: whether this load is a return to an opened pack. Rendered only after mount.
   const [openedOnArrival] = useState(() => typeof window !== 'undefined' && wasOpened(openId));
 
   async function start(replay: boolean) {
@@ -78,7 +76,6 @@ function PackReveal({ templateId, openId }: OpenParams) {
     }
   }
 
-  // A reload after the opening: replay it (free, the same cards) and go to the summary.
   const replayIfOpened = useEffectEvent(() => {
     if (started.current || !wasOpened(openId)) return;
     started.current = true;

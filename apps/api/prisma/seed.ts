@@ -1,19 +1,3 @@
-/**
- * Development seed.
- *
- * Deliberately small and hand-written rather than generated. Faker factories
- * shared with integration tests were the original plan, but there are no tests
- * during v1 and most of the features this data would exercise do not exist yet
- * — a factory layer built now would be written against guesses. This covers
- * what M2 and M3 actually need to develop against, and grows when there is
- * something to grow for.
- *
- * Idempotent: every row has a fixed id, and the script removes its own rows
- * before inserting. It never touches rows it did not create.
- *
- * Run with `pnpm --filter @pokedrop/api db:seed`. Node executes TypeScript
- * directly, so there is no build step and no tsx dependency.
- */
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -34,14 +18,6 @@ if (!databaseUrl) {
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
 
-// ---------------------------------------------------------------------------
-// Catalog
-//
-// Ids follow the provider's shape (`base1`, `base1-4`) rather than a seed
-// prefix, so a later real sync upserts over them instead of leaving duplicates
-// beside them.
-// ---------------------------------------------------------------------------
-
 const SETS = [
   { id: 'base1', name: 'Base Set', series: 'Base', releaseDate: '1999-01-09', printedTotal: 102 },
   { id: 'base2', name: 'Jungle', series: 'Base', releaseDate: '1999-06-16', printedTotal: 64 },
@@ -54,7 +30,6 @@ const SETS = [
   },
 ] as const;
 
-/** One card per step of the rarity ramp, so a pack can pull from every slot. */
 const CARDS = [
   {
     id: 'base1-4',
@@ -169,15 +144,6 @@ const CARDS = [
 const CARD_IDS = CARDS.map((card) => card.id);
 const SET_IDS = SETS.map((set) => set.id);
 
-// ---------------------------------------------------------------------------
-// People and money
-//
-// `currency` is never written directly. Each user's balance is the sum of the
-// ledger rows below it, computed here, because nothing in the schema keeps the
-// denormalised balance and the ledger in agreement — and seed data that starts
-// out disagreeing poisons every later check of the economy.
-// ---------------------------------------------------------------------------
-
 type LedgerEntry = {
   id: string;
   amount: number;
@@ -225,7 +191,6 @@ const USERS = [
     ],
   },
   {
-    /** No grant at all: the empty-wallet case every balance check should meet. */
     id: 'seed-gary',
     email: 'gary@pokedrop.test',
     displayName: 'Gary',
@@ -237,10 +202,6 @@ const USERS = [
 const balanceOf = (ledger: readonly LedgerEntry[]): number =>
   ledger.reduce((total, entry) => total + entry.amount, 0);
 
-// ---------------------------------------------------------------------------
-// Trades — one per TradeStatus, plus the counter-offer chain
-// ---------------------------------------------------------------------------
-
 const TRADES = [
   {
     id: 'seed-trade-pending',
@@ -251,7 +212,6 @@ const TRADES = [
     counteredTradeId: null,
     currencyFromInitiator: 0,
     currencyFromRecipient: 0,
-    /** Backed by the lock on Ash's Charizard below. */
     items: [
       { id: 'seed-ti-1', side: 'OFFERED' as const, cardId: 'base1-4', quantity: 1 },
       { id: 'seed-ti-2', side: 'REQUESTED' as const, cardId: 'base1-2', quantity: 1 },
@@ -291,7 +251,6 @@ const TRADES = [
     items: [{ id: 'seed-ti-5', side: 'REQUESTED' as const, cardId: 'sv1-198', quantity: 1 }],
   },
   {
-    /** The counter to the one above — this is what makes the chain walkable. */
     id: 'seed-trade-cancelled',
     initiatorId: 'seed-ash',
     recipientId: 'seed-gary',
@@ -316,8 +275,6 @@ const TRADES = [
 ] as const;
 
 async function clear(): Promise<void> {
-  // Order matters: the catalog is Restrict, so everything referencing a card
-  // has to go before the cards do.
   await prisma.tradeItem.deleteMany({ where: { id: { startsWith: 'seed-' } } });
   await prisma.trade.deleteMany({ where: { id: { startsWith: 'seed-' } } });
   await prisma.deckCard.deleteMany({ where: { id: { startsWith: 'seed-' } } });
@@ -402,7 +359,6 @@ async function seed(): Promise<void> {
       name: 'Base Set Booster Pack',
       setFilter: { setIds: ['base1', 'base2'] },
       cost: 300,
-      // The shape documented in docs/UserFlows.md section 5.
       slotConfig: {
         slots: [
           { count: 4, weights: { Common: 100 } },
@@ -419,8 +375,6 @@ async function seed(): Promise<void> {
 
   await prisma.inventoryItem.createMany({
     data: [
-      // Charizard is locked because seed-trade-pending offers it. This is the
-      // escrow invariant in the seed rather than only in a test.
       { id: 'seed-inv-1', userId: 'seed-ash', cardId: 'base1-4', quantity: 2, lockedQuantity: 1 },
       { id: 'seed-inv-2', userId: 'seed-ash', cardId: 'base1-58', quantity: 5, lockedQuantity: 0 },
       { id: 'seed-inv-3', userId: 'seed-ash', cardId: 'base1-46', quantity: 3, lockedQuantity: 0 },
@@ -477,7 +431,6 @@ async function seed(): Promise<void> {
     },
   });
 
-  // Trades before their counter-offers, since counteredTradeId references one.
   for (const trade of TRADES) {
     await prisma.trade.create({
       data: {
@@ -523,8 +476,6 @@ async function seed(): Promise<void> {
 
 await seed();
 
-// Report what landed, and prove the one invariant the schema cannot hold: the
-// denormalised balance has to equal the ledger.
 const users = await prisma.user.findMany({
   where: { id: { startsWith: 'seed-' } },
   include: { currencyTransactions: true },

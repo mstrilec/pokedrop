@@ -32,7 +32,6 @@ export interface EnergyStyle {
   label: EnergyType;
   icon: LucideIcon;
   text: string;
-  /** For `bg-card-face`: pass as the `--energy` custom property. */
   face: string;
 }
 
@@ -76,7 +75,6 @@ export const ENERGY_STYLES: Record<EnergyType, EnergyStyle> = {
   },
 };
 
-// Card types arrive as the provider's strings; anything unrecognised reads as Colorless.
 export function energyStyle(type: string): EnergyStyle {
   return (ENERGY_TYPES as readonly string[]).includes(type)
     ? ENERGY_STYLES[type as EnergyType]

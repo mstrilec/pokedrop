@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { METRIC_COUNTERS, RedisService, metricsKeys, type MetricCounter } from '../redis/index.js';
 import { utcDayOf } from './utc-day.js';
 
-/** Past the longest window (30 days), so every day a window asks for exists. */
 const COUNTER_TTL_SECONDS = 100 * 86_400;
 const WARN_EVERY_MS = 60_000;
 
@@ -15,11 +14,6 @@ export class MetricsCounterService {
 
   constructor(private readonly redis: RedisService) {}
 
-  /**
-   * Never awaited by a request. A count lost to a Redis outage is lost. Several
-   * names go in one MULTI on one day, so `server_errors` can never land where
-   * its `requests` did not.
-   */
   increment(...names: readonly MetricCounter[]): void {
     const day = utcDayOf(new Date());
     try {
@@ -34,7 +28,6 @@ export class MetricsCounterService {
     }
   }
 
-  /** An absent key is a day with nothing to count: 0, not unknown. */
   async read(days: readonly string[]): Promise<CounterTable> {
     const keys = days.flatMap((day) =>
       METRIC_COUNTERS.map((name) => metricsKeys.counter(name, day)),

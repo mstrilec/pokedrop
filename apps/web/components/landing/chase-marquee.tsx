@@ -15,7 +15,6 @@ export function ChaseItem({
 }: {
   card: Card;
   setName: string;
-  /** The marquee's second, decorative copy: clickable, but out of the tab order. */
   copy?: boolean;
 }) {
   const style = RARITY_STYLES[rarityTier(card.rarity)];

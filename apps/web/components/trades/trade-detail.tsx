@@ -53,7 +53,6 @@ function sideOf(trade: TradeDetail, side: 'OFFERED' | 'REQUESTED') {
     .map((item) => ({ card: cardView(item.card), count: item.quantity, locked }));
 }
 
-/** Every offer of the negotiation, oldest first; the parties take turns proposing. */
 function Negotiation({
   trade,
   me,
@@ -132,7 +131,6 @@ function TradeDetailView({ trade }: { trade: TradeDetail }) {
   const latest = trade.chain.at(-1);
   const replaced = latest !== undefined && latest.id !== trade.id;
 
-  // The buttons go with the status once the answer lands; the heading takes the focus.
   useEffect(() => {
     if (answered.current && !pending) {
       answered.current = false;
@@ -183,7 +181,6 @@ function TradeDetailView({ trade }: { trade: TradeDetail }) {
         answered.current = true;
         toastSuccess(done);
       },
-      // Answered elsewhere meanwhile (409): show what it is now.
       onError: () => void queryClient.invalidateQueries({ queryKey: keys.trades.detail(trade.id) }),
       onSettled: () => setAsking(null),
     });

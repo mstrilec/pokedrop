@@ -20,9 +20,6 @@ function webgl(): boolean {
 
 let decided: ThreeMode | null = null;
 
-// A desktop-sized viewport with a mouse, motion allowed, WebGL, no data saver and more than
-// four cores and 4 GB where the browser says. Lighthouse's mobile run emulates a
-// coarse pointer, so it never loads three.js.
 function decide(): ThreeMode {
   if (decided) return decided;
   const nav = navigator as CapableNavigator;

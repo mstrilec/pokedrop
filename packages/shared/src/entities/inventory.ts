@@ -18,9 +18,7 @@ export type InventoryItem = z.infer<typeof InventoryItemSchema>;
 export const InventorySummarySchema = z.object({
   totalCards: z.number().int().min(0),
   uniqueCards: z.number().int().min(0),
-  /** Informational only: the sum of latest USD prices, unrelated to pack costs. */
   collectionValueUsd: z.number().nonnegative(),
-  /** How many of `uniqueCards` carry a USD price, i.e. what the value covers. */
   pricedCards: z.number().int().min(0),
   setCompletion: z.array(
     z.object({
@@ -53,7 +51,6 @@ export const InventoryQuerySchema = CardSearchQuerySchema.pick({
 }).extend({
   cursor: z.string().min(1).max(512).optional(),
   pageSize: PaginationQuerySchema.shape.pageSize,
-  // The ceiling is PostgreSQL's integer: past it the driver fails, not the pipe.
   minQuantity: z.coerce.number().int().min(1).max(2_147_483_647).optional(),
   sort: InventorySortSchema,
 });
@@ -75,7 +72,6 @@ export const InventoryCardSchema = CardSchema.pick({
 });
 export type InventoryCard = z.infer<typeof InventoryCardSchema>;
 
-/** The card summary plus legalities: what the deck validator reads about a card. */
 export const PlayableCardSchema = InventoryCardSchema.extend({ legalities: LegalitiesSchema });
 export type PlayableCard = z.infer<typeof PlayableCardSchema>;
 
@@ -87,7 +83,6 @@ export type InventoryEntry = z.infer<typeof InventoryEntrySchema>;
 export const InventoryPageSchema = cursorPageOf(InventoryEntrySchema);
 export type InventoryPage = z.infer<typeof InventoryPageSchema>;
 
-/** `cardIds` is comma-separated, 1–100 distinct ids: one catalog page's worth. */
 export const OwnedQuerySchema = z.object({
   cardIds: z
     .string()
@@ -104,7 +99,6 @@ export const OwnedQuerySchema = z.object({
 });
 export type OwnedQuery = z.infer<typeof OwnedQuerySchema>;
 
-/** Only cards the caller holds; an absent id means none owned. */
 export const OwnedCountsSchema = z.array(
   InventoryItemSchema.pick({ cardId: true, quantity: true, availableQuantity: true }),
 );

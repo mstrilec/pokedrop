@@ -1,8 +1,6 @@
 import { z } from 'zod';
 import { get, post } from '../core';
 
-// Better Auth's routes, for authApi. Only what a page reads is parsed.
-
 const UserRefSchema = z.object({ user: z.object({ id: z.string() }) });
 const StatusSchema = z.object({ status: z.boolean() });
 
@@ -35,7 +33,6 @@ export const changePassword = (body: {
   revokeOtherSessions: boolean;
 }) => post('/change-password', z.object({}).loose(), body);
 
-// The answer also carries every session's token (Better Auth revokes by token); it is not read.
 const SessionRowSchema = z.object({
   id: z.string(),
   createdAt: z.coerce.date(),

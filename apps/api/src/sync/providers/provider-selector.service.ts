@@ -13,11 +13,6 @@ import { ProviderBreakerService } from './provider-breaker.service.js';
 export interface ProviderChoice {
   provider: CardSourceProvider;
 
-  /**
-   * True when this is not the configured primary. The processor uses it to
-   * apply the two rules that keep a failover from forking the catalog, so it is
-   * load-bearing rather than informational.
-   */
   isFallback: boolean;
 
   reason: string;
@@ -38,13 +33,8 @@ export class ProviderSelectorService {
   }
 
   /**
-   * Asked once per run and never per page.
-   *
-   * Switching mid-run would put two id vocabularies inside one SyncRun - pages
-   * 1-40 written as sv4-25 and 41-83 as sv04-25 - and the run's `provider`
-   * column could then name only one of the two sources that wrote it. That is
-   * the fork this whole design exists to prevent, arriving through the door
-   * marked resilience.
+   * Once per run, never per page: switching mid-run would mix two id vocabularies in one run and
+   * fork the catalog.
    */
   async select(): Promise<ProviderChoice> {
     const names = [...this.registry.keys()];
@@ -57,9 +47,6 @@ export class ProviderSelectorService {
 
     const chosen = chooseProvider(this.primary, names, open);
 
-    // Every registered provider is failing. Running anyway would spend a sweep
-    // on a source already known to be down, and the mirror is no less current
-    // for being left alone.
     if (chosen === null) {
       throw new ProviderUnavailableError(
         this.primary,
@@ -80,22 +67,10 @@ export class ProviderSelectorService {
   }
 
   /**
-   * The provider a resumed run must keep using.
-   *
-   * Asking select() again would let a BullMQ retry continue a run on a
-   * different source than the one its row names. The breaker can flip during a
-   * sweep, and the two providers' page numbers are unrelated - a cursor at page
-   * 41 means 10 000 cards into one provider's list and something else entirely
-   * in the other's, so the resumed half would skip what it was meant to refresh
-   * and the run's `provider` column would name a source that did not write it.
-   *
-   * Returns null when that provider's breaker has opened in the meantime: the
-   * caller closes the run rather than continuing against a source known to be
-   * down.
+   * A resumed run keeps its row's provider: the providers' page numbers are unrelated, so a retry
+   * on another source would skip cards. Null when that breaker has opened since.
    */
   async resume(providerName: string): Promise<ProviderChoice | null> {
-    // The column is a free string by design, so a name that is no longer
-    // registered reads as a miss here rather than as a type error.
     const name = providerName as CardSourceName;
     const provider = this.registry.get(name);
 

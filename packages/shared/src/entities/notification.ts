@@ -20,7 +20,6 @@ export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 export const TradeNotificationPayloadSchema = z.object({ tradeId: TradeIdSchema });
 export type TradeNotificationPayload = z.infer<typeof TradeNotificationPayloadSchema>;
 
-/** Signed: an admin adjustment downwards is a negative grant. */
 export const CurrencyGrantedPayloadSchema = z.object({ amount: z.number().int() });
 export type CurrencyGrantedPayload = z.infer<typeof CurrencyGrantedPayloadSchema>;
 
@@ -35,17 +34,10 @@ export const NOTIFICATION_PAYLOAD_SCHEMAS = {
   'currency.granted': CurrencyGrantedPayloadSchema,
 } satisfies Record<NotificationType, z.ZodType>;
 
-/** What a writer supplies for a kind: the schema's input, so plain ids rather than branded ones. */
 export type NotificationPayload<T extends NotificationType> = z.input<
   (typeof NOTIFICATION_PAYLOAD_SCHEMAS)[T]
 >;
 
-/**
- * `payload` is the kind's schema applied to what was stored, so a key it does
- * not name never reaches a client. `counterparty` is the other side of the
- * trade a trade notification is about, read live rather than from the payload
- * so a renamed user reads correctly; null for every other kind.
- */
 export const NotificationViewSchema = z.object({
   id: NotificationIdSchema,
   type: z.string().min(1),

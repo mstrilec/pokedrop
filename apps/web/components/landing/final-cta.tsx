@@ -3,8 +3,6 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Reveal } from './reveal';
 
-// A rainbow border: the surface fills the padding box, the energy gradient the
-// border box under it. Several layers with boxes are beyond a bg-[…] utility.
 const PANEL = {
   background: [
     'radial-gradient(500px 260px at 85% 20%, color-mix(in srgb, var(--e-fire) 22%, transparent), transparent 70%) padding-box',

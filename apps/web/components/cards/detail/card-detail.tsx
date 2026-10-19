@@ -13,7 +13,6 @@ import { cn } from '@/lib/utils';
 import { CardActions } from './card-actions';
 import { CardPrices } from './card-prices';
 
-/** The number printed on the card: what follows the set id in the card id. */
 export function cardNumber(id: string): string {
   return id.slice(id.lastIndexOf('-') + 1);
 }
@@ -202,7 +201,6 @@ export function CardDetail({
   set: SetDetail | null;
   history: PriceHistory | null;
   now: Date;
-  /** The Pokédex section, streamed: it may be slow and may be absent. */
   species: ReactNode;
 }) {
   const tier = rarityTier(card.rarity);

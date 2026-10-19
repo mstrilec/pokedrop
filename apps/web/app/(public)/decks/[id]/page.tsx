@@ -6,8 +6,6 @@ import { ApiError } from '@/lib/api/core';
 import { deck } from '@/lib/api/endpoints/decks';
 import { serverApi } from '@/lib/api/server';
 
-// With the visitor's cookies: the API answers a private deck to its owner only, so a stranger's
-// private deck is the same 404 as one that never existed. One request for the page and its title.
 const loadDeck = cache(async (id: string) => {
   try {
     return { deck: await serverApi.call(deck(id)), at: Date.now() };

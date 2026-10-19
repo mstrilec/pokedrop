@@ -45,7 +45,6 @@ export class AdminUsersController {
     return this.users.list(query);
   }
 
-  /** 200 for the first request and a replay alike, as a pack open answers. */
   @Doc(
     "Grant or adjust a user's currency, once per grantId",
     returns('GrantResult', GrantResultSchema),

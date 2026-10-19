@@ -19,15 +19,6 @@ function pushGuard(): void {
   );
 }
 
-/**
- * While `dirty`, catches what can be caught of leaving the page — the App Router cannot cancel
- * a navigation: closing or reloading the tab (`beforeunload`), a click on a link to another
- * page, and Back, through a sentinel history entry that `popstate` puts back. `onAttempt`
- * decides; calling the `leave` it is given goes on. The sentinel is removed when the page
- * stops being dirty, so one Back leaves after a save. When Back has nowhere to go — the page
- * opened the tab — leaving goes to `fallback` instead. The function it returns leaves on
- * purpose, without asking.
- */
 export function useUnsavedChanges(
   dirty: boolean,
   onAttempt: (leave: Leave) => void,
@@ -78,7 +69,6 @@ export function useUnsavedChanges(
         leaving.current = true;
         const here = window.location.href;
         window.history.go(-2);
-        // Nothing two entries back: go(-2) does nothing, so leave to the fallback.
         fallbackTimer = window.setTimeout(() => {
           if (window.location.href === here) router.replace(fallback);
         }, 500);

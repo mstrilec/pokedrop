@@ -10,7 +10,6 @@ import type { PoolCard } from './random-deck.types.js';
 type Db = { $queryRaw<T = unknown>(query: Prisma.Sql): Prisma.PrismaPromise<T> };
 type Row = Omit<PoolCard, 'available'> & { available: number | null };
 
-/** Every card Legal in the format, or for Owned only the member's available copies of them. */
 export async function loadPool(
   db: Db,
   { format, userId }: { format: DeckFormat; userId: string | null },
@@ -38,7 +37,6 @@ export function isBasicEnergy(card: Pick<PoolCard, 'supertype' | 'subtypes'>): b
   return card.supertype === 'Energy' && card.subtypes.includes('Basic');
 }
 
-/** The basic Energy types the pool can supply, in BASIC_ENERGY_TYPES order. */
 export function generatableTypes(pool: PoolCard[]): BasicEnergyType[] {
   const types = new Set(pool.filter(isBasicEnergy).map((card) => basicEnergyTypeOf(card.name)));
   return BASIC_ENERGY_TYPES.filter((type) => types.has(type));

@@ -62,8 +62,6 @@ const CHARIZARD_2 = card(
 const FIRE = card('base1-98', 'Fire Energy', 'Common', [], 'Energy', ['Basic'], 0.4);
 const MEWTWO = card('base1-10', 'Mewtwo', 'Rare Holo', ['Psychic'], 'Pokémon', ['Basic'], 24);
 
-// The gallery has no deck to send to the API, so it applies the two rules a list of counts
-// can show: size and copies. The page asks the API (POST /decks/:id/validate).
 function localValidation(deck: { card: DemoCard; count: number }[]): DeckValidation {
   const actual = deck.reduce((n, e) => n + e.count, 0);
   const issues: DeckIssue[] = [];

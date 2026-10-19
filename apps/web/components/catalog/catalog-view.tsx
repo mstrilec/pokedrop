@@ -120,8 +120,6 @@ export function CatalogView() {
 
   const renderTile = (card: Card) => {
     const mine = owned.get(card.id);
-    // Signed out, ownership is not the question; signed in, a card is "not owned" only once
-    // its page's counts have answered.
     const ownedCount = !signedIn || !known.has(card.id) ? undefined : (mine?.quantity ?? 0);
     return (
       <CardTile

@@ -4,7 +4,6 @@ export type DeckGroup<T> = { label: string; total: number; entries: T[] };
 
 const byName = new Intl.Collator('en');
 
-/** Pokémon, Trainer, Energy — then anything the mirror calls otherwise — each sorted by name. */
 export function groupBySupertype<T extends { count: number }>(
   entries: T[],
   cardOf: (entry: T) => { name: string; supertype: string },

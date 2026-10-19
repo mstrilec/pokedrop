@@ -16,7 +16,6 @@ import { useSession } from '@/lib/session/context';
 
 type Prompt = 'deck' | 'trade' | null;
 
-/** `Owned: 3 · 1 locked` once the counts answer; nothing signed out (D1). */
 function OwnedBadge({ cardId }: { cardId: string }) {
   const { owned, known } = useOwnedCounts([[cardId]], true);
   if (!known.has(cardId)) return <Skeleton width="7rem" />;

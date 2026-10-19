@@ -33,10 +33,6 @@ export class PokemonTcgClient implements CardSourceProvider {
     };
   }
 
-  /**
-   * One call. 176 sets fit in a single page, and paginating would be ceremony
-   * with no resume point worth saving.
-   */
   async fetchSets(): Promise<SetDTO[]> {
     const envelope = this.parseEnvelope(
       await getJson('/sets', { pageSize: SETS_PAGE_SIZE }, this.http),
@@ -61,7 +57,6 @@ export class PokemonTcgClient implements CardSourceProvider {
         {
           page: params.page,
           pageSize: params.pageSize,
-          // The provider's own query syntax. Absent means the whole catalog.
           q: params.setId === undefined ? undefined : `set.id:${params.setId}`,
         },
         this.http,
@@ -80,8 +75,6 @@ export class PokemonTcgClient implements CardSourceProvider {
         continue;
       }
 
-      // One bad card does not discard the 249 beside it. PD-42 counts these
-      // into SyncRun.failed and finishes the run as PARTIAL.
       skipped.push({
         provider: this.name,
         itemId: this.idOf(item),
@@ -99,10 +92,6 @@ export class PokemonTcgClient implements CardSourceProvider {
     };
   }
 
-  /**
-   * Prices are embedded in the card object, so this fetches those cards and
-   * projects the price blocks out. M4 is the first caller.
-   */
   async fetchPrices(cardIds: string[]): Promise<PriceDTO[]> {
     if (cardIds.length === 0) {
       return [];
@@ -140,7 +129,6 @@ export class PokemonTcgClient implements CardSourceProvider {
 
   private idOf(item: unknown): string | null {
     if (typeof item === 'object' && item !== null && 'id' in item) {
-      // `'id' in item` already narrows it; an assertion here would be a no-op.
       const { id } = item;
       return typeof id === 'string' ? id : null;
     }

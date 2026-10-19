@@ -25,7 +25,6 @@ export function useTrades(tab: TradeTab) {
   });
 }
 
-/** A tab's size alone: one row asked for, `total` read. */
 export function useTradeCount(tab: TradeTab) {
   return useQuery({
     queryKey: keys.trades.count(tab),
@@ -62,7 +61,6 @@ export function useTrade(id: string | undefined, initial?: TradeDetail, initialA
     enabled: id !== undefined,
     initialData: initial,
     initialDataUpdatedAt: initialAt,
-    // A 404 is an answer (not a party, or no such trade), not a failure to retry.
     retry: (failures, error) =>
       initial !== undefined &&
       !(error instanceof ApiError && error.statusCode === 404) &&

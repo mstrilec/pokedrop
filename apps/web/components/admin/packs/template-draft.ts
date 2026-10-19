@@ -16,7 +16,6 @@ export type TemplateDraft = {
   slots: DraftSlot[];
   active: boolean;
   coverCardId: string | null;
-  /** The picked card, for the preview; the saved view's cover until something is picked. */
   cover: PackArt['cover'];
   imageUrl: string;
 };
@@ -51,14 +50,12 @@ export function draftOf(template: PackTemplateView): TemplateDraft {
   };
 }
 
-// The inputs hold strings; an empty or partial number is NaN, which the schema refuses by name.
 const number = (value: string) => (value.trim() === '' ? Number.NaN : Number(value));
 
 export function bodyOf(draft: TemplateDraft): CreatePackTemplate {
   return {
     name: draft.name,
     cost: number(draft.cost),
-    // Ids from the sets list; the API checks each one exists.
     setFilter: { setIds: draft.setIds as CreatePackTemplate['setFilter']['setIds'] },
     slotConfig: {
       slots: draft.slots.map((slot) => ({
@@ -74,11 +71,6 @@ export function bodyOf(draft: TemplateDraft): CreatePackTemplate {
   };
 }
 
-/**
- * Where each problem shows: `name`, `cost`, `sets`, `slots` (the whole pack), `slot.<i>` and
- * `slot.<i>.row.<j>`. The rules are the shared `CreatePackTemplateSchema` the API validates
- * with, plus what the form's rows can express that a record cannot: a rarity named twice.
- */
 export type Problems = Map<string, string>;
 
 export function problemsOf(draft: TemplateDraft): Problems {
@@ -121,7 +113,6 @@ export function problemsOf(draft: TemplateDraft): Problems {
   return problems;
 }
 
-/** The config to preview: only slots whose numbers are usable, so the preview never shows NaN. */
 export function previewSlots(draft: TemplateDraft): SlotConfig['slots'] {
   return bodyOf(draft).slotConfig.slots.filter(
     (slot) =>
@@ -134,7 +125,6 @@ export function previewSlots(draft: TemplateDraft): SlotConfig['slots'] {
   );
 }
 
-/** Only what changed, so a rename never re-runs the pool check (docs/API.md *Packs*). */
 export function changesOf(original: PackTemplate, body: CreatePackTemplate) {
   const changes: Partial<CreatePackTemplate> = {};
   if (body.name !== original.name) changes.name = body.name;

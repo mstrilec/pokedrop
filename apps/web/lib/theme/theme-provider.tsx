@@ -35,7 +35,6 @@ function writeCookie(preference: ThemePreference) {
       : `${THEME_COOKIE}=${preference}; Path=/; Max-Age=${YEAR}; SameSite=Lax`;
 }
 
-/** The colours themselves come from CSS (globals.css); this only records and applies the choice. */
 export function ThemeProvider({
   initial,
   children,
@@ -44,7 +43,6 @@ export function ThemeProvider({
   children: ReactNode;
 }) {
   const [preference, setState] = useState(initial);
-  // The server cannot see the OS, so it answers dark; only the Toaster reads `resolved`.
   const osLight = useSyncExternalStore(
     subscribe,
     () => matchMedia(LIGHT).matches,
@@ -55,7 +53,6 @@ export function ThemeProvider({
 
   const setPreference = useCallback((next: ThemePreference) => {
     const root = document.documentElement;
-    // One frame without transitions, so every colour switches at once instead of fading.
     root.dataset.themeSwitching = '';
     const attribute = themeAttribute(next);
     if (attribute) root.dataset.theme = attribute;

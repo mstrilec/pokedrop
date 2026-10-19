@@ -28,13 +28,8 @@ import { useDeckChecks } from './use-deck-checks';
 
 type Tab = 'pool' | 'deck' | 'check';
 
-// Below the 60 px topbar and the main element's 2 × 32 px padding.
 const BUILDER_HEIGHT = 'calc(100dvh - 3.75rem - 4rem)';
 
-/**
- * The store takes the first `deck` only; later answers (a Public flip refetches) never reset it.
- * `addCardId` (`?add=`, from a card page) arrives as one more copy, unsaved.
- */
 export function DeckBuilder({
   deck,
   addCardId,
@@ -84,8 +79,6 @@ function Builder({
 
   useUnsavedChanges(dirty && !gone, (leave) => setPendingLeave(() => leave), '/decks');
 
-  // A newer server copy (another tab saved, or this page opened from a stale cache) replaces a
-  // clean draft; a dirty one is the user's and stays.
   useEffect(() => {
     if (!dirty && deck.updatedAt.getTime() > basis) reset(deck);
   }, [deck, dirty, basis, reset]);
@@ -111,7 +104,6 @@ function Builder({
     toastSuccess(`Added ${card.name} — save the deck to keep it`);
   }, [addCardId, adding.data, adding.isError, deck.id, draft.cards, cardsById, add]);
 
-  // `?random=1` from New deck: the dialog opens once, the parameter dropped first.
   const randomized = useRef(false);
   useEffect(() => {
     if (!random || randomized.current) return;
@@ -131,7 +123,6 @@ function Builder({
         cards: sent.cards,
       });
       queryClient.setQueryData(keys.decks.detail(deck.id), result);
-      // Invalidated counts still answer from the cache at once; the verdict needs fresh ones.
       queryClient.removeQueries({ queryKey: keys.inventory.ownedAll });
       if (thenLeave) {
         thenLeave();

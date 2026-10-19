@@ -73,7 +73,6 @@ function HistorySkeleton() {
   );
 }
 
-// The wallet links an opening as #opening-<id>: page through until it is loaded, then show it.
 function useOpeningFromHash(history: ReturnType<typeof usePackHistory>) {
   const found = useRef(false);
   const { data, hasNextPage, isFetchingNextPage, fetchNextPage } = history;

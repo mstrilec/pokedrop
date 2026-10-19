@@ -8,10 +8,8 @@ import type { TransactionClient } from '../prisma/index.js';
 import { offeredChanges, type TradeRow } from './trade-row.js';
 
 /**
- * `release` returns the initiator's OFFERED lock, which only a PENDING trade
- * holds - so leaving ACCEPTED can never release. A settled trade's cards were
- * already moved; releasing "its" lock would strip one belonging to another of
- * the initiator's pending trades, and nothing would notice.
+ * Leaving ACCEPTED never releases: a settled trade's cards already moved, so releasing would
+ * strip a lock belonging to another of the initiator's pending trades.
  */
 export type CloseOptions = {
   to: Exclude<TradeStatus, 'PENDING'>;
@@ -21,7 +19,6 @@ export type CloseOptions = {
 } & (
   | {
       from?: 'PENDING';
-      /** False for accept, whose settlement consumes the lock, and for counter, which releases in lock order. */
       release: boolean;
     }
   | { from: 'ACCEPTED'; release: false }
@@ -34,11 +31,7 @@ export class TradeCloseService {
     private readonly audit: AuditService,
   ) {}
 
-  /**
-   * The only way a trade changes status. The guarded update takes the trade's
-   * row lock first, so every transition of one trade is serialised and the
-   * loser of a race finds it no longer in the status it expected.
-   */
+  /** The only way a trade changes status: the guarded update takes the trade's row lock first. */
   async close(
     tx: TransactionClient,
     trade: Pick<TradeRow, 'id' | 'initiatorId' | 'items'>,
@@ -74,13 +67,6 @@ export class TradeCloseService {
     });
   }
 
-  /**
-   * `close` for every PENDING trade a user is party to, in a fixed number of
-   * statements however many there are: a spammer's thousands of proposals
-   * must not push a suspension past the transaction timeout. The rows are
-   * locked in id order, and one an accept is settling is waited for and, no
-   * longer PENDING, skipped - the same serialisation `close` gets.
-   */
   async voidAllPendingOf(
     tx: TransactionClient,
     userId: string,

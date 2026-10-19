@@ -5,7 +5,6 @@ import { type ReactNode, type RefObject, useEffect, useRef } from 'react';
 import { useDocumentTop, useElementWidth, useOffsetWithin } from './layout-metrics';
 
 const GAP = 16;
-// A tile is 5:7 art over a 37 px footer.
 const FOOTER = 37;
 
 type GridProps<T> = {
@@ -17,13 +16,11 @@ type GridProps<T> = {
   hasMore: boolean;
   loadingMore: boolean;
   onLoadMore: () => void;
-  /** Virtualize inside this scrolling element instead of the window (the deck builder's pool). */
   scrollElement?: HTMLElement | null;
 };
 
 type Layout = { columns: number; tileWidth: number; rowCount: number };
 
-// What the row renderer needs from either virtualizer.
 type Rows = {
   getVirtualItems: () => VirtualItem[];
   getTotalSize: () => number;
@@ -101,7 +98,6 @@ function GridRows<T>({
     if (hasMore && !loadingMore && rowCount > 0 && lastRendered >= rowCount - 3) onLoadMore();
   }, [hasMore, loadingMore, rowCount, lastRendered, onLoadMore]);
 
-  // The column count changes the rows' heights: measure them again.
   useEffect(() => {
     virtualizer.measure();
   }, [columns, virtualizer]);

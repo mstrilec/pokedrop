@@ -11,7 +11,6 @@ import { updateMe } from '@/lib/api/endpoints/users';
 import { mutationKeys } from './invalidation';
 import { keys } from './keys';
 
-/** The owner's profile edits; the form reports a refusal itself. */
 export function useUpdateMe() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -22,7 +21,6 @@ export function useUpdateMe() {
   });
 }
 
-/** Every signed-in session, with the one this browser holds. */
 export function useSessions() {
   return useQuery({
     queryKey: keys.sessions,

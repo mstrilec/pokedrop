@@ -188,9 +188,8 @@ function Sections() {
 }
 
 /**
- * The owner's private sections, only when the viewer is the owner, and read from the owner's
- * own endpoints (`/users/me`, `/inventory/summary`, `/trades`, `/decks`) in the browser: anyone
- * else's page, server HTML or client, holds none of it.
+ * The owner's private sections are read in the browser from the owner's own endpoints, so no
+ * one else's page - server HTML or client - holds any of it.
  */
 export function OwnProfile({ userId }: { userId: string }) {
   const session = useSession();

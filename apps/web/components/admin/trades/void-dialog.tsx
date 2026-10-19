@@ -10,7 +10,6 @@ import { Spinner } from '@/components/ui/spinner';
 import { apiErrorMessage, toastSuccess } from '@/lib/toast';
 import { useVoidCheck, useVoidTrade } from '@/lib/query/admin';
 
-/** Asks the server first; a void it would refuse is never offered (PD-123 AC1). */
 export function VoidDialog({
   trade,
   open,
@@ -20,7 +19,6 @@ export function VoidDialog({
   trade: TradeDetail;
   open: boolean;
   onClose: () => void;
-  /** After a void or a refusal: re-read the trade. */
   onSettled: () => void;
 }) {
   const voiding = useVoidTrade();

@@ -1,16 +1,11 @@
 name: CI
 
-# Pushes are the real signal: this repository has no pull requests, work goes
-# straight to dev and main is production. pull_request is listed anyway — it
-# costs nothing while none exist, and covers the day one is opened.
 on:
   push:
     branches: [main, dev]
   pull_request:
     branches: [main, dev]
 
-# A second push supersedes the first; there is no point paying for a run
-# nobody will read. Never cancel on main, where each run is a record.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
@@ -41,10 +36,6 @@ jobs:
       - uses: ./.github/actions/setup
       - run: pnpm build
 
-  # The only job that needs a database. PD-21 deferred service containers, but
-  # that was about test suites; this is a schema-integrity gate, and without it
-  # a schema edited without a matching migration reaches main unnoticed and
-  # surfaces at deploy.
   migrations:
     runs-on: ubuntu-latest
     services:
@@ -70,14 +61,9 @@ jobs:
       # The shadow database has to exist before the diff can replay into it.
       - run: psql "$DATABASE_URL" -c 'CREATE DATABASE pokedrop_shadow'
 
-      # Does the committed history apply to an empty database at all? This is
-      # what a deployment does, and it is the only thing that exercises the
-      # hand-written check-constraint migrations.
       - name: Migration history applies from scratch
         run: pnpm --filter @pokedrop/api exec prisma migrate deploy
 
-      # Does the committed schema match the committed history? Exit code 2 means
-      # they have diverged.
       - name: Schema and migration history agree
         run: >-
           pnpm --filter @pokedrop/api exec prisma migrate diff

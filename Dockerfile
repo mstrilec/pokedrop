@@ -1,17 +1,8 @@
 # syntax=docker/dockerfile:1.7
-#
-# Production images for PokeDrop. One file, two final targets:
-#
-#   api  — the NestJS API; the same image runs the BullMQ worker and the
-#          migration step with a different command (compose.production.yml)
-#   web  — the Next.js standalone server
-#
-# docs/Deployment.md explains how they are built and run.
 
 ARG NODE_IMAGE=node:22.20.0-bookworm-slim
 
-# Prisma picks its migration engine by the OpenSSL it finds, at install time
-# as well as at run time, so every stage that touches Prisma has it.
+# Prisma picks its engines by the OpenSSL it finds at install time too: every Prisma stage needs it.
 FROM ${NODE_IMAGE} AS runtime
 RUN apt-get update \
  && apt-get install -y --no-install-recommends openssl \
@@ -25,8 +16,7 @@ ENV PNPM_HOME=/pnpm \
 RUN corepack enable
 WORKDIR /repo
 
-# Everything, built once. API_INTERNAL_URL is read by `next build`: the /api
-# rewrite is fixed into the web build, so it is the compose address of the API.
+# `next build` fixes the /api rewrite into the image, so API_INTERNAL_URL is a build argument.
 FROM base AS build
 ARG API_INTERNAL_URL=http://api:4000
 ENV API_INTERNAL_URL=${API_INTERNAL_URL}
@@ -37,9 +27,7 @@ RUN pnpm --filter @pokedrop/shared build \
  && pnpm --filter @pokedrop/api build \
  && pnpm --filter @pokedrop/web build
 
-# The API's production dependencies only. Scripts are skipped (the root
-# `prepare` wants husky, a dev dependency), so the Prisma client and the
-# migration engine are produced explicitly.
+# Scripts are skipped (`prepare` wants husky), so the Prisma client and engines are made here.
 FROM base AS api-deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/shared/package.json packages/shared/

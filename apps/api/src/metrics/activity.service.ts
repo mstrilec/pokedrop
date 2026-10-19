@@ -2,12 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/index.js';
 import { utcDayOf } from './utc-day.js';
 
-/**
- * Called on every authenticated request, so it must cost nothing on all but
- * the first of a user's day: an in-memory set per process answers that, and
- * the one insert is not awaited. Replicas each insert once; the primary key
- * absorbs the duplicate.
- */
 @Injectable()
 export class ActivityService {
   private readonly logger = new Logger(ActivityService.name);

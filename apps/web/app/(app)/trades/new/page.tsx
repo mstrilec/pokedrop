@@ -11,7 +11,6 @@ export default async function NewTradePage({ searchParams }: PageProps<'/trades/
   const to = one(params.to);
   const card = one(params.card);
   const counter = one(params.counter);
-  // Keyed by the parameters: a link to a different pre-fill starts a fresh composer.
   return (
     <TradeComposerPage
       key={`${to ?? ''}|${card ?? ''}|${counter ?? ''}`}

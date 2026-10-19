@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 
 export const metadata: Metadata = { title: 'Set a new password' };
 
-// Better Auth's link lands here with `?token=…`, or `?error=INVALID_TOKEN` when it failed.
 export default async function ResetPasswordPage({ searchParams }: PageProps<'/reset-password'>) {
   const { token, error } = await searchParams;
   const usable = typeof token === 'string' && token !== '' && !error;

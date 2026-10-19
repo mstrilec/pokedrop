@@ -22,10 +22,8 @@ import { CacheService, cacheKeys } from '../redis/index.js';
 
 const CardSetListSchema = z.array(CardSetSchema);
 
-// `id` is not decoration. 16 216 of 20 670 rows share a name, and most share a
-// price or have none, so without a tiebreak PostgreSQL may order ties
-// differently between two requests and offset pagination then shows one row
-// twice and another never.
+// `id` is the tiebreak: most rows share a name or a price, and without it offset pagination
+// can show one row twice and another never.
 const ORDER: Record<CardSort, Prisma.CardOrderByWithRelationInput[]> = {
   name_asc: [{ name: 'asc' }, { id: 'asc' }],
   name_desc: [{ name: 'desc' }, { id: 'desc' }],
@@ -33,11 +31,6 @@ const ORDER: Record<CardSort, Prisma.CardOrderByWithRelationInput[]> = {
   price_asc: [{ latestPriceUsd: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }],
 };
 
-/**
- * Every row leaves through its schema, so a cold read and a warm one are the
- * same bytes by construction rather than by coincidence. It also stops columns
- * the contract does not declare - `updatedAt` - leaking on a cold read only.
- */
 function toCard(row: Record<string, unknown>): Card {
   return CardSchema.parse({
     ...row,
@@ -53,12 +46,6 @@ export class CatalogService {
     private readonly cache: CacheService,
   ) {}
 
-  /**
-   * Deliberately uncached. The TTL table in docs/Architecture.md section 8 names
-   * card:{id}, sets, set:{id} and facets - and no search key, because a filter
-   * combination has high cardinality and a low hit rate, so caching one mostly
-   * fills Redis with entries nobody asks for twice.
-   */
   async searchCards(query: CardSearchQuery): Promise<CardSearchResult> {
     const where: Prisma.CardWhereInput = {
       ...(query.set === undefined ? {} : { setId: query.set }),
@@ -90,14 +77,8 @@ export class CatalogService {
   }
 
   async getCard(id: string): Promise<Card> {
-    // The schema is load-bearing, not decoration. JSON has no date type, so
-    // without it a warm read returns `priceUpdatedAt` as a string where a cold
-    // read returns a Date, and the two responses stop being identical.
-    //
-    // A missing card throws from inside the loader, so getOrSet rejects and
-    // caches nothing - which is the behaviour wanted. Absence stays uncached: a
-    // 404 is one primary-key lookup, and caching negatives invites filling the
-    // cache with invented ids.
+    // The schema is load-bearing: without it a warm read returns `priceUpdatedAt` as a string where
+    // a cold read returns a Date.
     return this.cache.getOrSet(
       cacheKeys.card(id),
       this.cache.ttl.card,
@@ -119,7 +100,6 @@ export class CatalogService {
       cacheKeys.sets(),
       this.cache.ttl.sets,
       async () => {
-        // Unpaginated on purpose: 176 rows that grow by a handful a year.
         const sets = await this.prisma.cardSet.findMany({
           orderBy: [{ releaseDate: 'desc' }, { id: 'asc' }],
         });
@@ -131,9 +111,6 @@ export class CatalogService {
   }
 
   async getSet(id: string): Promise<SetDetail> {
-    // `set:{id}` shares the `sets` TTL. docs/Architecture.md section 8 lists
-    // them on one row for that reason, and cachePatterns.allSets() is the glob
-    // `cache:set*`, which clears both.
     return this.cache.getOrSet(
       cacheKeys.set(id),
       this.cache.ttl.sets,
@@ -154,17 +131,9 @@ export class CatalogService {
 
     const { _count, ...rest } = set;
 
-    // `cardCount` is what the mirror holds; `total` is what the provider says
-    // the set contains. They differ while a sync is still filling in pages.
     return SetDetailSchema.parse({ ...rest, cardCount: _count.cards });
   }
 
-  /**
-   * Counts over the whole mirror, not counts narrowed by the filters already
-   * applied. Conditional facets would be keyed by a filter combination and
-   * could not live under the single `facets` key that
-   * docs/Architecture.md section 8 gives a 24h TTL.
-   */
   async getFacets(): Promise<CatalogFacets> {
     return this.cache.getOrSet(
       cacheKeys.facets(),
@@ -185,11 +154,6 @@ export class CatalogService {
     return { sets, rarities, types, supertypes };
   }
 
-  /**
-   * Grouped over cards rather than listed from sets. A set the mirror holds no
-   * cards for is a filter that returns an empty page, and offering one is worse
-   * than omitting it - all 176 sets currently qualify, so the two agree today.
-   */
   private async setFacets(): Promise<FacetValue[]> {
     const sets = await this.prisma.cardSet.findMany({
       where: { cards: { some: {} } },
@@ -200,11 +164,6 @@ export class CatalogService {
     return sets.map((set) => ({ value: set.id, label: set.name, count: set._count.cards }));
   }
 
-  /**
-   * Nulls are excluded, and not as tidying: 303 cards carry no rarity and
-   * CardSearchQuerySchema has no way to ask for them, so a null facet would
-   * advertise a value the filter cannot express.
-   */
   private async rarityFacets(): Promise<FacetValue[]> {
     const groups = await this.prisma.card.groupBy({
       by: ['rarity'],
@@ -235,12 +194,8 @@ export class CatalogService {
   }
 
   /**
-   * The only raw SQL in this module. `types` is a `text[]` and a facet needs one
-   * row per element; Prisma's query layer has no `unnest`, and the alternative -
-   * reading 20 670 arrays into this process to count them - is worse.
-   *
-   * `::int` is load-bearing. `count(*)` is a bigint, Prisma hands that back as a
-   * BigInt, and JSON.stringify throws on one rather than returning a number.
+   * `::int` is load-bearing: `count(*)` is a bigint, Prisma returns a BigInt, and JSON.stringify
+   * throws on one.
    */
   private async typeFacets(): Promise<FacetValue[]> {
     const rows = await this.prisma.$queryRaw<{ value: string; count: number }[]>`

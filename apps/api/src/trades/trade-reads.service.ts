@@ -45,7 +45,6 @@ type ViewRow = Prisma.TradeGetPayload<{ select: typeof VIEW_SELECT }>;
 
 type Actor = TradeTimelineEntry['by'];
 
-/** An explicit list rather than `not: PENDING`, so the tab is an index condition on status. */
 const CLOSED: TradeStatus[] = ['ACCEPTED', 'DECLINED', 'COUNTERED', 'CANCELLED', 'VOIDED'];
 
 @Injectable()
@@ -99,7 +98,6 @@ export class TradeReadsService {
     });
   }
 
-  /** Every trade, newest first; `role` is null on every row because the reader is no party. */
   async adminList(query: AdminTradeQuery): Promise<TradePage> {
     const cursor = query.cursor === undefined ? null : decodeNewestCursor(query.cursor);
     const scope = adminScope(query);
@@ -167,7 +165,6 @@ export class TradeReadsService {
       this.chain(row.id),
     ]);
 
-    // Trades that predate the M8 core have no audit rows, and so no timeline.
     const timeline = entries.flatMap((entry) => {
       const status = TradeStatusSchema.safeParse(metaTo(entry.meta));
       return status.success
@@ -189,7 +186,6 @@ export class TradeReadsService {
     });
   }
 
-  /** Both directions of the counter list: the trades this one replaced and the ones that replaced it. */
   private async chain(id: string) {
     const links = await this.prisma.$queryRaw<{ id: string }[]>`
       WITH RECURSIVE earlier AS (
@@ -227,7 +223,6 @@ function tabScope(userId: string, tab: TradeTab): Prisma.TradeWhereInput {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** The filters as one AND element; a user on either side keeps each side its own index. */
 function adminScope(query: AdminTradeQuery): Prisma.TradeWhereInput {
   const and: Prisma.TradeWhereInput[] = [];
   if (query.status !== undefined) and.push({ status: query.status });
@@ -262,7 +257,6 @@ function toView(row: ViewRow, viewerId: string | null, expiryDays: number) {
   };
 }
 
-/** A timeline says which side acted, never an admin's user id. */
 function actorOf(row: ViewRow, actorId: string | null): Actor {
   if (actorId === null) {
     return 'system';

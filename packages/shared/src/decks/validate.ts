@@ -169,11 +169,6 @@ function ownership(
   return issues;
 }
 
-/**
- * The mirror prints a card's subtitle into its name - "Professor's Research
- * (Professor Turo)", "Boss's Orders (Ghetsis)" - and spells "Ho-Oh" two ways.
- * The copy limit counts the name without either difference.
- */
 function label(card: ValidationCard): string {
   return `${card.name} (${card.cardId})`;
 }

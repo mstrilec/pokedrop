@@ -8,7 +8,6 @@ import { Spinner } from './spinner';
 type SearchInputProps = {
   value: string;
   onSearch: (query: string) => void;
-  /** Every text the field holds, typed or adopted, before the debounce. */
   onInput?: (text: string) => void;
   label?: string;
   placeholder?: string;
@@ -16,7 +15,6 @@ type SearchInputProps = {
   loading?: boolean;
   resultCount?: number;
   variant?: 'inline' | 'topbar';
-  /** The API's limit for `q`; the browser stops typing and cuts a paste there. */
   maxLength?: number;
   className?: string;
 };

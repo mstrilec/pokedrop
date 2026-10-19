@@ -1,13 +1,4 @@
-# PokeDrop in production, on one host. Used only through deploy/deploy.sh,
-# which passes --env-file .env.production. docs/Deployment.md has the details.
-#
-# Nothing listens on the network: the web server is published on 127.0.0.1
-# only, and Tailscale Funnel on the host is the way in. Docker's port
-# publishing bypasses ufw, so a 0.0.0.0 mapping here would be open to the LAN
-# whatever the firewall says.
-#
-# The host also runs game servers. Every service has a memory limit and half
-# the default CPU weight, so under contention they get the CPU first.
+# Docker port publishing bypasses ufw: publish on 127.0.0.1 only, or it is open to the LAN.
 
 name: pokedrop-prod
 
@@ -59,8 +50,7 @@ services:
       timeout: 3s
       retries: 10
 
-  # The release step, never started by `up`: deploy.sh runs it once before the
-  # new API serves traffic. The application itself never migrates.
+  # The release step, run by deploy.sh before the new API starts; `up` never starts it.
   migrate:
     <<: *api-image
     profiles: [release]

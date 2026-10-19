@@ -14,7 +14,6 @@ export const unreadCount = () => get('/notifications/unread-count', UnreadCountS
 export const notifications = (params: NotificationParams = {}) =>
   get('/notifications', NotificationPageSchema, params);
 
-/** 204, no body. */
 export const markNotificationRead = (id: string) =>
   patch(`/notifications/${id}/read`, z.undefined());
 

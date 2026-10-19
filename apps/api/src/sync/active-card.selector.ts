@@ -5,32 +5,11 @@ import { PrismaService } from '../prisma/index.js';
 export interface ActiveCardSelection {
   cardIds: string[];
 
-  /** True when more cards were eligible than the bound allows. */
   truncated: boolean;
 }
 
 const MS_PER_DAY = 86_400_000;
 
-/**
- * Which cards the active refresh should price, and in what order.
- *
- * One statement, and it satisfies three of the ticket's criteria at once.
- *
- * **Deduplication against the nightly sweep is free.** A card that sweep
- * refreshed carries a fresh `priceUpdatedAt`, so the freshness predicate
- * excludes it until the window passes. There is no run registry and no Redis
- * marker: the column PD-48 already writes is the entire mechanism, which means
- * there is no shared state between the two jobs that could fall out of step.
- *
- * **Ordering is staleness, oldest first.** The ticket asks for the most-viewed
- * cards first; view tracking is deferred to its own ticket because no traffic
- * exists to shape it, and staleness is the honest replacement - it is the
- * ordering a refresh job wants anyway.
- *
- * Raw SQL because the membership test is a UNION of three tables and Prisma's
- * query builder cannot express one. Every interpolation below is a tagged
- * template parameter, not string concatenation.
- */
 @Injectable()
 export class ActiveCardSelector {
   private readonly freshnessMs: number;
@@ -50,10 +29,6 @@ export class ActiveCardSelector {
     const staleBefore = new Date(now.getTime() - this.freshnessMs);
     const tradedAfter = new Date(now.getTime() - this.tradeWindowMs);
 
-    // One more than the bound, so truncation is detectable. A bare LIMIT
-    // returning exactly `maxCards` cannot tell "there were this many" from
-    // "there were more", and a second COUNT(*) would run the membership union
-    // twice to learn one boolean.
     const rows = await this.prisma.$queryRaw<{ id: string }[]>`
       SELECT c.id
       FROM cards c

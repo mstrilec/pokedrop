@@ -30,10 +30,8 @@ type Terms = { offered: TradeLine[]; requested: TradeLine[]; currencyFromInitiat
 
 type Role = 'initiator' | 'recipient';
 
-/** Thrown at the end of a void check so its transaction rolls back whatever it did. */
 class DryRun extends Error {}
 
-/** The trade is visible to both parties, so the wrong one gets an honest 403. */
 function assertRole(trade: TradeRow, user: AuthUser, role: Role): void {
   const allowed = role === 'initiator' ? trade.initiatorId : trade.recipientId;
   if (allowed !== user.id) {
@@ -64,8 +62,6 @@ export class TradesService {
       where: { id: input.recipientId },
       select: { id: true, suspendedAt: true },
     });
-    // A suspended account cannot answer: the offer would only lock the caller's cards until it
-    // expired. The same 404 as an unknown id, as the member search leaves them out too.
     if (recipient === null || recipient.suspendedAt !== null) {
       throw new NotFoundException('User not found');
     }
@@ -204,11 +200,6 @@ export class TradesService {
     return toTrade(row);
   }
 
-  /**
-   * PENDING: closed, its lock released. ACCEPTED: the swap reversed, or - if a
-   * party no longer has what they received - refused with the reason and
-   * nothing changed. Any other status is already over.
-   */
   async voidTrade(admin: AuthUser, id: string, reason: string): Promise<Trade> {
     const trade = await this.loadAny(id);
     await this.prisma.withTransaction((tx) => this.voidIn(tx, admin, trade, reason));
@@ -223,9 +214,8 @@ export class TradesService {
   }
 
   /**
-   * The void itself, inside a transaction that always rolls back: a refusal is exactly the one
-   * the void would give. Notifications and cache invalidation live in `voidTrade`, after its
-   * commit, so a check never reaches them.
+   * Inside a transaction that always rolls back. Notifications and cache invalidation live in
+   * `voidTrade`, after its commit, so a check never reaches them.
    */
   async voidCheck(admin: AuthUser, id: string): Promise<VoidCheck> {
     const trade = await this.loadAny(id);

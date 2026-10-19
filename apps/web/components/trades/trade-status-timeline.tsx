@@ -15,11 +15,9 @@ import { cn } from '@/lib/utils';
 
 export type TimelineStep = {
   label: string;
-  /** Already formatted, or omitted for a step that has not happened. */
   time?: string;
   state: 'done' | 'active' | 'pending';
   icon?: LucideIcon;
-  /** Another trade of the same negotiation, opened from this step. */
   link?: { href: string; label: string };
 };
 
@@ -29,7 +27,6 @@ const STATE = {
   pending: { spoken: 'Not yet', dot: 'border-bd-2 bg-bg text-faint', text: 'text-mut' },
 } as const;
 
-/** The trade's lifecycle as an ordered list; each step says its state in words. */
 export function TradeStatusTimeline({
   steps,
   label = 'Trade status',
@@ -94,7 +91,6 @@ const ACTIONS: Record<string, { verb: string; icon: LucideIcon }> = {
   'trade.expire': { verb: 'Expired unanswered', icon: Clock },
 };
 
-/** Steps for a trade's detail page: what happened, then, while it is open, what is left. */
 export function tradeTimelineSteps(trade: TradeDetail): TimelineStep[] {
   const name = (side: 'initiator' | 'recipient') =>
     trade.role === side ? 'you' : trade[side].displayName;
@@ -123,7 +119,6 @@ export function tradeTimelineSteps(trade: TradeDetail): TimelineStep[] {
     return step;
   });
 
-  // Trades older than the trade core have no audit rows: what the trade itself records.
   if (steps.length === 0) {
     steps.push({
       label: `Proposed by ${name('initiator')}`,

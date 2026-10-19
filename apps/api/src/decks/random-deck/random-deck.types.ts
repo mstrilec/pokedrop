@@ -7,13 +7,11 @@ export type PoolCard = {
   subtypes: string[];
   types: string[];
   evolvesFrom: string | null;
-  /** Copies the deck may use: available copies for Owned only, Infinity for Any card. */
   available: number;
 };
 
 export type GenerateOptions = {
   format: DeckFormat;
-  /** Empty: pick one or two at random among the generatable types that fit. */
   types: BasicEnergyType[];
   deckSize: number;
 };

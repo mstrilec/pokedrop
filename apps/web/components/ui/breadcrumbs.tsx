@@ -5,8 +5,6 @@ import { cn } from '@/lib/utils';
 
 export type Crumb = { label: string; href?: string };
 
-// On a narrow screen the middle crumbs collapse to an ellipsis for the eye only; a screen
-// reader still hears the whole trail.
 export function Breadcrumbs({ trail, className }: { trail: Crumb[]; className?: string }) {
   const last = trail.length - 1;
 

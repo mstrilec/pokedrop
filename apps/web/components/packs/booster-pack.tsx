@@ -66,7 +66,6 @@ const SIZES: Record<
   },
 };
 
-/** A booster wrapper: an admin's photo, or one drawn from the set logo and the featured card. */
 export function BoosterPack({
   art,
   name,

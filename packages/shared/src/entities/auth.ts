@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { ProfileIdentitySchema } from './user.js';
 
-/** Better Auth is configured with these same two bounds. */
 export const PASSWORD_MIN_LENGTH = 12;
 export const PASSWORD_MAX_LENGTH = 128;
 
@@ -19,7 +18,6 @@ export const SignUpSchema = z.object({
 });
 export type SignUp = z.infer<typeof SignUpSchema>;
 
-/** Sign-in checks only that a password was typed: its rules are for new passwords. */
 export const SignInSchema = z.object({
   email: EmailSchema,
   password: z.string().min(1, 'Enter your password'),
@@ -38,7 +36,6 @@ export const ResetPasswordSchema = z
   });
 export type ResetPassword = z.infer<typeof ResetPasswordSchema>;
 
-/** Settings: the current password is only checked by the server; the new one meets the rules. */
 export const ChangePasswordSchema = z
   .object({
     current: z.string().min(1, 'Enter your current password'),

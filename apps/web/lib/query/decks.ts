@@ -46,7 +46,6 @@ export function useUpdateDeck() {
   });
 }
 
-/** Changes only with the catalog's legalities. */
 export function useRandomDeckTypes() {
   return useQuery({
     queryKey: keys.decks.randomTypes,
@@ -55,7 +54,6 @@ export function useRandomDeckTypes() {
   });
 }
 
-/** The dialog reports a refusal itself. */
 export function useRandomDeck() {
   return useMutation({
     mutationFn: (body: RandomDeckRequest) => api.call(randomDeck(body)),
@@ -77,14 +75,12 @@ export function useDeleteDeck() {
   });
 }
 
-/** `initialAt` is when the server read `initial`: a page restored from the router's cache refetches. */
 export function useDeck(id: string, initial?: DeckDetail, initialAt?: number) {
   return useQuery({
     queryKey: keys.decks.detail(id),
     queryFn: () => api.call(deck(id)),
     initialData: initial,
     initialDataUpdatedAt: initialAt,
-    // A 404 is an answer (gone, or someone's private deck), not a failure to retry.
     retry: (failures, error) =>
       !(error instanceof ApiError && error.statusCode === 404) && failures < 2,
   });
@@ -102,7 +98,6 @@ export function useSaveDeck(id: string) {
     mutationKey: mutationKeys.saveDeck,
     mutationFn: (body: DeckDraftBody) => api.call(updateDeck(id, body)),
     meta: { toast: false },
-    // Offline, fail and say so rather than pause: the builder keeps the draft and Save stays.
     networkMode: 'always',
   });
 }

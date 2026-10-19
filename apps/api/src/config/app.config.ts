@@ -61,54 +61,28 @@ export function buildAppConfig(env: Env) {
       pokemonTcgBaseUrl: env.POKEMONTCG_BASE_URL,
       tcgdexBaseUrl: env.TCGDEX_BASE_URL,
 
-      // Per provider, because the ceilings are not comparable. pokemontcg.io
-      // documents 1 000 a day anonymously and sends no header to check it
-      // against; TCGdex documents no limit at all and answered 64 of 64 under
-      // concurrency, so null means uncapped rather than unknown.
       dailyRequestBudget: {
         pokemontcg: env.POKEMONTCG_DAILY_REQUEST_BUDGET,
         tcgdex: null,
       } as Record<CardSourceName, number | null>,
     },
     priceSweep: {
-      // What the sweep leaves behind for everything else - principally the
-      // catalog sync, which spends roughly 250 of the same allowance on its own
-      // 83 pages.
       reserve: env.PRICE_SWEEP_RESERVE,
 
-      // Consecutive 429 waits before the run gives up for the night.
       maxStalls: env.PRICE_SWEEP_MAX_STALLS,
     },
     priceActive: {
-      // Equal to the cadence. Shorter re-fetches what the previous run just
-      // wrote; longer leaves a run with nothing to do.
       freshnessSeconds: env.PRICE_ACTIVE_FRESHNESS,
 
-      // How far back a trade still counts as evidence somebody cares about a
-      // card. Nothing measured - the cheapest of these four to change later.
       tradeWindowDays: env.PRICE_ACTIVE_TRADE_WINDOW_DAYS,
 
-      // The bound, and the setting that actually protects the budget. Unbounded
-      // at four runs a day, an active set the size of the catalog would cost
-      // roughly 960 requests of the 1 000 available.
       maxCards: env.PRICE_ACTIVE_MAX_CARDS,
 
-      // Left unspent for everything else - by the time this job runs, that is
-      // PD-52's on-demand traffic rather than the nightly jobs, which took
-      // their share hours earlier.
       reserve: env.PRICE_ACTIVE_RESERVE,
     },
     priceRefresh: {
-      // Shorter than PD-50's six-hour freshness window, or asking on demand
-      // buys nothing the schedule was not about to do anyway; long enough that
-      // reloading a card page does not spend the allowance twice. Chosen, not
-      // measured.
       cooldownSeconds: env.PRICE_REFRESH_COOLDOWN,
 
-      // Left unspent for the jobs that still have to run today. This is the
-      // last consumer in the day and the only one behind it is the 23:00 active
-      // refresh, which costs about 30 requests - so this reserve is the
-      // smallest of the three for the same reason it is last.
       reserve: env.PRICE_ONDEMAND_RESERVE,
     },
     queue: {
@@ -118,11 +92,7 @@ export function buildAppConfig(env: Env) {
         attempts: 3,
         backoff: { type: 'exponential', delay: 5_000 },
         removeOnComplete: { age: 86_400, count: 1_000 },
-        // BullMQ has no dead-letter queue: a job that exhausts its attempts
-        // stays in the `failed` set, and that set is the dead letter. `true`
-        // would delete the evidence at the moment it became interesting;
-        // `false` would keep every failure for ever in the same Redis database
-        // as the queues.
+        // No dead-letter queue in BullMQ: the `failed` set is the dead letter, so keep it.
         removeOnFail: { age: 604_800 },
       },
     },

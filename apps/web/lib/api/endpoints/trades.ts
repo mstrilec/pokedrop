@@ -20,7 +20,6 @@ export type ProposeTradeBody = TradeTermsBody & { recipientId: string };
 
 export const trades = (params: TradeInboxParams = {}) => get('/trades', TradePageSchema, params);
 
-/** A trade the caller is a party to; 404 to anyone else. */
 export const trade = (id: string) => get(`/trades/${id}`, TradeDetailSchema);
 
 export const proposeTrade = (body: ProposeTradeBody) => post('/trades', TradeSchema, body);

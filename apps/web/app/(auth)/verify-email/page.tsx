@@ -6,7 +6,6 @@ import { CheckInbox, LinkExpired, Verified } from '@/components/auth/verify-emai
 
 export const metadata: Metadata = { title: 'Verify your email' };
 
-// Better Auth's link lands here: `?verified=1` on success, `&error=…` when the token failed.
 export default async function VerifyEmailPage({ searchParams }: PageProps<'/verify-email'>) {
   const { verified, error } = await searchParams;
   const state = error ? 'expired' : verified === '1' ? 'verified' : 'pending';

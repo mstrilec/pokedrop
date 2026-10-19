@@ -31,10 +31,6 @@ export const ProfilePrivacySchema = z.object({
 });
 export type ProfilePrivacy = z.infer<typeof ProfilePrivacySchema>;
 
-/**
- * The rules for who a user says they are, wherever they say it: sign-up and
- * PATCH /users/me. Better Auth's own sign-up body takes any string for both.
- */
 export const ProfileIdentitySchema = z.object({
   displayName: z
     .string()
@@ -44,11 +40,6 @@ export const ProfileIdentitySchema = z.object({
   avatarUrl: HttpsUrlSchema.nullable(),
 });
 
-/**
- * `showcase` holds only cards the user still owns, in the order they chose.
- * Name and avatar are read as the table holds them: accounts created before
- * sign-up was validated may carry values the form would refuse.
- */
 export const MyProfileSchema = UserSchema.extend({
   displayName: z.string(),
   avatarUrl: z.string().nullable(),
@@ -71,10 +62,6 @@ export const UpdateMyProfileSchema = z.strictObject({
 });
 export type UpdateMyProfile = z.infer<typeof UpdateMyProfileSchema>;
 
-/**
- * Built field by field, never by omitting from the full user. The two
- * collection fields are absent — not null — unless their owner turned them on.
- */
 export const PublicProfileSchema = z.object({
   id: UserIdSchema,
   displayName: z.string(),
@@ -90,7 +77,6 @@ export const PublicProfileSchema = z.object({
 });
 export type PublicProfile = z.infer<typeof PublicProfileSchema>;
 
-/** A member's name search for a trade counterparty: only what a public profile shows. */
 export const UserSearchQuerySchema = z.object({
   q: z
     .string()
@@ -118,11 +104,6 @@ export const AdminUserListQuerySchema = z.object({
 });
 export type AdminUserListQuery = z.infer<typeof AdminUserListQuerySchema>;
 
-/**
- * What the table can hold rather than what a form accepts: Better Auth's
- * sign-up takes any name and image, and an admin must be able to see - and
- * suspend - the account that sent a bad one.
- */
 export const AdminUserRowSchema = z.object({
   id: UserIdSchema,
   email: z.string(),
@@ -142,7 +123,6 @@ export type AdminUserPage = z.infer<typeof AdminUserPageSchema>;
 export const ChangeRoleSchema = z.strictObject({ role: RoleSchema });
 export type ChangeRole = z.infer<typeof ChangeRoleSchema>;
 
-/** `grantId` makes a retry harmless, as `openId` does for a pack open. Negative adjusts down. */
 export const GrantCurrencySchema = z.strictObject({
   grantId: z.uuid(),
   amount: z
@@ -169,10 +149,6 @@ export type GrantResult = z.infer<typeof GrantResultSchema>;
 export const SuspendUserSchema = z.strictObject({ reason: z.string().trim().min(1).max(500) });
 export type SuspendUser = z.infer<typeof SuspendUserSchema>;
 
-/**
- * The dashboard's checklist, read from what happened rather than stored: an email verified,
- * a pack opened, a deck holding the configured deck size, a trade accepted with either role.
- */
 export const OnboardingProgressSchema = z.object({
   emailVerified: z.boolean(),
   openedPack: z.boolean(),

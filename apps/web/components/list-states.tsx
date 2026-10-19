@@ -7,7 +7,6 @@ import { apiErrorMessage } from '@/lib/toast';
 
 const count = new Intl.NumberFormat('en-US');
 
-/** The foot of a cursor-paged list: how much is shown, and the next page on demand. */
 export function LoadMore({
   shown,
   total,
@@ -37,7 +36,6 @@ export function LoadMore({
   );
 }
 
-/** A query that failed where its list should be: what happened and a way to try again. */
 export function ListError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
   const requestId = error instanceof ApiError ? error.requestId : undefined;
   return (

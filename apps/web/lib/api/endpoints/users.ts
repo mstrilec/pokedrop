@@ -17,7 +17,6 @@ export const updateMe = (body: UpdateMyProfile) => patch('/users/me', MyProfileS
 export const publicProfile = (id: string) =>
   get(`/users/${encodeURIComponent(id)}`, PublicProfileSchema);
 
-/** Only the decks the user made public, newest first. */
 export const userDecks = (id: string, page = 1) =>
   get(`/users/${encodeURIComponent(id)}/decks`, DeckPageSchema, { page });
 

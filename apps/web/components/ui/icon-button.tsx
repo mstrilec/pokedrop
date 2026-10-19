@@ -21,10 +21,8 @@ type IconButtonProps = Omit<React.ComponentProps<'button'>, 'children' | 'aria-l
   VariantProps<typeof iconButtonVariants> & {
     icon: LucideIcon;
     label: string;
-    /** A dot, or a count; either way it is spelled out in the accessible name. */
     badge?: boolean | number;
     badgeLabel?: string;
-    /** A count is drawn as a dot unless asked for; the name carries it either way. */
     showCount?: boolean;
     asChild?: boolean;
     children?: React.ReactElement;

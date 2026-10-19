@@ -1,8 +1,6 @@
 import 'server-only';
 import { z } from 'zod';
 
-// PokéAPI is the one external service a page reads at request time (D9 in docs/Pages.md):
-// free, keyless, and optional — any failure is no section, never an error.
 const BASE = 'https://pokeapi.co/api/v2';
 const DAY = 86_400;
 const TIMEOUT_MS = 2_000;
@@ -48,7 +46,6 @@ async function read<S extends z.ZodType>(path: string, schema: S): Promise<z.inf
   return schema.parse(await response.json());
 }
 
-/** The video-game Pokédex entry for a national number, or null when PokéAPI cannot say. */
 export async function speciesFor(dex: number): Promise<Species | null> {
   try {
     const [species, pokemon] = await Promise.all([
@@ -61,7 +58,6 @@ export async function speciesFor(dex: number): Promise<Species | null> {
     return {
       dex,
       genus: english(species.genera)[0]?.genus ?? null,
-      // The game text keeps its line breaks and form feeds.
       flavor: flavor?.replace(/[\s\f]+/g, ' ').trim() ?? null,
       heightM: pokemon.height / 10,
       weightKg: pokemon.weight / 10,

@@ -8,9 +8,7 @@ type CurrencyInputProps = {
   label: string;
   value: number;
   onChange: (value: number) => void;
-  /** The balance cap: nothing above it is ever emitted. */
   max?: number;
-  /** 0 by default; an admin grant goes negative to take coins back. */
   min?: number;
   help?: string;
   disabled?: boolean;

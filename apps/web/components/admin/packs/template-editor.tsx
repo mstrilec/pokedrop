@@ -208,7 +208,6 @@ function SlotEditor({
   );
 }
 
-/** One template's form; keyed by the template, so a selection starts from its saved state. */
 export function TemplateEditor({
   template,
   onSaved,
@@ -233,7 +232,6 @@ export function TemplateEditor({
   const [picking, setPicking] = useState(false);
   const sets = useSets();
   const firstSet = sets.data?.find((set) => set.id === draft.setIds[0]);
-  // The saved default, offered back by "Use default" while the sets are the saved ones.
   const defaultCover =
     template?.art.coverIsDefault && sameSets(template.setFilter.setIds, draft.setIds)
       ? template.art.cover
@@ -270,7 +268,6 @@ export function TemplateEditor({
           toastSuccess(template ? `Saved ${saved.name}` : `Created ${saved.name}`);
           onSaved(saved);
         },
-        // The pool check (a rarity the chosen sets lack) and an unknown set are 400s.
         onError: (error) => setServerError(apiErrorMessage(error)),
       },
     );

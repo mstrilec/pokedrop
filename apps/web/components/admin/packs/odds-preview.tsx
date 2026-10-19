@@ -2,16 +2,11 @@
 
 import { packRates, type SlotConfig, slotOdds } from '@pokedrop/shared';
 
-// One decimal from 1% up, two below it: 10.0%, 2.7%, 0.40%.
 const pct = (share: number) => {
   const value = share * 100;
   return `${value.toFixed(value >= 1 || value === 0 ? 1 : 2)}%`;
 };
 
-/**
- * The generator's own arithmetic (`slotOdds`, `packRates` from `@pokedrop/shared`): each card is
- * one draw by cumulative weight, every draw independent.
- */
 export function OddsPreview({ slots }: { slots: SlotConfig['slots'] }) {
   if (slots.length === 0) {
     return (

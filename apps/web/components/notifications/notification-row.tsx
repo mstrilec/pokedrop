@@ -89,7 +89,6 @@ function kindOf(type: string): Kind {
   return TRADE_KINDS[type] ?? UNKNOWN;
 }
 
-/** Where a notification leads: its trade, or the wallet for coins. */
 export function notificationHref(n: NotificationView): string {
   if (n.type.startsWith('trade.') && typeof n.payload.tradeId === 'string') {
     return `/trades/${n.payload.tradeId}`;
@@ -106,9 +105,7 @@ export function NotificationRow({
 }: {
   notification: NotificationView;
   href?: string;
-  /** Called on activation, before navigating: mark it read here. */
   onActivate?: () => void;
-  /** Fixed in demos; defaults to the moment of render. */
   now?: Date;
   className?: string;
 }) {

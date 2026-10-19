@@ -11,13 +11,10 @@ export type OfferLine = {
   card: CardView;
   count: number;
   locked?: boolean;
-  /** The stepper's ceiling when editable: available copies on the give side. */
   max?: number;
-  /** Why this line keeps the offer from being sent, shown under it. */
   problem?: string;
 };
 export type OfferSide = {
-  /** `You give`, `MistyW gives`: whose side, unambiguously. */
   label: string;
   cards: OfferLine[];
   coins: number;
@@ -28,7 +25,6 @@ type TradeOfferPanelProps = {
   give: OfferSide;
   get: OfferSide;
   editable?: boolean;
-  /** Caps the coins on the give side. */
   balance?: number;
   onAddCard?: (side: SideKey) => void;
   onRemoveCard?: (side: SideKey, cardId: string) => void;
@@ -212,7 +208,6 @@ function Side({
   );
 }
 
-/** The two sides of a trade, each a labelled region saying whose side it is. */
 export function TradeOfferPanel({ give, get, className, ...rest }: TradeOfferPanelProps) {
   return (
     <div className={cn('grid gap-4 md:grid-cols-2', className)}>

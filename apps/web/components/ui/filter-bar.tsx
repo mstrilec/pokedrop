@@ -21,7 +21,6 @@ export type FilterDef = {
   label: string;
   icon: LucideIcon;
   kind: 'select' | 'sort';
-  /** `undefined` while the options load. */
   options?: FilterOption[];
   error?: boolean;
 };

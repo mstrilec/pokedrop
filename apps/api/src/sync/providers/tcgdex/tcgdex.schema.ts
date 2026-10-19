@@ -1,13 +1,8 @@
 import { z } from 'zod';
 
 /**
- * What TCGdex actually sends, not what the DTOs want. Every field the mapper
- * reads is declared here, and everything optional is optional because a live
- * payload was seen without it.
- *
- * `.loose()` throughout: this provider adds fields (`variants_detailed`,
- * `illustrator`, `boosters`) without warning, and a strict object would turn a
- * harmless addition into a ProviderContractError across the whole catalog.
+ * `.loose()` throughout: TCGdex adds fields without warning, and a strict object would turn
+ * that into a ProviderContractError across the whole catalog.
  */
 
 const CardCountSchema = z.looseObject({
@@ -52,11 +47,7 @@ const RawAbilitySchema = z.looseObject({
   effect: z.string().optional(),
 });
 
-// `value` is optional because live payloads omit it: all 17 of `pop1` and 13
-// of `pop2` carry a weakness with a `type` and no `value` - the damage
-// multiplier is unpublished, not the weakness itself. Requiring it here would
-// fail RawCardSchema.safeParse for those cards and drop them from the index
-// entirely, when the mapper can keep the card and default the missing string.
+// Optional because live payloads omit it (POP-series weaknesses); requiring it drops those cards.
 const RawTypeValueSchema = z.looseObject({
   type: z.string(),
   value: z.string().optional(),

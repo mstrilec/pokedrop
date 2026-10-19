@@ -7,7 +7,6 @@ import { cn } from '@/lib/utils';
 
 type CopyCountStepperProps = {
   count: number;
-  /** From `copiesAllowed()`: the limit left after other printings; Infinity for basic energy. */
   max: number;
   onChange: (count: number) => void;
   cardName: string;

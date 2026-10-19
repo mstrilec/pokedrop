@@ -9,11 +9,8 @@ import type { CardView } from './card-data';
 
 type RevealCardProps = {
   card: CardView;
-  /** Face up. Turning it true flips the card over. */
   revealed?: boolean;
-  /** The rare-pull glow behind the card, once it is face up. */
   highlight?: boolean;
-  /** Enter with a flip-in, delayed by `index` steps (the summary grid). */
   appear?: boolean;
   index?: number;
   size?: 'tile' | 'large';

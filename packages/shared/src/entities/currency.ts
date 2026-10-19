@@ -19,7 +19,6 @@ export const CurrencyTransactionSchema = z.object({
 });
 export type CurrencyTransaction = z.infer<typeof CurrencyTransactionSchema>;
 
-/** `TRADE` also matches `TRADE_REVERSAL`: a void is part of the trade's story. */
 export const WALLET_FILTERS = ['GRANT', 'PACK_SPEND', 'TRADE'] as const;
 
 export const WalletQuerySchema = z.object({
@@ -29,7 +28,6 @@ export const WalletQuerySchema = z.object({
 });
 export type WalletQuery = z.infer<typeof WalletQuerySchema>;
 
-/** What caused a ledger row. Null when its reference no longer resolves. */
 export const WalletSourceSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('welcome') }),
   z.object({ kind: z.literal('grant') }),
@@ -42,7 +40,6 @@ export const WalletSourceSchema = z.discriminatedUnion('kind', [
 ]);
 export type WalletSource = z.infer<typeof WalletSourceSchema>;
 
-/** `balanceAfter` is the ledger's running total up to and including this row, whatever the filter. */
 export const WalletEntrySchema = z.object({
   id: CurrencyTransactionIdSchema,
   type: TransactionTypeSchema,

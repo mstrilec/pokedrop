@@ -48,8 +48,6 @@ function roll(ladder: readonly Rung[], r: number): { index: number; rarity: stri
   throw new RangeError(`Roll ${r} is beyond the slot's weight total ${cumulative}`);
 }
 
-// Down the ladder towards more common rarities first, then up to the nearest
-// rarer one: a rarer card only when no commoner card exists.
 function resolve(
   ladder: readonly Rung[],
   rolled: number,

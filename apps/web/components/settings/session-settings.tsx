@@ -28,7 +28,6 @@ const SYSTEMS: [RegExp, string][] = [
   [/Linux/, 'Linux'],
 ];
 
-/** `Chrome on Windows` — enough to recognise a device, never more than the agent says. */
 function device(session: SessionRow): { name: string; mobile: boolean } {
   const agent = session.userAgent ?? '';
   const browser = BROWSERS.find(([pattern]) => pattern.test(agent))?.[1];

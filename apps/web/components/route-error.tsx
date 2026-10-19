@@ -6,9 +6,6 @@ import { ApiError } from '@/lib/api/error';
 
 export type RouteErrorProps = { error: Error & { digest?: string }; retry: () => void };
 
-// A server render's error reaches the browser stripped to its digest, which
-// the server log prints beside the ApiError and its request id. An error
-// thrown in the browser arrives whole, with its own request id.
 export function RouteError({ error, retry }: RouteErrorProps) {
   useEffect(() => {
     console.error(error);

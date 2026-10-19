@@ -25,7 +25,6 @@ export class AdminTradesController {
     return this.reads.adminList(query);
   }
 
-  /** An admin reads any trade here rather than through a bypass on the member route. */
   @Doc('Any trade, with its timeline and counter chain', returns('TradeDetail', TradeDetailSchema))
   @Get(':id')
   detail(@Param('id') id: string): Promise<TradeDetail> {

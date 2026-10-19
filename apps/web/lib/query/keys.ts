@@ -3,8 +3,6 @@ import type { CardSearchParams } from '@/lib/api/endpoints/catalog';
 import type { InventoryParams } from '@/lib/api/endpoints/inventory';
 import type { WalletParams } from '@/lib/api/endpoints/wallet';
 
-// Every query key comes from here. Each resource has a root, `all`, which
-// stale times and invalidations target; a key under it extends that root.
 export const keys = {
   me: ['me'],
   // Under `me`: whatever refreshes the profile (a pack, a settled trade) refreshes the checklist.

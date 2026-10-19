@@ -4,7 +4,6 @@ import Image from 'next/image';
 import { useState } from 'react';
 import { isOptimizable } from '@/lib/images';
 
-/** The set's logo, or its name in text when there is none or it fails to load. */
 export function SetLogo({ name, logoUrl }: { name: string; logoUrl: string | null }) {
   const [failed, setFailed] = useState(false);
   if (!logoUrl || failed) {

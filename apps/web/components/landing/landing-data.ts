@@ -11,16 +11,11 @@ export type Completion = { owned: number; total: number };
 
 export type LandingData = {
   cardCount: number | null;
-  /** Empty when the API cannot answer. */
   sets: CardSet[];
-  /** Priced cards, most valuable first; empty when fewer than six can be shown. */
   chase: Card[];
-  /** By set id; null signed out or when the summary cannot be read. */
   completion: Map<string, Completion> | null;
 };
 
-// The page must render with the API down: each read fails on its own and only
-// removes what it feeds.
 export async function landingData(signedIn: boolean): Promise<LandingData> {
   const [count, setList, chase, summary] = await Promise.allSettled([
     serverApi.call(searchCards({ pageSize: 1 })),

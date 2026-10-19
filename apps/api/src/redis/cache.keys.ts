@@ -1,8 +1,6 @@
 /**
- * The prefix is part of the key, deliberately not ioredis' `keyPrefix` option.
- * `keyPrefix` is not applied to SCAN's MATCH pattern, and the keys SCAN returns
- * come back already prefixed - feeding those to `del` on the same client
- * prefixes them a second time and deletes nothing, without raising an error.
+ * The prefix is part of the key, not ioredis' `keyPrefix`: SCAN's MATCH ignores keyPrefix and
+ * returns prefixed keys, so `del` would prefix them twice and silently delete nothing.
  */
 export const CACHE_NAMESPACE = 'cache';
 
@@ -27,19 +25,14 @@ export const cachePatterns = {
 } as const;
 
 /**
- * Not cache keys. CacheService treats a Redis failure as a miss and carries on,
- * which is correct for a cache and catastrophic for a lock: take this one with
- * SET NX PX directly.
+ * Not cache keys: CacheService treats a Redis failure as a miss, which is fatal for a lock. Take
+ * this one with SET NX PX directly.
  */
 export const lockKeys = {
   packOpen: (openId: string) => `lock:open:${openId}`,
 } as const;
 
-/**
- * Outside the `cache:` namespace on purpose. A rate-limit counter living there
- * would be reset by every routine cache flush, handing an attacker a fresh
- * budget on each catalog sync.
- */
+/** Outside the `cache:` namespace: a cache flush must not reset a rate limit. */
 export const THROTTLE_NAMESPACE = 'throttle';
 
 export const throttleKeys = {
@@ -53,13 +46,8 @@ export const throttleKeys = {
 } as const;
 
 /**
- * Outside the `cache:` namespace for the same reason `throttleKeys` is: a
- * routine cache flush must not reset a breaker, which would hand a failing
- * provider a fresh budget at the worst possible moment.
- *
- * Read through RedisService directly and never through CacheService - that one
- * turns a Redis failure into a miss, which for a counter means silently
- * forgetting an outage during the incident that caused it.
+ * Outside the `cache:` namespace, and read through RedisService, never CacheService: a flush or a
+ * failure-as-miss must not reset a breaker.
  */
 export const BREAKER_NAMESPACE = 'breaker';
 
@@ -70,19 +58,12 @@ export const breakerKeys = {
 } as const;
 
 /**
- * Outside the `cache:` namespace for the same reason `breakerKeys` is: a
- * routine cache flush must not reset a day's request count. It would hand a
- * sweep a fresh allowance against a provider that has already been asked 900
- * times today, which is the one moment the number matters.
- *
- * Read through RedisService directly and never through CacheService - that one
- * turns a Redis failure into a miss, and a counter that forgets is worse than
- * no counter at all.
+ * Outside the `cache:` namespace, and read through RedisService, never CacheService: a flush or a
+ * failure-as-miss must not reset a day's request count.
  */
 export const BUDGET_NAMESPACE = 'budget';
 
 export const budgetKeys = {
-  /** `day` is an ISO date, `YYYY-MM-DD`, in UTC. */
   spent: (provider: string, day: string) => `${BUDGET_NAMESPACE}:${provider}:${day}`,
 } as const;
 
@@ -102,6 +83,5 @@ export const METRIC_COUNTERS = [
 export type MetricCounter = (typeof METRIC_COUNTERS)[number];
 
 export const metricsKeys = {
-  /** `day` is an ISO date, `YYYY-MM-DD`, in UTC. */
   counter: (name: MetricCounter, day: string) => `${METRICS_NAMESPACE}:${name}:${day}`,
 } as const;

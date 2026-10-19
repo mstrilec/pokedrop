@@ -16,7 +16,6 @@ type Step = {
   link?: { href: string; label: string };
 };
 
-// The stack darkens toward the bottom: gold mixed with the page background.
 const coins = [
   'bg-[color-mix(in_srgb,var(--gold)_70%,var(--bg))]',
   'bg-[color-mix(in_srgb,var(--gold)_80%,var(--bg))]',

@@ -1,6 +1,5 @@
 import type { RarityTier } from '../enums.js';
 
-// The provider's rarity strings (44 in the mirror on 2026-10-04) folded into the five tiers.
 // Order matters: "Hyper Rare" must reach Secret before "Rare" claims it.
 const TIER_RULES: [RegExp, RarityTier][] = [
   [/secret|hyper|rainbow|special illustration|shiny ultra/i, 'Secret Rare'],

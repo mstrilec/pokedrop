@@ -17,7 +17,6 @@ export const BASIC_ENERGY_TYPES = [
 export const BasicEnergyTypeSchema = z.enum(BASIC_ENERGY_TYPES);
 export type BasicEnergyType = z.infer<typeof BasicEnergyTypeSchema>;
 
-/** `Basic Fire Energy` and `Fire Energy` are Fire; a basic Energy's `types` is often empty. */
 export function basicEnergyTypeOf(name: string): BasicEnergyType | null {
   const parsed = BasicEnergyTypeSchema.safeParse(
     name.replace(/^Basic /, '').replace(/ Energy$/, ''),
@@ -66,6 +65,5 @@ export const RandomDeckResponseSchema = z.discriminatedUnion('result', [
 ]);
 export type RandomDeckResponse = z.infer<typeof RandomDeckResponseSchema>;
 
-/** The types each format can generate: a basic Energy of the type is Legal in it. */
 export const RandomDeckTypesSchema = z.record(DeckFormatSchema, z.array(BasicEnergyTypeSchema));
 export type RandomDeckTypes = Record<DeckFormat, BasicEnergyType[]>;

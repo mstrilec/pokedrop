@@ -23,11 +23,6 @@ export const SetDTOSchema = z.object({
 });
 export type SetDTO = z.infer<typeof SetDTOSchema>;
 
-/**
- * `latestPriceUsd`, `latestPriceEur` and `priceUpdatedAt` are absent on purpose:
- * they belong to the price path, and a type with no field for them cannot
- * express a catalog sync overwriting a fresh price with a stale one.
- */
 export const CardDTOSchema = z.object({
   id: CardIdSchema,
   setId: SetIdSchema,

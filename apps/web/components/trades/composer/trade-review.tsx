@@ -60,7 +60,6 @@ export function TradeReview({
 }) {
   const name = state.counterparty?.displayName ?? '';
   const heading = useRef<HTMLHeadingElement>(null);
-  // The compose view this replaced held the focus; the review starts at its own heading.
   useEffect(() => heading.current?.focus(), []);
   const given = cardCount(state.give);
   const consequences: ReactNode[] = [];

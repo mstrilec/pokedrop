@@ -84,7 +84,6 @@ export class NotificationReadsService {
     return { count };
   }
 
-  /** Idempotent: reading an already-read notification keeps its first `readAt`. */
   async markRead(user: AuthUser, id: string): Promise<void> {
     const { count } = await this.prisma.notification.updateMany({
       where: { id, userId: user.id, readAt: null },
@@ -107,7 +106,6 @@ export class NotificationReadsService {
     return { updated: count };
   }
 
-  /** One query for the page. Only trades the reader is a party to, so a payload cannot name a stranger's. */
   private async counterparties(
     userId: string,
     rows: { type: string; payload: Record<string, unknown> }[],
@@ -142,7 +140,6 @@ export class NotificationReadsService {
   }
 }
 
-/** A stored key the kind's schema does not name is dropped; an unknown kind shows nothing. */
 function payloadOf(type: string, stored: Prisma.JsonValue): Record<string, unknown> {
   const schema = NOTIFICATION_PAYLOAD_SCHEMAS[type as keyof typeof NOTIFICATION_PAYLOAD_SCHEMAS];
   if (schema === undefined) {

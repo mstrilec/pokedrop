@@ -50,8 +50,6 @@ export class WalletService {
         : Prisma.sql`AND (l."createdAt" < ${cursor.createdAt}
             OR (l."createdAt" = ${cursor.createdAt} AND l.id < ${cursor.id}))`;
 
-    // The running total is taken over the whole ledger before any filter, so a
-    // filtered page still shows the real balance after each row.
     const [rows, total, balance] = await Promise.all([
       this.prisma.$queryRaw<LedgerRow[]>`
         WITH l AS (
@@ -104,12 +102,6 @@ export class WalletService {
     });
   }
 
-  /**
-   * The stored balance, checked against the ledger in the same statement so a
-   * write landing between two reads can never look like a mismatch. A mismatch
-   * is logged, not repaired and not shown: the stored balance is what every
-   * debit is guarded against, so it is the one the member sees.
-   */
   private async balance(userId: string): Promise<number> {
     const [row] = await this.prisma.$queryRaw<{ currency: number; ledger: number }[]>`
       SELECT u.currency,

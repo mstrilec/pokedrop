@@ -26,11 +26,6 @@ export class TradeExpiryService {
     this.expiryDays = config.trades.expiryDays;
   }
 
-  /**
-   * Each trade in its own transaction, so one that cannot be closed does not
-   * hold back the rest. The scan is keyset-paged over the cutoff set, so every
-   * trade is attempted at most once per run and a failing one cannot loop.
-   */
   async run(now: Date = new Date()): Promise<ExpiryResult> {
     const cutoff = new Date(now.getTime() - this.expiryDays * DAY_MS);
     const result: ExpiryResult = { expired: 0, raced: 0, failed: 0, unreconciled: 0 };
@@ -110,7 +105,6 @@ export class TradeExpiryService {
     return result;
   }
 
-  /** The lock invariant from docs/DataModel.md (Trade); the only way to see a leak that already happened. */
   private async unreconciledLocks(): Promise<number> {
     const [row] = await this.prisma.$queryRaw<{ count: number }[]>`
       WITH promised AS (

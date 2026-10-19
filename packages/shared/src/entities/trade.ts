@@ -130,11 +130,6 @@ export const TradeViewItemSchema = TradeItemSchema.omit({ tradeId: true }).exten
 });
 export type TradeViewItem = z.infer<typeof TradeViewItemSchema>;
 
-/**
- * `role` is the caller's side of the trade; null when an admin reads it. `expiresAt` is when a
- * `PENDING` trade becomes due for the expiry job (`createdAt` + `TRADE_EXPIRY_DAYS`; the hourly
- * job closes it within the hour after); null once it is closed.
- */
 export const TradeViewSchema = TradeSchema.omit({
   initiatorId: true,
   recipientId: true,
@@ -151,7 +146,6 @@ export type TradeView = z.infer<typeof TradeViewSchema>;
 export const TradePageSchema = cursorPageOf(TradeViewSchema);
 export type TradePage = z.infer<typeof TradePageSchema>;
 
-/** Who acted, as a side of the trade rather than a user id. */
 export const TRADE_ACTORS = ['initiator', 'recipient', 'admin', 'system'] as const;
 
 export const TradeTimelineEntrySchema = z.object({
@@ -170,7 +164,6 @@ export const TradeChainEntrySchema = z.object({
 });
 export type TradeChainEntry = z.infer<typeof TradeChainEntrySchema>;
 
-/** `chain` runs oldest first and includes this trade. */
 export const TradeDetailSchema = TradeViewSchema.extend({
   timeline: z.array(TradeTimelineEntrySchema),
   chain: z.array(TradeChainEntrySchema),

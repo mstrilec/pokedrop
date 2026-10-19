@@ -38,7 +38,6 @@ import { TradeReview } from './trade-review';
 
 const is404 = (error: unknown) => error instanceof ApiError && error.statusCode === 404;
 
-/** Waits for what `?to=`, `?card=` and `?counter=` name, then mounts the composer with it. */
 export function TradeComposerPage({
   to,
   card,
@@ -141,15 +140,12 @@ function TradeComposer({
     return have === 0 ? 'No copies available now' : `Only ${have} available now`;
   };
 
-  // Back from another tab, where a trade may have locked or released copies: count them again.
   useEffect(() => {
     const onFocus = () => void queryClient.invalidateQueries({ queryKey: keys.inventory.ownedAll });
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
   }, [queryClient]);
 
-  // The cached counts may be minutes old; a copy locked from another tab must show before Review.
-  // Back from the review (or refused by the server): focus returns to *Review offer*.
   useEffect(() => {
     if (state.step === 'compose' && backToCompose.current) {
       backToCompose.current = false;
@@ -175,7 +171,6 @@ function TradeComposer({
         queryKey: keys.inventory.owned(giveIds),
         queryFn: () => api.call(ownedCounts(giveIds)),
         staleTime: 0,
-        // Offline, fail and say so rather than pause with the button spinning.
         networkMode: 'always',
       });
       const now = new Map<string, number>(fresh.map((row) => [row.cardId, row.availableQuantity]));

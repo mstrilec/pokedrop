@@ -4,7 +4,6 @@ import { formatEur, formatUsd } from '@/components/cards/card-data';
 import { dateTime, timeAgo } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
-// A price older than this is still shown, with its age called out.
 const STALE_DAYS = 7;
 const DAY_MS = 86_400_000;
 
@@ -103,7 +102,6 @@ function PriceBlock({
   );
 }
 
-/** Latest TCGplayer and Cardmarket prices, each with its 30 days; the age always shown. */
 export function CardPrices({
   usd,
   eur,

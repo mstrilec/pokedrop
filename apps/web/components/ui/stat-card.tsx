@@ -21,7 +21,6 @@ const TRENDS = {
 
 type StatCardProps = {
   label: string;
-  /** Already formatted: `$2,480`, `1,250`, `98%`. */
   value: string;
   icon?: LucideIcon;
   tone?: Tone;

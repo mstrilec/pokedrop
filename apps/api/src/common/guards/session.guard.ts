@@ -28,8 +28,6 @@ export class SessionGuard implements CanActivate {
       headers: fromNodeHeaders(request.headers),
     });
 
-    // A session can outlive its user's suspension by a moment: one created by
-    // a sign-in racing the suspending transaction. It is never honoured.
     const suspended = session !== null && session.user.suspendedAt != null;
 
     // Deleted, not just refused: left in place it would work again the moment

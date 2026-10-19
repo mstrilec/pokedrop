@@ -14,11 +14,6 @@ import {
 } from '@pokedrop/shared';
 import { z } from 'zod';
 
-/**
- * Public because a catalog is, and because the card detail page is SEO-facing.
- * Without @Public() the global SessionGuard answers 401 - the polarity PD-33
- * chose deliberately, so forgetting the decorator is noisy rather than silent.
- */
 @ApiTags('catalog')
 @Public()
 @Controller()
@@ -49,11 +44,7 @@ export class CatalogController {
     return this.catalog.getSet(id);
   }
 
-  /**
-   * Not under `cards/`, where it would be shadowed by `cards/:id` - the literal
-   * would have to be declared first, and a route whose correctness depends on
-   * declaration order is one reorder away from a 404.
-   */
+  /** Not under `cards/`, where `cards/:id` would shadow it unless declared first. */
   @Doc('Filter values for the catalog search', returns('CatalogFacets', CatalogFacetsSchema))
   @Get('facets')
   getFacets(): Promise<CatalogFacets> {

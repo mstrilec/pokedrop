@@ -17,13 +17,6 @@ export const SESSION_COOKIE = 'better-auth.session_token';
 type DocResult = { name: string; schema: ZodType };
 type DocMeta = { summary: string; result: DocResult | string | null };
 
-/**
- * The one annotation every route carries: what it does, and what a success
- * returns — a named shared schema, a description for a body no schema covers,
- * or nothing. Authentication, roles, query parameters and errors are derived
- * from the route's own metadata by `applyOpenApiConventions`, so they cannot
- * drift from what the guards actually enforce.
- */
 export const Doc = (summary: string, result: DocResult | string | null = null) =>
   SetMetadata(DOC_METADATA, { summary, result } satisfies DocMeta);
 
@@ -53,10 +46,6 @@ const STATUS_TEXT: Record<string, string> = {
   [HttpStatus.NO_CONTENT]: 'No content',
 };
 
-/**
- * Output, not input: a response schema describes what the API sends, so
- * `z.coerce.date()` is a date-time string rather than "anything coercible".
- */
 function outputJsonSchema(schema: ZodType): Record<string, unknown> {
   const json = z.toJSONSchema(schema, {
     io: 'output',
@@ -134,13 +123,6 @@ function queryParameters(schema: ZodType): Record<string, unknown>[] {
   }));
 }
 
-/**
- * Everything the routes' own metadata already says, written into the
- * document: security from @Public, the admin mark from @Roles, query
- * parameters from the @Query DTO, one shared error response, and each
- * route's @Doc. A route without @Doc, or an operation no handler explains,
- * stops the boot - an incomplete reference fails loudly rather than shipping.
- */
 export function applyOpenApiConventions(
   document: OpenAPIObject,
   app: INestApplication,

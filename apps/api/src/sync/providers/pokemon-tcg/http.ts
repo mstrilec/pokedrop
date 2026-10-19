@@ -13,25 +13,11 @@ export interface PokemonTcgHttpOptions {
   apiKey: string | null;
   timeoutMs: number;
   maxAttempts: number;
-  /**
-   * Called once per retry, never on a first-attempt success. Retries are the
-   * normal case against this upstream rather than an exception, so how often
-   * they happen is the number worth watching.
-   */
   onRetry?: (attempt: number, reason: string) => void;
-  /**
-   * Awaited immediately before every request, including each retry. This is
-   * where the daily request budget is counted, and counting retries is the
-   * whole point: against this upstream they are most of what a sweep spends.
-   */
+  /** Awaited before every request, retries included: this is where the daily budget is counted. */
   onRequest?: () => Promise<void>;
 }
 
-/**
- * Half the exponential step plus jitter over the other half, so a batch of
- * concurrent requests does not retry in lockstep and reproduce the burst that
- * failed.
- */
 function backoffMs(attempt: number): number {
   const step = BACKOFF_BASE_MS * 2 ** (attempt - 1);
   return step / 2 + Math.random() * (step / 2);
@@ -49,19 +35,6 @@ function retryAfterMs(response: Response): number | null {
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
-/**
- * The only place this provider calls the network.
- *
- * Two policies, because a 5xx and a 429 mean opposite things. A 5xx from this
- * upstream is an ordinary event - 70% of requests failed when this was measured
- * - so it is retried quickly and only becomes a ProviderUnavailableError once
- * the attempt budget is spent. That is what keeps PD-43's breaker measuring
- * "the provider is unusable" rather than "a request failed".
- *
- * A 429 is the opposite: the server is healthy and we are asking too fast.
- * Retry-After is honoured, and the error that escapes is a
- * ProviderRateLimitError, which PD-43 must not count toward failover.
- */
 export async function getJson(
   path: string,
   query: Record<string, string | number | undefined>,
@@ -101,14 +74,9 @@ export async function getJson(
 
     if (response.ok) {
       try {
-        // Annotated rather than asserted: response.json() is typed `any`, and
-        // an `as unknown` on it reads as a no-op to the linter while a typed
-        // binding makes the narrowing real.
         const body: unknown = await response.json();
         return body;
       } catch (error) {
-        // A 200 whose body is not JSON is an upstream contract problem, not a
-        // transient one; retrying would fetch the same broken body.
         throw new ProviderUnavailableError(PROVIDER, `${path} returned a 200 that is not JSON`, {
           cause: error,
         });
@@ -133,7 +101,6 @@ export async function getJson(
       continue;
     }
 
-    // 4xx other than 429: a bad request or a bad key. Retrying cannot help.
     throw new ProviderUnavailableError(PROVIDER, `${path} failed with HTTP ${response.status}`);
   }
 

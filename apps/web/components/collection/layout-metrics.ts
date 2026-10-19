@@ -10,7 +10,6 @@ function subscribeToLayout(notify: () => void) {
   };
 }
 
-/** The element's distance from the top of the document, kept current as content above it grows. */
 export function useDocumentTop(ref: RefObject<HTMLElement | null>): number {
   return useSyncExternalStore(
     subscribeToLayout,
@@ -30,7 +29,6 @@ export function useElementWidth(ref: RefObject<HTMLElement | null>): number {
   );
 }
 
-/** The element's distance from the top of a scrolling ancestor's content; scrolling leaves it alone. */
 export function useOffsetWithin(ref: RefObject<HTMLElement | null>, scroller: HTMLElement): number {
   return useSyncExternalStore(
     subscribeToLayout,

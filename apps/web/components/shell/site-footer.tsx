@@ -26,7 +26,6 @@ function Group({ label, nav, children }: { label: string; nav?: boolean; childre
   );
 }
 
-// Every public page ends with this, signed in (inside AppShell) or not.
 export function SiteFooter({ signedIn }: { signedIn: boolean }) {
   return (
     <footer className="border-t border-bd bg-linear-180 from-surface/60 to-bg">

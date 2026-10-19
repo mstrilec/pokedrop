@@ -12,7 +12,6 @@ export const deckSlotId = (cardId: string) => `deck-slot-${cardId}`;
 
 const HIGHLIGHT_MS = 1600;
 
-/** Scroll a decklist row into view, focus it and flash it: where a validation error points. */
 export function focusDeckSlot(cardId: string): boolean {
   const slot = document.getElementById(deckSlotId(cardId));
   if (!slot) return false;
@@ -28,14 +27,11 @@ export function focusDeckSlot(cardId: string): boolean {
 type DeckSlotProps = {
   card: CardView;
   count: number;
-  /** The card is promised in a pending trade; its count cannot change here. */
   locked?: boolean;
-  /** Drag feedback for the builder, which owns the drag itself. */
   dragging?: boolean;
   dropTarget?: boolean;
   className?: string;
   ref?: Ref<HTMLDivElement>;
-  /** Makes the art and name a drag handle: dnd-kit's activator ref, attributes and listeners. */
   handle?: HTMLAttributes<HTMLDivElement> & { ref?: (element: HTMLElement | null) => void };
 } & (
   | { readOnly?: false; max: number; onChange: (count: number) => void }

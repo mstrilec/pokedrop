@@ -90,7 +90,6 @@ export const OpenPackRequestSchema = z.object({
 });
 export type OpenPackRequest = z.infer<typeof OpenPackRequestSchema>;
 
-/** What `POST /packs/:templateId/open` answers, for a new opening and a replay alike. */
 export const PackOpenResultSchema = z.object({
   openingId: PackOpeningIdSchema,
   openId: z.uuid(),
@@ -101,11 +100,6 @@ export const PackOpenResultSchema = z.object({
 });
 export type PackOpenResult = z.infer<typeof PackOpenResultSchema>;
 
-/**
- * What the confirm dialog shows, derived from `slotConfig` by the ladder rule
- * the generator uses: odds ordered from the most common rarity to the rarest,
- * and a slot's most common rarity is its floor.
- */
 export const PackTemplateContentsSchema = z.object({
   cardCount: z.number().int().min(1),
   slots: z.array(
@@ -117,7 +111,6 @@ export const PackTemplateContentsSchema = z.object({
 });
 export type PackTemplateContents = z.infer<typeof PackTemplateContentsSchema>;
 
-/** What a booster wrapper is drawn from; resolved by the API, the same for every surface. */
 export const PackArtSchema = z.object({
   set: z.object({
     id: SetIdSchema,
@@ -139,7 +132,6 @@ export const PackArtSchema = z.object({
 });
 export type PackArt = z.infer<typeof PackArtSchema>;
 
-/** A template as `GET /packs/templates` shows it to a member. */
 export const PackTemplateViewSchema = PackTemplateSchema.extend({
   contents: PackTemplateContentsSchema,
   guarantee: z.string().min(1),
@@ -153,10 +145,6 @@ export const PackHistoryQuerySchema = z.object({
 });
 export type PackHistoryQuery = z.infer<typeof PackHistoryQuerySchema>;
 
-/**
- * `openId` is any string here: openings that predate PD-58 were not keyed by a UUID.
- * `cost` is what the ledger recorded for the opening; null when it has no ledger row.
- */
 export const PackHistoryEntrySchema = z.object({
   openingId: PackOpeningIdSchema,
   openId: z.string().min(1),

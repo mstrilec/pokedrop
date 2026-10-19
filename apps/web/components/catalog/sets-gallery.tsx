@@ -67,8 +67,6 @@ export function SetsGallery() {
   const progress = new Map(
     (summary.data?.setCompletion ?? []).map((set) => [set.setId, set] as const),
   );
-  // Signed out: no meter. Signed in: the summary's own figures, or 0 of the printed total for a
-  // set the collection has nothing from — the summary counts against printedTotal too.
   const completionOf = (set: CardSet): Completion | null | undefined => {
     if (!signedIn) return undefined;
     if (!summary.data) return null;
@@ -83,7 +81,6 @@ export function SetsGallery() {
       ? a.releaseDate.getTime() - b.releaseDate.getTime()
       : b.releaseDate.getTime() - a.releaseDate.getTime(),
   );
-  // Series in the order of their newest release; sets within one newest first.
   const series = [...new Set(list.map((set) => set.series))];
 
   const started = summary.data?.setCompletion.length ?? 0;

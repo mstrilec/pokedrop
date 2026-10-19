@@ -8,7 +8,6 @@ import { Dialog } from '@/components/ui/dialog';
 import { signInUrl } from '@/lib/routes';
 import { useSession } from '@/lib/session/context';
 
-/** Edit for the owner, a trade for anyone else — after signing in, for a visitor. */
 export function ProfileActions({ userId, name }: { userId: string; name: string }) {
   const session = useSession();
   const [asking, setAsking] = useState(false);

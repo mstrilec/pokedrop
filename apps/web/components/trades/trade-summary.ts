@@ -2,7 +2,6 @@ import type { TradeView } from '@pokedrop/shared';
 import { useSyncExternalStore } from 'react';
 import { formatCoins } from '@/lib/format';
 
-// The countdown moves once a minute; one clock for every reader.
 const MINUTE = 60_000;
 function subscribeToMinutes(notify: () => void) {
   const timer = setInterval(notify, MINUTE);
@@ -18,7 +17,6 @@ export function useMinute(): number {
 
 export function expiryText(expiresAt: Date, now: number): string {
   const left = expiresAt.getTime() - now;
-  // The expiry job runs hourly, so a due trade closes within the hour after.
   if (left <= 0) return 'Expiring now';
   const minutes = Math.ceil(left / MINUTE);
   const days = Math.floor(minutes / (24 * 60));
@@ -29,7 +27,6 @@ export function expiryText(expiresAt: Date, now: number): string {
   return `Expires in ${mins}m`;
 }
 
-/** One side of a trade in words: up to two card names, a count of the rest, and coins. */
 function sideText(trade: TradeView, side: 'OFFERED' | 'REQUESTED', coins: number): string {
   const lines = trade.items.filter((item) => item.side === side);
   const named = lines
@@ -50,7 +47,6 @@ export function sides(trade: TradeView) {
     : { give: offered, get: requested };
 }
 
-/** Each party's side by name, for a reader who is neither: `Charizard ×2, 50 coins`. */
 export function namedSides(trade: TradeView) {
   return {
     initiator: sideText(trade, 'OFFERED', trade.currencyFromInitiator),

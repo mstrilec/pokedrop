@@ -14,17 +14,12 @@ const subscribe = (change: () => void) => {
   return () => list.removeEventListener('change', change);
 };
 
-/**
- * A scroll-snap rail that becomes a marquee on wider screens with motion
- * allowed. The server and hydration render the rail.
- */
 export function MarqueeMotion({
   items,
   copy,
   label,
 }: {
   items: ReactNode[];
-  /** The same items rendered out of the tab order, for the seamless second half. */
   copy: ReactNode[];
   label: string;
 }) {

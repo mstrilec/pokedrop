@@ -15,17 +15,8 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
       lazyConnect: true,
 
-      // Without this, ioredis queues commands while the server is unreachable
-      // and waits for a reconnection instead of failing - so a cache read does
-      // not become a miss, it hangs, and a request that should have degraded to
-      // a database read stalls until something times out. Measured in PD-46 by
-      // stopping the container: a GET that should have taken 10ms never
-      // returned.
-      //
-      // Both consumers of this client want the opposite. CacheService treats a
-      // failure as a miss and reads the database; the throttler storage fails
-      // open and allows the request. The health probe is unaffected - it checks
-      // `client.status` before issuing a command, for this same reason.
+      // Without this, ioredis queues commands while Redis is down and the request hangs instead of
+      // degrading: the cache must miss and the throttler must fail open.
       enableOfflineQueue: false,
     });
 

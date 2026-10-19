@@ -5,9 +5,7 @@ export interface RarityStyle {
   text: string;
   chip: string;
   emphasis: string | null;
-  /** The tier's color as a CSS value, for borders and glows drawn outside utilities. */
   color: string;
-  /** The tier's color on card art and boosters: the same in both themes. */
   art: string;
 }
 

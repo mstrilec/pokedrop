@@ -11,16 +11,12 @@ import { identityOf } from '@/lib/session/identity';
 import { Sidebar } from './sidebar';
 import { AvatarMenu, BalancePill, MenuButton, NotificationBell } from './topbar-controls-lazy';
 
-// The chrome around every signed-in page, including the public pages a
-// signed-in visitor opens. The session's profile seeds the `me` query, so the
-// balance renders without a request.
 export function AppShell({
   profile,
   footer,
   children,
 }: {
   profile: MyProfile;
-  /** Only the public layout passes one; app pages end at their content. */
   footer?: ReactNode;
   children: ReactNode;
 }) {

@@ -22,7 +22,6 @@ const chip =
 const chipOn = 'border-pri bg-pri-dim text-tx';
 const chipOff = 'border-bd-2 text-mut hover:text-tx';
 
-/** Fills the draft with a generated legal deck; the member saves it. */
 export function RandomDeckDialog({
   open,
   onClose,

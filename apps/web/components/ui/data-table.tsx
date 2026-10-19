@@ -20,9 +20,7 @@ import { Skeleton } from './skeleton';
 declare module '@tanstack/react-table' {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- the generics must match TanStack's declaration
   interface ColumnMeta<TData extends RowData, TValue> {
-    /** The column's grid track: `1.6fr`, `120px`, `minmax(0,1fr)`. Default `1fr`. */
     width?: string;
-    /** Mono, right-aligned: coins, prices, counts. */
     numeric?: boolean;
   }
 }
@@ -32,10 +30,8 @@ type DataTableProps<T> = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   columns: ColumnDef<T, any>[];
   data: T[];
-  /** Names the table for assistive tech. */
   label: string;
   getRowId?: (row: T) => string;
-  /** Pass both to own the sort (a server-sorted list); omit them and the table sorts its rows. */
   sorting?: SortingState;
   onSortingChange?: OnChangeFn<SortingState>;
   onRowClick?: (row: T) => void;
@@ -43,7 +39,6 @@ type DataTableProps<T> = {
   skeletonRows?: number;
   empty?: ReactNode;
   dense?: boolean;
-  /** Render only the rows in view, for lists of thousands; the window must be what scrolls. */
   virtualize?: { estimateRowHeight: number; totalRows?: number; onEndReached?: () => void };
   className?: string;
 };

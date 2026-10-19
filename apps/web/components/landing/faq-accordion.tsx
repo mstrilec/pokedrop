@@ -3,8 +3,6 @@
 import { Plus } from 'lucide-react';
 import { Accordion } from 'radix-ui';
 
-// Radix rather than <details>: the answer's height animates in every browser,
-// where ::details-content does not reach Firefox.
 export function FaqAccordion({ items }: { items: { q: string; a: string }[] }) {
   return (
     <Accordion.Root type="multiple" className="flex flex-col gap-2">

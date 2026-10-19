@@ -3,8 +3,6 @@
 import { type CSSProperties, type ReactNode, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 
-// Progressive: the content is visible as rendered, and only what starts below
-// the first screen is hidden after mount and faded in when it is reached.
 export function Reveal({
   children,
   className,

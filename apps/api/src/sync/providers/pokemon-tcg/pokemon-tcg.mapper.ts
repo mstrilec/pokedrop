@@ -8,11 +8,6 @@ import {
 } from '../provider.dto.js';
 import type { RawCard, RawSet } from './pokemon-tcg.schema.js';
 
-/**
- * Print variants, best first. A card that exists as both an ordinary and a
- * holofoil print reports the ordinary price, because that is the one most
- * holders have.
- */
 const TCGPLAYER_VARIANTS = [
   'normal',
   'holofoil',
@@ -25,7 +20,6 @@ function asNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
 }
 
-/** `1999/01/09`, not `1999-01-09`. */
 function parseReleaseDate(value: string): Date {
   return new Date(value.replace(/\//g, '-'));
 }
@@ -55,8 +49,6 @@ export function toCardDTO(raw: RawCard): CardDTO {
     name: raw.name,
     supertype: raw.supertype,
     subtypes: raw.subtypes ?? [],
-    // Upstream sends "140". A card whose hp is not a number at all - some
-    // Trainer cards - becomes null rather than NaN.
     hp: hp === null || Number.isNaN(hp) ? null : hp,
     types: raw.types ?? [],
     rarity: raw.rarity ?? null,
@@ -80,9 +72,6 @@ export function toCardDTO(raw: RawCard): CardDTO {
     evolvesFrom: raw.evolvesFrom || null,
     imageSmall: raw.images.small,
     imageLarge: raw.images.large,
-    // This provider publishes no TCGplayer or Cardmarket identifier - the union
-    // of keys across 245 price objects is url, updatedAt and prices. TCGdex
-    // does, so PD-40 fills these and this one cannot.
     tcgplayerId: null,
     cardmarketId: null,
   });
@@ -121,9 +110,6 @@ export function toPriceDTOs(raw: RawCard, capturedAt: Date): PriceDTO[] {
         currency: 'EUR',
         market: asNumber(cm.averageSellPrice),
         low: asNumber(cm.lowPrice),
-        // Cardmarket publishes no median. `trendPrice` is the closest thing it
-        // has, and it is a trend rather than a middle - the loosest link in this
-        // mapping. M4 may prefer to widen PriceDTO instead of keeping it.
         mid: asNumber(cm.trendPrice),
         high: null,
         capturedAt,

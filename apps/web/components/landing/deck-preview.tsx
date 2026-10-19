@@ -15,24 +15,22 @@ const START = 52;
 const HOLD = 4;
 
 const copies = (id: string, n: number) => Array.from({ length: n }, () => id);
-// A Base Set Lightning deck in slot order: 24 basic Energy, 20 Trainers, 16 Pokémon.
 const SLOTS = [
-  ...copies('base1-100', 24), // Lightning Energy
-  ...copies('base1-91', 4), // Bill
-  ...copies('base1-88', 3), // Professor Oak
-  ...copies('base1-92', 3), // Energy Removal
-  ...copies('base1-84', 3), // PlusPower
-  ...copies('base1-95', 3), // Switch
-  ...copies('base1-93', 2), // Gust of Wind
-  ...copies('base1-94', 2), // Potion
-  ...copies('base1-58', 4), // Pikachu
-  ...copies('base1-20', 3), // Electabuzz
-  ...copies('base1-53', 3), // Magnemite
-  ...copies('base1-14', 2), // Raichu
-  ...copies('base1-9', 2), // Magneton
+  ...copies('base1-100', 24),
+  ...copies('base1-91', 4),
+  ...copies('base1-88', 3),
+  ...copies('base1-92', 3),
+  ...copies('base1-84', 3),
+  ...copies('base1-95', 3),
+  ...copies('base1-93', 2),
+  ...copies('base1-94', 2),
+  ...copies('base1-58', 4),
+  ...copies('base1-20', 3),
+  ...copies('base1-53', 3),
+  ...copies('base1-14', 2),
+  ...copies('base1-9', 2),
   ...copies('base1-16', 2), // Zapdos
 ];
-// The cards that drop in, one per step from 52 to 60.
 const DROPS = SLOTS.slice(START);
 const LEGEND = [
   { id: 'base1-58', label: 'Pokémon', count: (n: number) => Math.min(Math.max(n - 44, 0), 16) },
@@ -46,8 +44,6 @@ const RULES = [
   { icon: Scale, title: 'Format legality', detail: 'for Standard, Expanded or Unlimited' },
 ];
 
-// What the deck builder's validator answers for this deck at `n` cards; the
-// banner below is the builder's own.
 function validation(n: number): DeckValidation {
   const ok = n === SIZE;
   return {
@@ -80,7 +76,6 @@ const noop = () => {};
 
 export function DeckPreview() {
   const ref = useRef<HTMLDivElement>(null);
-  // Steps 0–8 add a card each; the rest hold the full deck before starting over.
   const [step, setStep] = useState(DROPS.length + HOLD);
   const n = START + Math.min(step, DROPS.length);
 

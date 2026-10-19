@@ -22,36 +22,18 @@ export interface SnapshotRow {
 }
 
 /**
- * The UTC day `at` falls in.
- *
- * UTC rather than local time is load-bearing. `capturedOn` is half of the
- * unique key that caps a card at one snapshot per source per day, so if two
- * processes disagreed about where a day begins the cap would admit a second
- * row - and they would disagree the first time a server moved timezone or a
- * clock crossed a DST boundary.
+ * UTC, load-bearing: `capturedOn` is half of the one-snapshot-per-day unique key, and two
+ * processes that disagree about where a day begins would admit a second row.
  */
 export function startOfUtcDay(at: Date): Date {
   return new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), at.getUTCDate()));
 }
 
-/**
- * Where the price path writes. The sibling `catalog.writer.ts` is raw SQL
- * because a conditional-update upsert has no Prisma equivalent; nothing here
- * has that shape, so this one is ordinary Prisma.
- */
 @Injectable()
 export class PriceWriter {
   /**
-   * One UPDATE per card rather than a single statement over a VALUES list.
-   *
-   * A price genuinely changes, so unlike the catalog sweep there is nothing to
-   * guard against here - no dead tuples to avoid, no reason to compare before
-   * writing. At a batch of 100 inside one transaction this is 100 statements on
-   * an already-open connection, which the provider call in front of it dwarfs.
-   *
-   * `updateMany` rather than `update` is deliberate: a card deleted between a
-   * job being enqueued and being processed then costs zero rows instead of
-   * `update` raising P2025 and aborting the whole batch's transaction.
+   * `updateMany`, not `update`: a card deleted since enqueueing costs zero rows instead of a P2025
+   * that aborts the whole batch's transaction.
    */
   async updateLatest(tx: TransactionClient, rows: LatestPrice[]): Promise<number> {
     let written = 0;
@@ -73,12 +55,8 @@ export class PriceWriter {
   }
 
   /**
-   * `skipDuplicates` is the whole cap.
-   *
-   * It compiles to ON CONFLICT DO NOTHING against the unique index on
-   * (cardId, source, capturedOn), so a second run on the same day inserts
-   * nothing and raises nothing - the database decides, not a check in front of
-   * the write, and two concurrent workers get the same answer as one.
+   * `skipDuplicates` is the whole daily cap: ON CONFLICT DO NOTHING against
+   * (cardId, source, capturedOn).
    */
   async insertSnapshots(tx: TransactionClient, rows: SnapshotRow[]): Promise<number> {
     if (rows.length === 0) {

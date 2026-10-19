@@ -179,9 +179,8 @@ export function buildAuth(config: AppConfig, deps: AuthDependencies) {
         image: 'avatarUrl',
       },
 
-      // `input: false` is the whole distance between a public registration form
-      // and a self-granted admin account. Measured with it true, a sign-up body
-      // carrying role:"ADMIN" produced an ADMIN user.
+      // `input: false` is the whole distance between a public registration form and a self-granted
+      // admin account: with it true, a sign-up body carrying role:"ADMIN" produced an ADMIN user.
       additionalFields: {
         role: { type: 'string', required: true, defaultValue: 'MEMBER', input: false },
         currency: { type: 'number', required: true, defaultValue: 0, input: false },

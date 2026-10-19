@@ -34,7 +34,6 @@ function ChartFigure({
         <span className="text-[12px] text-mut">{summary(shown)}</span>
       </figcaption>
       {shown.length > 0 ? (
-        // The caption and the table below say the same; the bars are for the eye.
         <div aria-hidden style={{ height: shown.length * 28 + 8 }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart

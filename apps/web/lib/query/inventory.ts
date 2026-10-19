@@ -12,8 +12,6 @@ export type InventoryFilters = Omit<InventoryParams, 'cursor' | 'pageSize'>;
 
 const PAGE_SIZE = 100;
 
-// Each page says which filters it answers: while a new filter loads, the previous
-// results stay on screen (keepPreviousData) and the page must know they are stale.
 export function useInventory(filters: InventoryFilters) {
   return useInfiniteQuery({
     queryKey: keys.inventory.list(filters),
@@ -34,11 +32,6 @@ export function useInventory(filters: InventoryFilters) {
 
 export type Owned = { quantity: number; available: number };
 
-/**
- * The caller's copies of the cards on screen: one request per page of ids, keyed under
- * `inventory` so an opened pack or a settled trade refreshes the badges. `known` holds the
- * ids answered so far; a card not in it has no badge yet rather than a wrong one.
- */
 export function useOwnedCounts(pages: readonly (readonly string[])[], enabled: boolean) {
   return useQueries({
     queries: pages.map((ids) => ({

@@ -1,6 +1,5 @@
 import type { Card, InventoryEntry } from '@pokedrop/shared';
 
-/** What a card component needs, whichever endpoint the card came from. */
 export type CardView = {
   id: string;
   name: string;
@@ -31,7 +30,6 @@ export function inventoryCardView(entry: InventoryEntry): CardView & { owned: nu
   return { ...cardView(entry.card), owned: entry.quantity };
 }
 
-/** `base1-4` → `BASE1 4`: the set and number printed in the corner. */
 export function setNumber(id: string): string {
   const cut = id.lastIndexOf('-');
   return cut < 0 ? id.toUpperCase() : `${id.slice(0, cut).toUpperCase()} ${id.slice(cut + 1)}`;

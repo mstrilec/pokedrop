@@ -3,12 +3,6 @@ import { CardSchema } from './card.js';
 import { CardSetSchema } from './set.js';
 import { PaginationQuerySchema, pageOf } from '../primitives/pagination.js';
 
-/**
- * Price sorts put unpriced cards last in both directions: a price is null until
- * the price sync reaches the card. A meaningful rarity order needs RarityTier,
- * which is a presentation concept rather than a column. Adding a sort is one
- * entry here plus one entry in the service's order table.
- */
 export const CardSortSchema = z
   .enum(['name_asc', 'name_desc', 'price_desc', 'price_asc'])
   .default('name_asc');
@@ -24,54 +18,24 @@ const filterText = (max: number) =>
     .max(max)
     .refine((value) => !value.includes('\u0000'), 'must not contain a NUL character');
 
-/**
- * Every filter is optional and absent means "no filter".
- */
 export const CardSearchQuerySchema = PaginationQuerySchema.extend({
   q: filterText(100).optional(),
   set: filterText(64).optional(),
   rarity: filterText(64).optional(),
-  /**
-   * One type, matched by array containment. A card carries at most two, and the
-   * FilterBar is a single dropdown.
-   */
   type: filterText(32).optional(),
-  /**
-   * Added by the facets ticket rather than by the search ticket. The facets
-   * endpoint has to return supertypes, and a facet nobody can filter by is a
-   * list of values the API advertises and then rejects.
-   */
   supertype: filterText(32).optional(),
   sort: CardSortSchema,
 });
 export type CardSearchQuery = z.infer<typeof CardSearchQuerySchema>;
 
-/**
- * Named `CardSearchResult` rather than `CardPage`, because
- * `sync/providers/card-source-provider.ts` already exports a `CardPage` - the
- * provider-side page of a fetch. Two types with one name in one codebase is a
- * collision waiting for the file that imports both.
- */
 export const CardSearchResultSchema = pageOf(CardSchema);
 export type CardSearchResult = z.infer<typeof CardSearchResultSchema>;
 
-/**
- * A set plus how many cards the mirror holds for it, which is not the same as
- * `total`: `total` is what the provider says the set contains, and `cardCount`
- * is what we actually have. They differ while a sync is still filling in pages.
- */
 export const SetDetailSchema = CardSetSchema.extend({
   cardCount: z.number().int().min(0),
 });
 export type SetDetail = z.infer<typeof SetDetailSchema>;
 
-/**
- * One shape for all four facets, so a filter dropdown has one renderer.
- *
- * `label` differs from `value` only for sets, where the value is an id like
- * `base1` and nobody wants that in a dropdown. Keeping the field on the other
- * three costs a duplicated string and saves the frontend a special case.
- */
 export const FacetValueSchema = z.object({
   value: z.string(),
   label: z.string(),
@@ -79,11 +43,6 @@ export const FacetValueSchema = z.object({
 });
 export type FacetValue = z.infer<typeof FacetValueSchema>;
 
-/**
- * Global counts over the whole mirror, not counts conditional on the filters
- * already applied. Conditional facets cannot share one cache key, and
- * docs/Architecture.md section 8 gives this one key with a 24h TTL.
- */
 export const CatalogFacetsSchema = z.object({
   sets: z.array(FacetValueSchema),
   rarities: z.array(FacetValueSchema),

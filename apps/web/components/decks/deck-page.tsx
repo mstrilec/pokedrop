@@ -43,8 +43,6 @@ export function DeckPage({
   const deck = useDeck(id, initial, initialAt);
   const queryClient = useQueryClient();
 
-  // A cached copy younger than the stale time beats initialData even when the server just read
-  // a newer one (another tab saved): the newer server copy wins.
   useEffect(() => {
     const key = keys.decks.detail(id);
     const cached = queryClient.getQueryData<DeckDetail>(key);
@@ -53,7 +51,6 @@ export function DeckPage({
     }
   }, [queryClient, id, initial, initialAt]);
 
-  // Deleted, or made private, while open: the next refetch answers 404.
   if (deck.error instanceof ApiError && deck.error.statusCode === 404) notFound();
   if (deck.data === undefined) {
     return deck.isError ? (

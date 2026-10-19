@@ -21,9 +21,7 @@ function ruleText(rule: DeckRule, v: DeckValidation): string {
 
 type DeckValidationBannerProps = {
   validation: DeckValidation;
-  /** Names for the cards issues point at; an unknown id shows as itself. */
   cardNames: Record<string, string>;
-  /** Called with the card an issue is about: scroll to it and highlight it (`focusDeckSlot`). */
   onSelectCard: (cardId: string) => void;
   className?: string;
 };

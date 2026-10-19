@@ -53,13 +53,11 @@ function parse(raw: string | null): PendingVerification | null {
 
 const noSubscription = () => () => {};
 
-/** null on the server and until the browser has read storage. */
 export function usePendingVerification(): PendingVerification | null {
   const raw = useSyncExternalStore(noSubscription, readRaw, () => null);
   return parse(raw);
 }
 
-/** Where a verification link lands once the address is confirmed. */
 export function verifiedCallbackUrl(): string {
   return `${window.location.origin}/verify-email?verified=1`;
 }

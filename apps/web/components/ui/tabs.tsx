@@ -12,7 +12,6 @@ type TabsProps<V extends string> = {
   tabs: readonly TabItem<V>[];
   value: V;
   onValueChange: (value: V) => void;
-  /** Names the tab list for assistive tech, e.g. "Trades". */
   label: string;
   children?: ReactNode;
   className?: string;
@@ -70,12 +69,10 @@ export function TabsPanel({
   );
 }
 
-/** The selected tab lives in `?<param>=`; the first value is the default and stays out of the URL. */
 export function useUrlTab<V extends string>(
   param: string,
   values: readonly [V, ...V[]],
 ): [V, (value: V) => void] {
-  // Keyed by content, so a caller may pass an inline array without re-creating the schema.
   const key = values.join('|');
   const schema = useMemo(() => {
     const list = key.split('|') as [V, ...V[]];

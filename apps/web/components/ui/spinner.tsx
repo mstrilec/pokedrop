@@ -1,10 +1,8 @@
 import { cn } from '@/lib/utils';
 
 type SpinnerProps = {
-  /** Diameter in px. */
   size?: number;
   label?: string;
-  /** Show the label beside the ring instead of only to assistive tech. */
   showLabel?: boolean;
   className?: string;
 };

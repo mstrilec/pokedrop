@@ -32,7 +32,6 @@ import {
 import { toastSuccess } from '@/lib/toast';
 import { FORMAT_LABELS, formatLabel } from './deck-format';
 
-// The API's rules for a new deck's name and format, with sentences for people.
 const NewDeckSchema = z.object({
   name: z
     .string()
@@ -43,7 +42,6 @@ const NewDeckSchema = z.object({
 });
 type NewDeck = z.infer<typeof NewDeckSchema>;
 
-/** With `addCardId`, the new deck opens with that card added as an unsaved change. */
 export function NewDeckDialog({
   open,
   onClose,

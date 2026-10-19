@@ -15,7 +15,6 @@ import { useUpdateMe } from '@/lib/query/account';
 import { toastSuccess } from '@/lib/toast';
 import { SettingsSection } from './settings-section';
 
-// The shared rules; an empty avatar field is "no avatar", which the API takes as null.
 const ProfileFormSchema = z.object({
   displayName: ProfileIdentitySchema.shape.displayName,
   avatarUrl: z.literal('').or(ProfileIdentitySchema.shape.avatarUrl.unwrap()),
@@ -41,7 +40,6 @@ export function ProfileSettings({ me }: { me: MyProfile }) {
       });
       form.reset({ displayName: saved.displayName, avatarUrl: saved.avatarUrl ?? '' });
       toastSuccess('Profile saved');
-      // The shell's name and avatar come from the server render.
       router.refresh();
     } catch (error) {
       applyApiError(form, error);

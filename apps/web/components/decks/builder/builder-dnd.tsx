@@ -38,7 +38,6 @@ const dataOf = (active: Active) => active.data.current as DragData;
 
 const copies = (n: number) => `${n} ${n === 1 ? 'copy' : 'copies'}`;
 
-// The keyboard moves a card between the two zones only: right to the deck, left to the pool.
 const jumpBetweenZones: KeyboardCoordinateGetter = (event, { context }) => {
   if (event.code !== 'ArrowRight' && event.code !== 'ArrowLeft') return undefined;
   event.preventDefault();
@@ -60,7 +59,6 @@ export function BuilderDnd({ enabled, children }: { enabled: boolean; children: 
     useSensor(KeyboardSensor, { coordinateGetter: jumpBetweenZones }),
   );
 
-  // What a drop does, in words and in deed; the announcement and the handler share it.
   const outcome = (data: DragData, over: string | null) => {
     const { name, id } = data.card;
     const count = countIn(cards, id);
@@ -89,7 +87,6 @@ export function BuilderDnd({ enabled, children }: { enabled: boolean; children: 
         data.from === POOL_ZONE ? 'right to move it to the deck' : 'left to move it to the pool';
       return `Picked up ${data.card.name} from ${ZONE_NAMES[data.from]}. Arrow ${way}, Space to drop, Escape to cancel.`;
     },
-    // A drag starts over its own zone; saying so would cut the pick-up instructions short.
     onDragOver: ({ active: dragged, over }) => {
       if (over?.id === dataOf(dragged).from) return undefined;
       return over ? `Over ${ZONE_NAMES[over.id as Zone]}` : 'Not over a drop area';

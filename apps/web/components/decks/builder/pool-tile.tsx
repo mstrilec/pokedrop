@@ -12,13 +12,10 @@ import { type DragData, POOL_ZONE } from './builder-dnd';
 
 type PoolTileProps = {
   card: PlayableCard;
-  /** The member's copies; absent while unknown. */
   owned?: Owned;
   inDeck: number;
-  /** Why *+ Add* refuses, from `addRefusal`; null when it may add. */
   refusal: string | null;
   onAdd: (card: PlayableCard, available?: number) => void;
-  /** The art is a drag handle (from 1024 px). */
   draggable: boolean;
 };
 
@@ -102,5 +99,4 @@ function PoolTileImpl({ card, owned, inDeck, refusal, onAdd, draggable }: PoolTi
   );
 }
 
-// The pool renders dozens of these; a draft change must re-render only the tiles it touches.
 export const PoolTile = memo(PoolTileImpl);

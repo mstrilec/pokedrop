@@ -9,12 +9,10 @@ import { cn } from '@/lib/utils';
 type Step = {
   key: keyof OnboardingProgress;
   label: string;
-  /** What the first open step's button says. */
   action: string;
   href: string;
 };
 
-// In the order a new collector meets them; each is ticked by what the API finds.
 const STEPS: Step[] = [
   {
     key: 'emailVerified',
@@ -32,7 +30,6 @@ const STEPS: Step[] = [
   { key: 'madeTrade', label: 'Complete a trade', action: 'Propose a trade', href: '/trades/new' },
 ];
 
-/** `1 of 4`, the steps as chips, and the next one as the button; gone once all are done. */
 export function OnboardingChecklist({ progress }: { progress: OnboardingProgress }) {
   const done = STEPS.filter((step) => progress[step.key]).length;
   const next = STEPS.find((step) => !progress[step.key]);

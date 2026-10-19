@@ -8,12 +8,9 @@ import { prefersReducedMotion } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
 type CurrencyPillProps = {
-  /** `null` while the balance is unknown. */
   amount: number | null;
   size?: 'sm' | 'md';
-  /** A link to the wallet, or a plain figure. */
   interactive?: boolean;
-  /** Count from the old balance to the new one and flash the difference. */
   animate?: boolean;
   className?: string;
 };
@@ -22,7 +19,6 @@ const full = new Intl.NumberFormat('en-US');
 const COUNT_MS = 600;
 const DELTA_MS = 1800;
 
-// The CSS reduced-motion rule cannot reach a count driven by requestAnimationFrame.
 function useCountTo(target: number | null, enabled: boolean): number | null {
   const [shown, setShown] = useState(target);
   const from = useRef(target);

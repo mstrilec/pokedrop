@@ -31,7 +31,6 @@ export function CounterpartyPicker({
   const input = useRef<HTMLInputElement>(null);
   const focusNext = useRef<'change' | 'input' | null>(null);
 
-  // The chip and the field replace each other; focus moves to whichever appeared.
   useEffect(() => {
     if (focusNext.current === 'change') changeButton.current?.focus();
     if (focusNext.current === 'input') input.current?.focus();

@@ -16,7 +16,6 @@ export function joinedText(joinedAt: Date): string {
   return joinedAt.toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 }
 
-/** The public profile: the same for every visitor; the owner's extras come from `OwnProfile`. */
 export function ProfilePage({
   profile,
   decks,
@@ -25,7 +24,6 @@ export function ProfilePage({
   decks: DeckPage | null;
 }) {
   const { collection, completion } = profile;
-  // The sets furthest along, as a share of the set.
   const highlights = completion
     ? [...completion.setCompletion]
         .filter((set) => set.total > 0)

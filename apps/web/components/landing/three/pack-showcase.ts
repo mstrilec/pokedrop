@@ -14,7 +14,6 @@ export type PackShowcaseOptions = {
 };
 
 export type PackShowcaseHandle = {
-  /** 0 sealed … 1 fanned out; the page owns the scroll and maps it here. */
   setProgress(progress: number): void;
   setCompact(compact: boolean): void;
   dispose(): void;
@@ -181,10 +180,6 @@ precision highp float;
 uniform float uOpacity; uniform vec3 uColor; varying vec2 vUv;
 void main(){ float r = length(vUv - 0.5) * 2.0; float a = smoothstep(1.0, 0.0, r); gl_FragColor = vec4(mix(uColor, vec3(1.0), a * a), a * uOpacity); }`;
 
-/**
- * The booster pouch in 3D: shakes, tears at the top, and fans its cards out in
- * an arc as `setProgress` goes from 0 to 1, in either direction.
- */
 export async function init(
   container: HTMLElement,
   opts: PackShowcaseOptions,
@@ -277,7 +272,6 @@ export async function init(
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 80);
 
-  // Pack: a body and a tear strip, both pillowed planes.
   const PW = 2.2;
   const PH = 3.52;
   const TEAR = 0.9;
@@ -351,7 +345,6 @@ export async function init(
   flash.position.set(0, PH / 2 - 0.3, 0.3);
   scene.add(flash);
 
-  // Cards
   const CW = 1.62;
   const CH = CW / 0.716;
   const cardGeo = new THREE.PlaneGeometry(CW, CH, 1, 1);
@@ -388,7 +381,6 @@ export async function init(
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     const t = Math.tan((camera.fov * Math.PI) / 360);
-    // Wide enough for the fanned arc of however many cards there are.
     const { R, spread } = arc();
     const needW = 2 * R * Math.sin((spread * (cardMeshes.length - 1)) / 2) + CW + 1.4;
     const needH = compact ? 5.6 : 5.0;
@@ -421,7 +413,6 @@ export async function init(
     flashMat.uniforms.uOpacity!.value = seg(p, 0.18, 0.27) * (1 - seg(p, 0.27, 0.42)) * 1.2;
     pack.visible = p < 0.66;
     hinge.visible = p < 0.37;
-    // Rise out of the pouch, then fan into an arc and flip face-up.
     const rise = seg(p, 0.26, 0.5);
     const { R, spread } = arc();
     const sweep = lerp(-2.2, 2.6, seg(p, 0.8, 0.97));

@@ -9,13 +9,6 @@ const SERVER_ERROR_FLOOR = 500;
 const BACKOFF_BASE_MS = 250;
 const RATE_LIMIT_BACKOFF_MS = 5_000;
 
-/**
- * No 429 has ever been observed from this provider - this client answered 10
- * of 10 and 64 of 64 under concurrency with no rate limiting seen at any
- * level. So this cap is insurance against a `Retry-After` that would otherwise
- * park a pool worker indefinitely (the 20-second `AbortSignal.timeout` covers
- * only the fetch, not the sleep), not a limit shaped by a measured need.
- */
 const MAX_RETRY_AFTER_MS = 60_000;
 
 export interface TcgdexHttpOptions {
@@ -24,11 +17,7 @@ export interface TcgdexHttpOptions {
   timeoutMs: number;
   maxAttempts: number;
   onRetry?: (attempt: number, reason: string) => void;
-  /**
-   * Awaited immediately before every request, including each retry. This is
-   * where the daily request budget is counted, and counting retries is the
-   * whole point: against this upstream they are most of what a sweep spends.
-   */
+  /** Awaited before every request, retries included: this is where the daily budget is counted. */
   onRequest?: () => Promise<void>;
 }
 
@@ -49,23 +38,6 @@ function retryAfterMs(response: Response): number | null {
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
-/**
- * The only place this provider calls the network.
- *
- * Three attempts rather than the primary's five. That client is built around an
- * upstream where 6 of 20 requests succeed; this one answered 10 of 10 and 64 of
- * 64 under concurrency, so a budget sized for the other provider would only
- * lengthen the wait before a real failure surfaces.
- *
- * A 404 returns null instead of throwing. The brief index and the detail
- * endpoint are separate views of the same catalog and can disagree, and one
- * absent card must cost one card rather than the page it sits in.
- *
- * The return type is `unknown` rather than `unknown | null`, because those are
- * the same type - `unknown` already admits null, and writing the union earns an
- * eslint no-redundant-type-constituents error. Callers still test `=== null`,
- * which TypeScript permits on `unknown`.
- */
 export async function getJson(path: string, options: TcgdexHttpOptions): Promise<unknown> {
   const url = `${options.baseUrl}/${options.language}${path}`;
   let lastReason = 'no attempt was made';

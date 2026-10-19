@@ -66,10 +66,6 @@ export class AdminSyncService {
     };
   }
 
-  /**
-   * Each section is read on its own, so one dependency down costs that section
-   * and not the page - the page an operator reads during exactly that incident.
-   */
   async status(): Promise<SyncStatusResponse> {
     const [runs, queues, breakers] = await Promise.all([
       this.section('runs', () => this.lastRunPerKind()),
@@ -77,8 +73,6 @@ export class AdminSyncService {
       this.section('breakers', () => this.breakerStates()),
     ]);
 
-    // With the breakers unreadable the selector treats every breaker as closed,
-    // so the primary is what the next run would really choose.
     const open = new Set(
       (breakers ?? [])
         .filter((breaker) => breaker.openUntil !== null)
@@ -131,11 +125,6 @@ export class AdminSyncService {
     );
   }
 
-  /**
-   * True when nothing will ever close this row: its job is gone, finished, or
-   * was never recorded. A job that is waiting, delayed or running will close
-   * it, or its final failure will.
-   */
   private async isStale(row: SyncRun): Promise<boolean | null> {
     if (row.jobId === null) {
       return true;
@@ -170,11 +159,6 @@ export class AdminSyncService {
     );
   }
 
-  /**
-   * Read straight from Redis rather than through ProviderBreakerService, which
-   * would pull the sync layer's providers into the API's admin module. An open
-   * key without a TTL still counts as open, as isOpen() reads it.
-   */
   private async breakerStates(): Promise<ProviderBreakerStateDto[]> {
     return Promise.all(
       CARD_SOURCE_NAMES.map(async (provider) => {
@@ -196,10 +180,6 @@ export class AdminSyncService {
   }
 }
 
-/**
- * -2 is no key, a closed breaker. -1 is a key with no expiry: open, with no
- * end, reported a cooldown from now so the page shows it open.
- */
 export function openUntilOf(ttl: number): Date | null {
   if (ttl === -2) {
     return null;

@@ -8,11 +8,8 @@ import { BoosterPack } from './booster-pack';
 
 type PackTemplateCardProps = {
   template: { name: string; cost: number; cardCount: number; guarantee: string };
-  /** The wrapper's art; null draws a plain one. */
   art: PackArt | null;
-  /** A ribbon such as `Latest` or `Premium`; decorative, never the only signal. */
   tag?: string;
-  /** The member's coins; below the cost the pack cannot be opened, and says why. */
   balance?: number | null;
   onOpen: () => void;
   className?: string;

@@ -1,9 +1,7 @@
 import { speciesFor } from '@/lib/pokeapi';
 
-// The highest base stat any Pokémon has (Blissey's HP); the bars share one scale.
 const STAT_MAX = 255;
 
-/** The video-game Pokédex entry; nothing at all when PokéAPI cannot answer. */
 export async function CardSpecies({ dex }: { dex: number }) {
   const species = await speciesFor(dex);
   if (!species) return null;

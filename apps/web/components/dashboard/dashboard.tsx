@@ -136,7 +136,6 @@ function tradeActivity(trade: TradeView): Activity {
   const { give, get } = sides(trade);
   return {
     id: `trade-${trade.id}`,
-    // A closed trade happened when it closed.
     at: trade.resolvedAt ?? trade.createdAt,
     icon: ArrowLeftRight,
     text: `Trade with ${other.displayName} · ${TRADE_STATUS_STYLES[trade.status].label}`,
@@ -206,7 +205,6 @@ function RecentActivity() {
 
 function SetProgress() {
   const summary = useInventorySummary();
-  // The sets furthest along, as a share of the set.
   const sets = (summary.data?.setCompletion ?? [])
     .filter((set) => set.owned > 0 && set.total > 0)
     .sort((a, b) => b.owned / b.total - a.owned / a.total || b.owned - a.owned)

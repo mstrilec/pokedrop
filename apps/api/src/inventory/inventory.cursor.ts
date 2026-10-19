@@ -26,8 +26,6 @@ const PayloadSchema = z.object({
   id: z.string().regex(/^[\w-]{1,64}$/),
 });
 
-// Anything PostgreSQL cannot compare - an Invalid Date, an unparseable Decimal,
-// a NUL, year 0000 - would surface as a 500 rather than a 400.
 const VALUE_RULES: Record<SortKey, z.ZodType<string | null>> = {
   acquiredAt: z.iso.datetime().refine((value) => !value.startsWith('0000')),
   name: z.string().min(1),

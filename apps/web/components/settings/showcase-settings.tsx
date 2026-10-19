@@ -20,7 +20,6 @@ function Status({ children }: { children: string }) {
   return <p className="py-8 text-center text-small text-mut">{children}</p>;
 }
 
-// Mounted only while the dialog is open, so the collection is not read until then.
 function ShowcasePicker({
   refusal,
   onPick,
@@ -70,7 +69,6 @@ function ShowcasePicker({
   );
 }
 
-/** Every change saves at once, like the privacy toggles. */
 export function ShowcaseSettings({ me }: { me: MyProfile }) {
   const update = useUpdateMe();
   const [open, setOpen] = useState(false);

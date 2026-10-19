@@ -5,7 +5,6 @@ import { openPack, packHistory, packTemplates } from '@/lib/api/endpoints/packs'
 import { mutationKeys } from './invalidation';
 import { keys } from './keys';
 
-// Each opening is a row of card tiles, so a page holds fewer than the API's default.
 const HISTORY_PAGE_SIZE = 10;
 
 export function usePackHistory() {

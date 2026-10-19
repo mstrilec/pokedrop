@@ -3,12 +3,6 @@ export interface ChosenProvider<T extends string> {
   isFallback: boolean;
 }
 
-/**
- * The primary unless its breaker is open, then the first other provider in
- * registration order whose breaker is closed, else none. Pure so the admin
- * status can report what the next run would choose without importing the
- * providers module.
- */
 export function chooseProvider<T extends string>(
   primary: T,
   names: readonly T[],

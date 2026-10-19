@@ -3,7 +3,6 @@ import { token } from './tokens';
 
 export type HeroCardOptions = {
   image: string;
-  /** The element whose pointer movement tilts the card. */
   pointerTarget: HTMLElement;
   onReady: () => void;
   onFallback: (reason: string) => void;
@@ -43,10 +42,6 @@ void main(){
   gl_FragColor = vec4(col, a);
 }`;
 
-/**
- * The hero's Charizard as a 3D holo card that tilts toward the pointer. Loads
- * three.js itself; the caller has already decided the device can take it.
- */
 export async function init(container: HTMLElement, opts: HeroCardOptions): Promise<HeroCardHandle> {
   const { image, pointerTarget, onReady, onFallback } = opts;
 

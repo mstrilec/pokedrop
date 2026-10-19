@@ -1,7 +1,6 @@
 /**
- * BullMQ's connection waits for Redis rather than giving up, so an admin read
- * against a dead Redis would hang the request. Two seconds is past any healthy
- * round trip and short enough for a page an operator is waiting on.
+ * BullMQ's connection waits for Redis rather than failing, so an admin read against a dead Redis
+ * would hang the request without this.
  */
 export const ADMIN_REDIS_TIMEOUT_MS = 2_000;
 

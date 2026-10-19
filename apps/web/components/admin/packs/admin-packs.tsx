@@ -20,9 +20,7 @@ const cardsIn = (template: PackTemplate) =>
 
 export function AdminPacks() {
   const templates = useAdminPackTemplates();
-  // `null` is a new template; undefined, nothing chosen yet (the first one shows).
   const params = useSearchParams();
-  // `?template=` from the audit log's links.
   const [chosen, setChosen] = useState<string | null | undefined>(
     () => params.get('template') ?? undefined,
   );

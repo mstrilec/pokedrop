@@ -20,7 +20,6 @@ const loadCard = cache(async (id: string) => {
   }
 });
 
-// The set and the price history are extras: the page renders without either.
 const loadSet = cache((setId: string) => serverApi.call(set(setId)).catch(() => null));
 
 const loadPage = cache(async (id: string) => {

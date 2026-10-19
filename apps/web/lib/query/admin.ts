@@ -58,7 +58,6 @@ export function useAdminPackTemplates() {
   });
 }
 
-/** Create without an id, edit with one; the form reports a refusal itself. */
 export function useSavePackTemplate() {
   return useMutation({
     mutationKey: mutationKeys.savePackTemplate,
@@ -81,7 +80,6 @@ export function useSavePackTemplate() {
 const ACTIVE_POLL_MS = 2_000;
 const IDLE_POLL_MS = 15_000;
 
-/** Something queued or running: either kind's queue holds a job, or a run is open and alive. */
 export function syncBusy(status: SyncStatusResponse | undefined): boolean {
   if (!status) return false;
   const queued = (status.queues ?? []).some(
@@ -95,7 +93,6 @@ export function syncBusy(status: SyncStatusResponse | undefined): boolean {
   return queued || running;
 }
 
-/** Polled every 2 s while a sync is queued or running, so its progress moves on the page. */
 export function useSyncStatus() {
   return useQuery({
     queryKey: keys.admin.sync,
@@ -133,7 +130,6 @@ export type UserAction =
   | { kind: 'suspend'; user: AdminUserRow; reason: string }
   | { kind: 'unsuspend'; user: AdminUserRow };
 
-/** What the row will read once the server agrees; shown at once, put back if it refuses. */
 function expected(action: UserAction): Partial<AdminUserRow> {
   switch (action.kind) {
     case 'grant':
@@ -202,7 +198,6 @@ export function useAdminTrade(id: string, initial?: TradeDetail, initialAt?: num
   });
 }
 
-/** Fresh every time the dialog opens: a check is only as good as the moment it ran. */
 export function useVoidCheck(id: string, enabled: boolean) {
   return useQuery({
     queryKey: keys.admin.voidCheck(id),

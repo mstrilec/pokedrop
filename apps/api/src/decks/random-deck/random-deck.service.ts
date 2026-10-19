@@ -40,7 +40,6 @@ export class RandomDeckService {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
-  /** Read from the ~180 basic Energy printings, not from the whole pool. */
   async types(): Promise<RandomDeckTypes> {
     const energies = await this.prisma.card.findMany({
       where: { supertype: 'Energy', subtypes: { has: 'Basic' } },
@@ -64,8 +63,6 @@ export class RandomDeckService {
     if (request.seed !== undefined && this.config.app.isProduction) {
       throw new BadRequestException('seed is only accepted in development');
     }
-    // Decided by the format, not the member's pool: a type they own no Energy of gets the
-    // shortfall sentence, not this 400.
     const allowed = (await this.types())[request.format];
     for (const type of request.types) {
       if (!allowed.includes(type)) {
@@ -128,7 +125,6 @@ export class RandomDeckService {
             ]
           : [];
       }),
-      // Any card: nothing is owned for the check, so ownership is only ever a warning.
       available: request.ownedOnly
         ? new Map(result.cards.map(({ cardId }) => [cardId, available.get(cardId) ?? 0]))
         : new Map(),

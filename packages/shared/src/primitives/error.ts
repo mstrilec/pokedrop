@@ -1,9 +1,5 @@
 import { z } from 'zod';
 
-/**
- * Stable machine-readable codes for domain errors. `message` is prose and may
- * change; clients branch on `code`.
- */
 export const ERROR_CODES = {
   INSUFFICIENT_FUNDS: 'INSUFFICIENT_FUNDS',
   PACK_UNAVAILABLE: 'PACK_UNAVAILABLE',

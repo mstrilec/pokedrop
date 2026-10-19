@@ -30,7 +30,6 @@ export async function generateMetadata({ params }: PageProps<'/profile/[id]'>): 
     .filter(Boolean)
     .join(' ');
   const url = `/profile/${encodeURIComponent(profile.id)}`;
-  // Without a showcase the group's own `opengraph-image` stands.
   const first = profile.showcase[0];
   const images = first
     ? [{ url: first.imageSmall, alt: `${first.name}, on ${profile.displayName}’s showcase` }]

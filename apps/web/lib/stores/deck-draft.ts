@@ -10,9 +10,6 @@ import {
 import { createStore } from 'zustand/vanilla';
 import { createStoreContext } from './context';
 
-// The deck being edited, before it is saved: the one place a card list is held outside
-// TanStack Query. Seeded from the server's copy; a newer copy replaces it only while it is
-// clean (`reset`), and a save replaces it only if nothing was edited meanwhile (`commit`).
 export type DeckDraft = {
   name: string;
   format: DeckFormat;
@@ -23,13 +20,9 @@ export type DeckDraft = {
 export interface DeckDraftStore {
   saved: DeckDraft;
   draft: DeckDraft;
-  /** What the validator, the rows and the charts read about each card in the draft. */
   cardsById: Record<string, PlayableCard>;
-  /** Available copies per card id; an absent id is not known yet. */
   available: Record<string, number>;
-  /** The server's verdict from the last save, shown until the next change. */
   verdict: DeckValidation | null;
-  /** `updatedAt` of the server copy `saved` came from, in ms. */
   basis: number;
   add: (card: PlayableCard, available?: number) => void;
   remove: (cardId: CardId) => void;
@@ -37,15 +30,12 @@ export interface DeckDraftStore {
   setName: (name: string) => void;
   setFormat: (format: DeckFormat) => void;
   setOwnedOnly: (ownedOnly: boolean) => void;
-  /** A generated deck: its cards replace the draft's, unsaved. */
   replaceCards: (
     entries: { cardId: CardId; count: number; card: PlayableCard }[],
     options: { format: DeckFormat; ownedOnly: boolean },
   ) => void;
   learnAvailable: (counts: Record<string, number>) => void;
-  /** Start again from a server copy: the first one, or a newer one while the draft is clean. */
   reset: (deck: DeckDetail) => void;
-  /** A save answered. `sent` is the draft it sent; edits made since stay, and stay dirty. */
   commit: (deck: DeckDetail, verdict: DeckValidation, sent: DeckDraft) => void;
 }
 

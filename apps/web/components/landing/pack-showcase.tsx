@@ -17,8 +17,6 @@ import {
 import type { PackShowcaseHandle } from './three/pack-showcase';
 import { useThreeMode } from './use-three-mode';
 
-// Eight cards the seed's Base Set Booster Pack can hold in one opening:
-// four Common, three Uncommon and its one rare slot.
 const FAN = [
   { id: 'base1-58', name: 'Pikachu', rarity: 'Common' },
   { id: 'base1-44', name: 'Bulbasaur', rarity: 'Common' },
@@ -33,8 +31,6 @@ const FAN = [
 const STAGES = ['Sealed', 'Torn open', 'Revealed'];
 const stageOf = (p: number) => (p < 0.12 ? 0 : p < 0.5 ? 1 : 2);
 
-// The poster's fan: an arc of radius R, `spread` radians between cards, narrow
-// enough that eight cards stay inside the stage column.
 function fanTransform(i: number, R: number, spread: number, lift: number) {
   const th = (i - (FAN.length - 1) / 2) * spread;
   const x = R * Math.sin(th);
@@ -49,8 +45,6 @@ const FAN_STYLE = FAN.map(
     }) as CSSProperties,
 );
 
-// One loop of the opening, in seconds: sealed, tearing open into the fan,
-// revealed, and rewinding into the pack.
 const HOLD_SEALED = 1.2;
 const OPEN = 6;
 const HOLD_OPEN = 3.2;
@@ -85,7 +79,6 @@ export function PackShowcase({ signedIn }: { signedIn: boolean }) {
     let elapsed = 0;
     let last = 0;
 
-    // Time only runs while the section is on screen, so the loop resumes where it left off.
     const tick = (now: number) => {
       frame = 0;
       if (last) elapsed += (now - last) / 1000;

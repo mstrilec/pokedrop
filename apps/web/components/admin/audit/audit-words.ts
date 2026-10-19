@@ -28,7 +28,6 @@ export function actionWords(action: string): string {
 const str = (value: unknown) => (typeof value === 'string' ? value : null);
 const num = (value: unknown) => (typeof value === 'number' ? value : null);
 
-/** One line from `meta` for the actions whose shape is known; the raw JSON is under *Details*. */
 export function metaSummary(entry: AuditEntry): string | null {
   const m = entry.meta;
   const reason = str(m.reason);

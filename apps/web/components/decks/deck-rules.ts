@@ -13,10 +13,6 @@ type RuleCard = { id: string; name: string; supertype: string; subtypes: readonl
 
 export const NO_CHANGES = 'No changes to save';
 
-/**
- * How many copies of `card` the deck may hold, counting every other printing of its name;
- * Infinity for basic energy. The same key the API's validator uses, from @pokedrop/shared.
- */
 export function copiesAllowed(card: RuleCard, deck: { card: RuleCard; count: number }[]): number {
   const key = copyLimitKey(card);
   if (key === null) return Number.POSITIVE_INFINITY;
@@ -33,7 +29,6 @@ function entriesOf(cards: DeckCardInput[], cardsById: Record<string, RuleCard>) 
   });
 }
 
-/** The stepper's ceiling for a decklist row: the copy limit, or the request bound for energy. */
 export function slotMax(
   card: RuleCard,
   cards: DeckCardInput[],
@@ -42,7 +37,6 @@ export function slotMax(
   return Math.min(copiesAllowed(card, entriesOf(cards, cardsById)), MAX_DECK_CARD_COUNT);
 }
 
-/** Why one more copy of `card` cannot go in, or null. *+ Add* and a drop both ask. */
 export function addRefusal(
   card: RuleCard,
   cards: DeckCardInput[],
@@ -59,7 +53,6 @@ export function addRefusal(
   return null;
 }
 
-/** What keeps Save disabled: only what the API would refuse with a 400 (D4), or no change. */
 export function saveBlocker(draft: DeckDraft, dirty: boolean): string | null {
   if (!dirty) return NO_CHANGES;
   const name = draft.name.trim();

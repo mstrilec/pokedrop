@@ -88,7 +88,6 @@ export class AdminMetricsService {
     }
   }
 
-  /** Each a range scan on its own index; see docs/API.md, Admin / Metrics. */
   private async aggregates(from: string): Promise<Aggregates> {
     const [active, packs, proposed, resolved] = await Promise.all([
       this.prisma.$queryRaw<DayRow[]>`
@@ -133,7 +132,6 @@ export class AdminMetricsService {
   }
 }
 
-/** `days` UTC dates ending today, oldest first. */
 export function windowDays(now: Date, days: number): string[] {
   const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   return Array.from({ length: days }, (_, i) =>

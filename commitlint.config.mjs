@@ -1,10 +1,3 @@
-/**
- * PokeDrop commit convention: `[PD-12]: short lowercase description`.
- *
- * Deliberately NOT Conventional Commits. The ticket id has to survive in a
- * one-line `git log`, and with no pull requests in this workflow the commit
- * message is the only place the Linear issue is recorded.
- */
 const HEADER = /^\[PD-\d+\]: [a-z][^\n]*[^.\s]$/;
 
 const pokedrop = {

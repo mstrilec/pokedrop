@@ -5,7 +5,6 @@ import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 
 
 export type ChartMetric = 'packsOpened' | 'activeUsers' | 'tradesAccepted' | 'tradesProposed';
 
-/** One metric over the window; today's bar, still filling, is drawn faded. */
 export function MetricsChart({ series, metric }: { series: MetricsDay[]; metric: ChartMetric }) {
   const data = series.map((day) => ({
     day: day.day.slice(5),

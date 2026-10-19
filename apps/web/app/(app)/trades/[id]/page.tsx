@@ -6,8 +6,6 @@ import { ApiError } from '@/lib/api/core';
 import { trade } from '@/lib/api/endpoints/trades';
 import { serverApi } from '@/lib/api/server';
 
-// The API answers a trade to its two parties only, so anyone else gets the same 404 as an id
-// that never existed. One request for the page and its title.
 const loadTrade = cache(async (id: string) => {
   try {
     return { trade: await serverApi.call(trade(id)), at: Date.now() };

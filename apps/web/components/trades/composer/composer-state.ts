@@ -54,7 +54,6 @@ const clamp = (value: number, min: number, max: number) => Math.max(min, Math.mi
 export function composerReducer(state: ComposerState, action: ComposerAction): ComposerState {
   switch (action.type) {
     case 'counterparty':
-      // A counter's counterparty is the offer's initiator, fixed.
       return state.mode === 'counter' ? state : { ...state, counterparty: action.party };
     case 'add': {
       const lines = state[action.side];
@@ -98,7 +97,6 @@ export function composerReducer(state: ComposerState, action: ComposerAction): C
   }
 }
 
-/** The catalog's full card, as the slim card a trade line carries. */
 export function summaryOf(card: Card): InventoryCard {
   const { id, setId, name, supertype, subtypes, types, hp, rarity, imageSmall } = card;
   const { latestPriceUsd, latestPriceEur, priceUpdatedAt } = card;
@@ -113,7 +111,6 @@ export const cardCount = (lines: Line[]) => lines.reduce((sum, line) => sum + li
 export const lineText = (line: Line) =>
   `${line.count} × ${line.card.name} (${setNumber(line.card.id)})`;
 
-/** Why a picker may not add one more of `card` to `side`, or null. */
 export function pickRefusal(
   state: ComposerState,
   side: Side,
@@ -142,7 +139,6 @@ export function pickRefusal(
   return null;
 }
 
-/** What keeps *Review offer* disabled; empty when the offer can be reviewed. */
 export function composeProblems(
   state: ComposerState,
   {
@@ -202,7 +198,6 @@ const partyOf = ({ id, displayName, avatarUrl }: TradeParty | PublicProfile): Tr
   avatarUrl,
 });
 
-/** The composer as `?to=`, `?card=` and `?counter=` set it up, and what to tell the user. */
 export function initialState(input: InitialInput): {
   state: ComposerState;
   notices: string[];
@@ -230,7 +225,6 @@ export function initialState(input: InitialInput): {
         mode: 'counter',
         counteredId: trade.id,
         counterparty: partyOf(trade.initiator),
-        // What they asked of me is what I give; what they offered is what I get.
         give: lines('REQUESTED'),
         get: lines('OFFERED'),
         coinsGive: trade.currencyFromRecipient,

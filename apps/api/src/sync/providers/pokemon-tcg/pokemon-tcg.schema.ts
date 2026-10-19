@@ -2,12 +2,6 @@ import { z } from 'zod';
 
 export const RawPricesSchema = z.record(z.string(), z.unknown());
 
-/**
- * Almost every field is optional because the upstream treats its own schema as
- * advisory: `printedTotal` is absent on the newest set in the catalog, and `hp`
- * arrives as a string. This file says only what we are willing to receive; the
- * mapper is where those become our types.
- */
 export const RawSetSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -69,9 +63,8 @@ export const RawCardSchema = z.object({
 export type RawCard = z.infer<typeof RawCardSchema>;
 
 /**
- * `data` stays `unknown[]` deliberately. Parsing the items here would make one
- * malformed card fail the whole page, which is exactly what CardPage.skipped
- * exists to avoid: the envelope is validated, the items one at a time.
+ * `data` stays `unknown[]`: items are parsed one at a time, so one malformed card cannot fail
+ * the page.
  */
 export const ListEnvelopeSchema = z.object({
   data: z.array(z.unknown()),

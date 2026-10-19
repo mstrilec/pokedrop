@@ -32,8 +32,6 @@ export function toTemplateView(template: PackTemplate, art: PackArt): PackTempla
   });
 }
 
-// A slot's most common rarity is its floor, the same ladder the generator
-// walks: "1 Rare or better" means every other rarity in that slot is rarer.
 function guaranteeOf(contents: PackTemplateContents): string {
   const parts = contents.slots.flatMap((slot) => {
     const floor = slot.odds[0];

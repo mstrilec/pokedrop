@@ -1,13 +1,3 @@
-# Local development services for PokeDrop.
-#
-# Postgres is the source of truth; Redis backs both the read cache and the
-# BullMQ queues. Neither is reachable from the outside world — these are dev
-# containers with deliberately weak, well-known credentials.
-#
-#   cp .env.example .env && docker compose up -d
-#
-# See the "Local development" section of README.md.
-
 name: pokedrop
 
 services:
@@ -19,16 +9,13 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-      # Without this the cluster is initialised with the host's locale, which
-      # makes index collation differ between machines.
+      # --locale=C: the price sweep's id comparisons depend on byte-order collation.
       POSTGRES_INITDB_ARGS: '--encoding=UTF8 --locale=C'
     ports:
       - '${POSTGRES_PORT:-5432}:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      # Without a healthcheck, `up -d` returns before Postgres accepts
-      # connections and the first migration of the session fails.
       test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
       interval: 5s
       timeout: 5s
@@ -39,8 +26,7 @@ services:
     image: redis:7.4-alpine
     container_name: pokedrop-redis
     restart: unless-stopped
-    # AOF rather than RDB snapshots: BullMQ jobs enqueued in the seconds before
-    # a crash would otherwise be lost.
+    # AOF: queued BullMQ jobs must survive a crash.
     command: ['redis-server', '--appendonly', 'yes', '--save', '']
     ports:
       - '${REDIS_PORT:-6379}:6379'
@@ -53,12 +39,6 @@ services:
       retries: 10
       start_period: 5s
 
-  # A local mail sink. Nothing it receives ever leaves this machine.
-  #
-  # Chosen over a vendor's sandbox for its HTTP API on 8025: a measurement can
-  # pull the verification link out of a received message and follow it, which is
-  # the difference between "a mail was probably sent" and "the link in the mail
-  # verifies the account".
   mailpit:
     image: axllent/mailpit:v1.31
     container_name: pokedrop-mailpit
@@ -67,7 +47,6 @@ services:
       - '${MAILPIT_SMTP_PORT:-1025}:1025'
       - '${MAILPIT_UI_PORT:-8025}:8025'
     healthcheck:
-      # Mailpit ships its own readiness probe; the image has no curl or wget.
       test: ['CMD', '/mailpit', 'readyz']
       interval: 5s
       timeout: 3s

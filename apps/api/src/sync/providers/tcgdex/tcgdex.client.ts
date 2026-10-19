@@ -22,23 +22,8 @@ import {
 const REQUEST_TIMEOUT_MS = 20_000;
 const MAX_ATTEMPTS = 3;
 
-/**
- * Eight. Nothing failed at sixteen and no 429 was seen at any level, so this is
- * not a limit the service imposed - it is one this project chose. TCGdex is
- * free and keyless and docs/PRD.md section 2 commits this project to free
- * infrastructure; being a guest on it is a constraint. Eight sweeps the catalog
- * far faster than the primary manages, and the remaining headroom is not ours
- * to take. Note that 8 is an HTTP rate, not a sweep rate: a full catalog takes
- * 15 to 25 minutes, because each page also opens a transaction and upserts 250
- * rows between fetches.
- */
 const HYDRATION_CONCURRENCY = 8;
 
-/**
- * English only. The 14-language path is documented in docs/Architecture.md
- * section 3 and built by nothing in v1; hardcoding it here keeps the decision
- * visible instead of hiding it behind an environment variable nobody sets.
- */
 const LANGUAGE = 'en';
 
 const INDEX_TTL_MS = 3_600_000;
@@ -68,11 +53,6 @@ export class TcgdexClient implements CardSourceProvider {
     };
   }
 
-  /**
-   * One request for the list plus one per set - 221 in all, about 30 seconds.
-   * The list carries neither `releaseDate` nor `serie`, and SetDTO requires
-   * both, so there is no cheaper shape available.
-   */
   async fetchSets(): Promise<SetDTO[]> {
     const briefs = RawSetBriefListSchema.safeParse(await this.get('/sets'));
 
@@ -94,15 +74,6 @@ export class TcgdexClient implements CardSourceProvider {
     return sets;
   }
 
-  /**
-   * TCGdex has no bulk path to full cards: every filtered endpoint returns
-   * briefs. So a page is a slice of the brief index, hydrated one card at a
-   * time through a bounded pool.
-   *
-   * `setId` narrows the index rather than issuing a different request, because
-   * `/cards?set=` returns briefs too - the hydration cost is identical either
-   * way.
-   */
   async fetchCards(params: FetchCardsParams): Promise<CardPage> {
     const index = await this.loadIndex();
 
@@ -117,10 +88,6 @@ export class TcgdexClient implements CardSourceProvider {
     const items: CardDTO[] = [];
     const skipped: ProviderItemError[] = [];
 
-    // A brief with no image cannot become a CardDTO - imageSmall is a
-    // non-nullable URL - so it is reported rather than fetched. 1 749 of 23 736
-    // are in that state, and spending a request on each to fail anyway would
-    // add seven minutes to a sweep.
     const hydratable: RawCardBrief[] = [];
     for (const brief of slice) {
       if (brief.image === undefined) {
@@ -183,23 +150,7 @@ export class TcgdexClient implements CardSourceProvider {
     return prices;
   }
 
-  /**
-   * Sorted by id, so a page boundary is a property of the catalog rather than
-   * of the order this endpoint happened to answer in - the same page returns
-   * the same 250 cards on a resume.
-   *
-   * Cached for an hour so one sweep sees one snapshot. A resume after that
-   * refetches, and if cards were published in between the boundaries shift:
-   * some cards are fetched twice, which the guarded upsert absorbs, and some are
-   * missed, which the next sweep picks up. That is how this mirror already
-   * converges across runs.
-   *
-   * The TTL is checked on every `fetchCards` call, not only on a resume, so a
-   * single run lasting over an hour refetches mid-run - reachable, because the
-   * sync processor sets `hasMore` on any page failure and keeps going with no
-   * page ceiling. `total` and `hasMore` are then recomputed against the new
-   * index, so a shrunken index can end the page loop early.
-   */
+  /** Sorted by id, so the same page returns the same cards on a resume. */
   private async loadIndex(): Promise<CardIndex> {
     const now = Date.now();
     if (this.index !== null && now - this.index.fetchedAt < INDEX_TTL_MS) {
@@ -249,8 +200,6 @@ export class TcgdexClient implements CardSourceProvider {
       };
     }
 
-    // Destructured rather than tested in place, so the narrowing survives into
-    // the spread below without an assertion.
     const { image } = parsed.data;
     if (image === undefined) {
       return {
@@ -258,19 +207,8 @@ export class TcgdexClient implements CardSourceProvider {
       };
     }
 
-    // RawCardSchema and CardDTOSchema are two different contracts: a payload
-    // satisfying the raw one is not guaranteed to satisfy the DTO one, because
-    // the raw schema exists to describe what TCGdex sends, not to mirror every
-    // constraint the DTO imposes. A weakness with no `value` was exactly this
-    // gap - RawTypeValueSchema.value used to be optional, so such a card passed
-    // safeParse here and then threw a raw ZodError out of toCardDTO, which
-    // nothing caught: the pool worker rejected, Promise.all rejected, and
-    // fetchCards rejected - costing the whole 250-card page rather than the one
-    // card (pop1-9, pop1-11, pop2-6 on page 45). That specific hole is closed,
-    // but rarity being `''` against RaritySchema's min(1), a dexId below 1, a
-    // non-integer hp, or a non-URL image would all fail the same way, so this
-    // catch is what keeps any future DTO-only constraint from taking its page
-    // down with it.
+    // A payload can pass RawCardSchema and still fail the DTO. Without this catch the ZodError
+    // escapes the pool and costs the whole page rather than one card.
     try {
       return { item: toCardDTO({ ...parsed.data, image }) };
     } catch (error) {

@@ -3,7 +3,6 @@ import type { Prisma } from '@prisma/client';
 import type { TransactionClient } from '../prisma/index.js';
 
 export type AuditEntry = {
-  /** `null` means the system acted, never "a user who was removed". */
   actorId: string | null;
   action: string;
   entity: string;
@@ -12,9 +11,8 @@ export type AuditEntry = {
 };
 
 /**
- * Append-only by convention: there is no update or delete path here, and none
- * should be added. Takes the caller's transaction so a rolled-back action
- * leaves no row behind.
+ * Append-only: add no update or delete path. Takes the caller's transaction so a rolled-back
+ * action leaves no row.
  */
 @Injectable()
 export class AuditService {

@@ -1,6 +1,5 @@
 'use client';
 
-// Replaces the root layout when it fails, so it brings its own html and body.
 export default function GlobalError({
   error,
   retry,

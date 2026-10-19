@@ -16,7 +16,6 @@ type Cta = { label: string; icon?: LucideIcon } & (
   { href: string; onClick?: never } | { onClick: () => void; href?: never }
 );
 
-/** Never a dead end: a soft badge, one line of why, and the one thing to do next. */
 export function EmptyState({
   icon: Icon,
   title,

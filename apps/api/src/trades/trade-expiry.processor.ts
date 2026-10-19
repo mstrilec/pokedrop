@@ -9,10 +9,6 @@ export class TradeExpiryProcessor extends WorkerHost {
     super();
   }
 
-  /**
-   * Throws after the whole run when any trade failed, so BullMQ records the
-   * failure and retries; a retry is safe because expiry is idempotent.
-   */
   async process(job: Job): Promise<ExpiryResult> {
     const result = await this.expiry.run();
     if (result.failed > 0) {

@@ -13,7 +13,6 @@ export class DeckValidationService {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
-  /** Pass the caller's transaction so the verdict describes the rows it just wrote. */
   async validate(deckId: string, client: TransactionClient = this.prisma): Promise<DeckValidation> {
     const deck = await client.deck.findUnique({
       where: { id: deckId },

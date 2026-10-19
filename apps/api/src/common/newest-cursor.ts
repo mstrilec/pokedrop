@@ -3,7 +3,6 @@ import { z } from 'zod';
 
 export type NewestCursor = { createdAt: Date; id: string };
 
-// A value PostgreSQL cannot compare would surface as a 500, not a 400.
 const PayloadSchema = z.object({
   c: z.iso.datetime().refine((value) => !value.startsWith('0000')),
   id: z.string().regex(/^[\w-]{1,64}$/),

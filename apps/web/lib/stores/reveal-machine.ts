@@ -2,9 +2,7 @@ export type RevealStage = 'sealed' | 'opening' | 'reveal' | 'summary';
 
 export interface RevealState {
   stage: RevealStage;
-  /** Cards in the opened pack; the cards themselves stay in the mutation's result. */
   total: number;
-  /** The card being shown during `reveal`. */
   index: number;
   skipped: boolean;
 }
@@ -19,9 +17,6 @@ export type RevealEvent =
 
 export const SEALED: RevealState = { stage: 'sealed', total: 0, index: 0, skipped: false };
 
-// sealed → opening → reveal → summary → sealed. An event the current stage
-// does not accept returns the state unchanged, so no sequence of events can
-// reach a stage out of order or an index outside the pack.
 export function transition(state: RevealState, event: RevealEvent): RevealState {
   switch (state.stage) {
     case 'sealed':

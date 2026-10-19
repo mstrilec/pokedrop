@@ -4,10 +4,8 @@ import { cn } from '@/lib/utils';
 type AvatarProps = {
   name: string;
   src?: string | null;
-  /** Square side in px, 28–88. */
   size?: number;
   ring?: boolean;
-  /** Inside a control that already names the person, hide the avatar from assistive tech. */
   decorative?: boolean;
   className?: string;
 };

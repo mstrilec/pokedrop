@@ -16,15 +16,6 @@ export class CacheService {
 
   private readonly inFlight = new Map<string, Promise<unknown>>();
 
-  /**
-   * Per-process, in memory, and reset by a restart.
-   *
-   * Redis counters would survive and would aggregate across replicas, at the
-   * cost of an INCR on every read - doubling the round trips of the thing the
-   * cache exists to make cheap. There is one API process today; when PD-129
-   * runs replicas, an admin dashboard summing these will be reading one of
-   * them, and that is the moment to move them into Redis.
-   */
   private hits = 0;
   private misses = 0;
 
@@ -80,14 +71,6 @@ export class CacheService {
     return result.data;
   }
 
-  /**
-   * Hit and miss totals since this process started.
-   *
-   * A miss is counted once per `get` that did not return a value - including a
-   * Redis failure and a value dropped for not matching its schema, because from
-   * a caller's point of view all three are the same thing: the database has to
-   * be asked.
-   */
   stats(): { hits: number; misses: number } {
     return { hits: this.hits, misses: this.misses };
   }
@@ -117,10 +100,8 @@ export class CacheService {
   }
 
   /**
-   * A `null` from `loader` is stored but reads back as a miss, so a loader whose
-   * absence is meaningful re-runs on every request. Pass `schema` for anything
-   * carrying dates: JSON has no date type, so a cached `Date` returns a string
-   * while TypeScript goes on insisting it is a `Date`.
+   * A `null` from `loader` reads back as a miss, so it re-runs every time. Pass `schema` for
+   * anything carrying dates: a cached `Date` comes back as a string.
    */
   async getOrSet<T>(
     key: string,

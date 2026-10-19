@@ -9,18 +9,11 @@ import type { TradeRow } from './trade-row.js';
 export class TradeSettlementService {
   constructor(private readonly inventory: InventoryService) {}
 
-  /** Inside the accept transaction, after the guarded close. Coins before cards: see moveCoins. */
   async settle(tx: TransactionClient, trade: TradeRow): Promise<void> {
     await moveCoins(tx, trade, 'settle');
     await this.inventory.applyMoves(tx, cardMoves(trade));
   }
 
-  /**
-   * Inside the void transaction, after the guarded close from ACCEPTED. The
-   * settlement run backwards, taking only copies and coins the parties still
-   * have available - so a void either undoes the whole swap or, with the
-   * reason, changes nothing.
-   */
   async reverse(tx: TransactionClient, trade: TradeRow): Promise<void> {
     await moveCoins(tx, trade, 'reverse');
     try {
@@ -57,7 +50,6 @@ export function cardMoves(trade: TradeRow): InventoryMove[] {
   );
 }
 
-/** Every settled move inverted; a reversal gives from available copies only. */
 function reverseMoves(trade: TradeRow): InventoryMove[] {
   return cardMoves(trade).map((move) => ({
     userId: move.userId,

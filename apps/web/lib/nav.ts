@@ -25,7 +25,6 @@ export interface NavEntry {
   href: string;
   label: string;
   icon: IconName;
-  /** Active only on this exact path, not below it. */
   exact?: boolean;
 }
 

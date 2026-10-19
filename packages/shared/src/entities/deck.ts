@@ -13,7 +13,6 @@ export type DeckCard = z.infer<typeof DeckCardSchema>;
 
 export const DECK_NAME_MAX = 64;
 
-/** `format` is open on the way out, like the column; inputs are held to `DeckFormatSchema`. */
 export const DeckSchema = z.object({
   id: DeckIdSchema,
   userId: UserIdSchema,
@@ -31,10 +30,6 @@ export const DECK_FORMATS = ['standard', 'expanded', 'unlimited'] as const;
 export const DeckFormatSchema = z.enum(DECK_FORMATS);
 export type DeckFormat = z.infer<typeof DeckFormatSchema>;
 
-/**
- * Request bounds, not deck rules. Deck size and the copy limit belong to the
- * validation engine; these only keep a request from being absurd.
- */
 export const MAX_DECK_ENTRIES = 100;
 export const MAX_DECK_CARD_COUNT = 100;
 
@@ -62,7 +57,6 @@ export const CreateDeckSchema = z.strictObject({
 });
 export type CreateDeck = z.infer<typeof CreateDeckSchema>;
 
-/** `cards`, when present, replaces the whole decklist. */
 export const UpdateDeckSchema = z
   .strictObject({
     name: DeckNameSchema.optional(),
@@ -82,12 +76,10 @@ export type DeckEntry = z.infer<typeof DeckEntrySchema>;
 export const DeckDetailSchema = DeckSchema.extend({
   ownerDisplayName: z.string(),
   cards: z.array(DeckEntrySchema),
-  /** Configuration the builder reads instead of copying it: the deck size is `DECK_SIZE`. */
   rules: z.object({ deckSize: z.number().int().min(1) }),
 });
 export type DeckDetail = z.infer<typeof DeckDetailSchema>;
 
-/** `cardCount` is the sum of copies, not the number of distinct cards. */
 export const DeckSummarySchema = DeckSchema.omit({ cards: true }).extend({
   cardCount: z.number().int().min(0),
 });
@@ -99,17 +91,12 @@ export type DeckListQuery = z.infer<typeof DeckListQuerySchema>;
 export const DeckPageSchema = pageOf(DeckSummarySchema);
 export type DeckPage = z.infer<typeof DeckPageSchema>;
 
-/**
- * The owner's list: each deck with `valid`, the validator's verdict computed when read. Never
- * on a public shelf — the verdict depends on the owner's copies, which are private.
- */
 export const OwnDeckSummarySchema = DeckSummarySchema.extend({ valid: z.boolean() });
 export type OwnDeckSummary = z.infer<typeof OwnDeckSummarySchema>;
 
 export const OwnDeckPageSchema = pageOf(OwnDeckSummarySchema);
 export type OwnDeckPage = z.infer<typeof OwnDeckPageSchema>;
 
-/** One bar or slice, in the `{ name, value }` rows Recharts reads as they are. */
 export const ChartDatumSchema = z.object({
   name: z.string(),
   value: z.number().int().min(0),
@@ -118,12 +105,6 @@ export type ChartDatum = z.infer<typeof ChartDatumSchema>;
 
 export const DECK_SUPERTYPES = ['Pokémon', 'Trainer', 'Energy'] as const;
 
-/**
- * Every value counts copies. `supertypes` always holds the three supertypes in
- * that order, zeros included; `types` and `rarities` hold only what the deck
- * has, largest first. A dual-type Pokémon counts once under each type, so
- * `types` can sum past the Pokémon count.
- */
 export const DeckStatsSchema = z.object({
   totalCards: z.number().int().min(0),
   energyCount: z.number().int().min(0),
@@ -135,15 +116,10 @@ export type DeckStats = z.infer<typeof DeckStatsSchema>;
 
 export { DECK_MAX_COPIES } from '../decks/limits.js';
 
-/** A card's name without a printing suffix: `Charizard (Delta Species)` is a `Charizard`. */
 export function baseCardName(name: string): string {
   return name.replace(/ \([^)]*\)$/, '');
 }
 
-/**
- * What the copy limit counts by: every printing of a name shares one key. Basic energy is
- * unlimited and has none. The API's validator and the deck builder must agree on this.
- */
 export function copyLimitKey(card: {
   name: string;
   supertype: string;
@@ -168,11 +144,6 @@ export const DECK_ISSUE_CODES = [
 export const DeckIssueCodeSchema = z.enum(DECK_ISSUE_CODES);
 export type DeckIssueCode = z.infer<typeof DeckIssueCodeSchema>;
 
-/**
- * `code` and `params` are the localisable part; `message` is an English
- * fallback and may be reworded. `cardIds` addresses the decklist rows the
- * issue is about; `[]` means the whole deck.
- */
 export const DeckIssueSchema = z.object({
   severity: z.enum(['error', 'warning']),
   rule: DeckRuleSchema,
@@ -183,7 +154,6 @@ export const DeckIssueSchema = z.object({
 });
 export type DeckIssue = z.infer<typeof DeckIssueSchema>;
 
-/** One row per rule, always in `DECK_RULES` order; a warning never fails a rule. */
 export const DeckRuleResultSchema = z.object({
   rule: DeckRuleSchema,
   ok: z.boolean(),

@@ -39,7 +39,6 @@ const CHART: { key: ChartMetric; label: string }[] = [
 ];
 const CHART_KEYS = ['packsOpened', 'activeUsers', 'tradesAccepted', 'tradesProposed'] as const;
 
-/** `+12% on Oct 4` against the day before; `—` with nothing to compare. */
 function trendOf(current: number | null, previous: number | null, day: string) {
   if (current === null || previous === null) return { trend: undefined, tone: 'flat' as const };
   if (previous === 0) {

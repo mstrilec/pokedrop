@@ -24,9 +24,6 @@ const SIZES: Record<Size, { name: string; hp: string; icon: string; inset: strin
   },
 };
 
-// The design's abstract face: the card's energy as a gradient, its type glyph, name and HP.
-// It sits under the art, so it is the placeholder while the art loads and what stays when
-// the art fails.
 export function CardFace({ card, size = 'tile' }: { card: CardView; size?: Size }) {
   const energy = energyStyle(card.types[0] ?? 'Colorless');
   const Icon = energy.icon;
@@ -61,7 +58,6 @@ export function CardArt({
 }: {
   card: CardView;
   size?: Size;
-  /** The `sizes` attribute: how wide the art renders, so the optimizer sends no more. */
   sizes: string;
   preload?: boolean;
 }) {

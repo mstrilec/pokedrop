@@ -33,7 +33,6 @@ export default async function LandingPage() {
   const data = await landingData(signedIn);
 
   return (
-    // The page runs edge to edge: it undoes the padding both shells give their main.
     <div className="-m-8 overflow-x-clip">
       <Hero signedIn={signedIn} cardCount={data.cardCount} sets={data.sets} />
       <HowItWorks />

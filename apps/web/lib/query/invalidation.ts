@@ -37,9 +37,7 @@ export const INVALIDATES: Record<MutationName, readonly QueryKey[]> = {
   updateDeck: [keys.decks.all],
   cloneDeck: [keys.decks.all],
   deleteDeck: [keys.decks.all],
-  // A save's verdict counts the owner's copies; the builder's counts follow it.
   saveDeck: [keys.decks.all, keys.inventory.ownedAll, keys.progress],
-  // Settlement moves cards and coins both ways; a deck's verdict counts the copies it moved.
   acceptTrade: [
     keys.trades.all,
     keys.inventory.all,
@@ -49,21 +47,15 @@ export const INVALIDATES: Record<MutationName, readonly QueryKey[]> = {
     keys.notifications.all,
   ],
   declineTrade: [keys.trades.all, keys.notifications.all],
-  // The initiator's offered copies come back.
   cancelTrade: [keys.trades.all, keys.inventory.all, keys.notifications.all],
-  // A name or showcase shows on the public profile, and in the composer's search.
   updateMe: [keys.me, keys.profiles.all],
   revokeOtherSessions: [keys.sessions],
   changePassword: [keys.sessions],
-  // Members see an active template's odds and price.
   savePackTemplate: [keys.admin.packTemplates, keys.packs.all],
   triggerSync: [keys.admin.sync],
   resetBreaker: [keys.admin.sync],
-  // A grant moves a balance, a suspension voids trades: the overview's figures too.
   adminUserAction: [keys.admin.users, keys.admin.all],
-  // A void releases a lock or reverses a settlement: both parties' trades, cards and coins.
   voidTrade: [keys.admin.all, keys.trades.all, keys.inventory.all, keys.wallet.all, keys.me],
-  // The offered copies are locked now; the inbox and its counts change.
   proposeTrade: [keys.trades.all, keys.inventory.all, keys.notifications.all],
   counterTrade: [keys.trades.all, keys.inventory.all, keys.notifications.all],
 };

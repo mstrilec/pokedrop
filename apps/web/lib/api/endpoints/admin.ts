@@ -29,7 +29,6 @@ import { get, patch, post } from '../core';
 export const adminMetrics = (days: MetricsWindow) =>
   get('/admin/metrics', AdminMetricsSchema, { days: String(days) });
 
-/** Every template, inactive ones included. */
 export const adminPackTemplates = () =>
   get('/admin/pack-templates', z.array(PackTemplateViewSchema));
 
@@ -59,7 +58,6 @@ export const unsuspendUser = (id: string) => post(userPath(id, 'unsuspend'), Adm
 
 export const syncStatus = () => get('/admin/sync/status', SyncStatusResponseSchema);
 
-/** 202 `{ jobId, kind }`; 409 `SYNC_IN_PROGRESS` while either kind holds the key. */
 export const triggerSync = (kind: SyncTriggerKind) =>
   post(kind === 'CATALOG' ? '/admin/sync/catalog' : '/admin/sync/prices', SyncTriggerResultSchema);
 

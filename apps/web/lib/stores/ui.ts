@@ -2,9 +2,7 @@ import { createStore } from 'zustand/vanilla';
 import { createStoreContext } from './context';
 
 export interface UiStore {
-  /** The open modal's id; one at a time. */
   modal: string | null;
-  /** The sidebar drawer on narrow screens; wide screens always show the sidebar. */
   navOpen: boolean;
   filterPanelOpen: boolean;
   openModal: (id: string) => void;

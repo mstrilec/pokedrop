@@ -1,13 +1,3 @@
-// PokeDrop database schema.
-//
-// Note for anyone following docs/Architecture.md: since Prisma 7 the datasource
-// block no longer accepts `url`. The connection string for the CLI lives in
-// prisma.config.ts, and the client receives a driver adapter at construction.
-//
-// Tables are mapped to plural snake_case. `user` is a reserved word in
-// PostgreSQL — unmapped, the table would be "User" and every hand-written query
-// would need the quotes to avoid resolving to CURRENT_USER.
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -15,14 +5,6 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
-
-// ---------------------------------------------------------------------------
-// Enums — docs/DataModel.md
-//
-// All five land here rather than with the models that use them, so that one
-// migration creates every enum type and PD-23 onward only add tables.
-// `Rarity` is deliberately absent: the list is extensible, so it is a string.
-// ---------------------------------------------------------------------------
 
 enum Role {
   MEMBER
@@ -68,23 +50,6 @@ enum SyncStatus {
   FAILED
 }
 
-// ---------------------------------------------------------------------------
-// Identity
-//
-// User carries both the Better Auth core fields and our domain fields, because
-// the adapter and the application share one client and one table.
-//
-// Two of the core fields are renamed: Better Auth calls them `name` and
-// `image`, and PD-29 must declare that mapping in its `user.fields` block, or
-// the adapter will look for columns that do not exist here. `role` and
-// `currency` are ours; the adapter only learns about them through
-// `user.additionalFields`, and `role` must be declared there with
-// `input: false` so no sign-up payload can set it.
-//
-// There is no passwordHash. Better Auth stores the credential password on
-// Account, and a second column here would look like the real one.
-// ---------------------------------------------------------------------------
-
 model User {
   id            String   @id @default(cuid())
   email         String   @unique
@@ -96,17 +61,9 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  /// Privacy toggles for the public profile. Both off by default: nothing about
-  /// a collection is public until its owner says so.
   showCollectionValue Boolean  @default(false)
   showSetCompletion   Boolean  @default(false)
-  /// Up to six card ids, in display order. No foreign key and no ownership
-  /// guarantee: a card traded away stays listed here and is filtered out on
-  /// read, so the showcase never shows a card its owner no longer has.
   showcaseCardIds     String[] @default([])
-  /// Set while an admin has suspended the account. Enforced three ways - the
-  /// suspending transaction deletes the sessions, Better Auth's session hook
-  /// refuses new ones, and SessionGuard refuses any that slipped between.
   suspendedAt         DateTime?
 
   sessions             Session[]
@@ -124,9 +81,6 @@ model User {
   @@map("users")
 }
 
-/// One row per user per UTC day on which they made an authenticated request.
-/// Written by SessionGuard, at most once per user per day per process; the
-/// source of daily active users.
 model UserActivity {
   userId String
   day    DateTime @db.Date
@@ -138,8 +92,7 @@ model UserActivity {
   @@map("user_activity")
 }
 
-/// Better Auth core table. Fields follow @better-auth/core exactly; do not
-/// add or rename without regenerating with the Better Auth CLI.
+/// Better Auth core table: change it only by regenerating with the Better Auth CLI.
 model Session {
   id        String   @id @default(cuid())
   token     String   @unique
@@ -156,9 +109,6 @@ model Session {
   @@map("sessions")
 }
 
-/// Better Auth core table. One row per authentication method linked to a user:
-/// the credential provider stores its hash in `password`, OAuth providers store
-/// their tokens here.
 model Account {
   id                    String    @id @default(cuid())
   accountId             String
@@ -180,8 +130,6 @@ model Account {
   @@map("accounts")
 }
 
-/// Better Auth core table, used for email verification and password reset
-/// tokens. Rows are short-lived.
 model Verification {
   id         String   @id @default(cuid())
   identifier String
@@ -194,21 +142,6 @@ model Verification {
   @@map("verifications")
 }
 
-// ---------------------------------------------------------------------------
-// Catalog mirror
-//
-// Ids are the provider's own (`base1`, `base1-4`), never generated here, which
-// is what makes a re-sync an idempotent upsert rather than a duplicate insert.
-//
-// `updatedAt` is not in docs/DataModel.md's field list. It is here because the
-// sync processor and the admin sync-status endpoint both need to know how stale
-// a mirrored row is, and nothing else records that.
-// ---------------------------------------------------------------------------
-
-/// docs/DataModel.md calls this `Set`. Named `CardSet` for two reasons: `set`
-/// is a reserved word in PostgreSQL, and a generated TypeScript type named
-/// `Set` shadows the global one for any file that imports it — the same reason
-/// @pokedrop/shared exports `CardSetSchema`.
 model CardSet {
   id           String   @id
   name         String
@@ -236,8 +169,6 @@ model Card {
   rarity      String?
   retreatCost String[]
 
-  /// Provider payloads, stored whole. Their shapes are the provider's to
-  /// change, and @pokedrop/shared parses them on the way out.
   weaknesses  Json
   resistances Json
   attacks     Json
@@ -245,7 +176,6 @@ model Card {
   legalities  Json
 
   nationalPokedexNumbers Int[]
-  /// The name of the card this one evolves from, as the provider prints it.
   evolvesFrom            String?
 
   imageSmall String
@@ -254,18 +184,14 @@ model Card {
   tcgplayerId  String?
   cardmarketId String?
 
-  /// Denormalised so a catalog list does not join the time series. Decimal
-  /// rather than Float: these are summed into collection valuations, and
-  /// "it is only for display" is how float error ships.
+  /// Decimal, not Float: summed into collection valuations.
   latestPriceUsd Decimal?  @db.Decimal(10, 2)
   latestPriceEur Decimal?  @db.Decimal(10, 2)
   priceUpdatedAt DateTime?
 
   updatedAt DateTime @updatedAt
 
-  /// Restrict, not Cascade. A cascade from a set would delete its cards, and
-  /// cards cascade into InventoryItem — user property destroyed by deleting a
-  /// catalog row. A mirrored set should never be deleted anyway; sync upserts.
+  /// Restrict, not Cascade: cards cascade into InventoryItem, so it would delete user property.
   set CardSet @relation(fields: [setId], references: [id], onDelete: Restrict)
 
   priceSnapshots     PriceSnapshot[]
@@ -287,10 +213,6 @@ model Card {
   @@map("cards")
 }
 
-/// The fastest-growing table in the system. docs/DataModel.md caps it at one
-/// snapshot per card per day; that needs a unique index on an expression
-/// (`capturedAt::date`), which Prisma cannot express — so the cap is enforced
-/// by the price sync job, not here.
 model PriceSnapshot {
   id         String      @id @default(cuid())
   cardId     String
@@ -302,19 +224,8 @@ model PriceSnapshot {
   high       Decimal?    @db.Decimal(10, 2)
   capturedAt DateTime
 
-  /// The UTC day of `capturedAt`, materialised so the one-snapshot-per-card-
-  /// per-day cap can be a unique index instead of a convention.
-  ///
-  /// docs/DataModel.md used to say this cap could not live in the schema,
-  /// because expressing it needs an index over `capturedAt::date` and Prisma
-  /// cannot declare expression indexes. That is true and it is not the only
-  /// way to state the constraint: materialise the day and the index becomes an
-  /// ordinary composite one that Prisma declares natively, with no drift.
-  ///
-  /// Derived in UTC by the price sync processor. Prisma has no generated
-  /// columns, so nothing in the database enforces that it matches
-  /// `capturedAt` - the processor is the only writer, and it computes both
-  /// from one instant per job.
+  /// The UTC day of `capturedAt`, so the daily cap is an ordinary unique index. Nothing enforces
+  /// that the two agree: the price writer derives both from one instant.
   capturedOn DateTime @db.Date
 
   card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
@@ -324,23 +235,8 @@ model PriceSnapshot {
   @@map("price_snapshots")
 }
 
-// ---------------------------------------------------------------------------
-// Economy
-//
-// The constraints in this section are what actually prevent duplication and
-// double-spend; the service code on top of them is the second line, not the
-// first. The CHECKs themselves cannot be declared here — Prisma has no syntax
-// for them — so they live in a hand-written migration. That is safe: Prisma's
-// migration engine models tables, columns, indexes and foreign keys, and has no
-// concept of a check constraint, so it neither reports them as drift nor drops
-// them. Verified by replaying the whole migration history into an empty
-// database, which is what a deployment does.
-//
-// Deletes: anything a user owns cascades from the user, but nothing cascades
-// from the catalog. Deleting a Card must not silently empty someone's
-// collection, and deleting a PackTemplate must not erase the history of packs
-// opened from it — that is what `active` is for.
-// ---------------------------------------------------------------------------
+// CHECK constraints live in hand-written migrations: Prisma has no syntax for them, and neither
+// reports them as drift nor drops them.
 
 model InventoryItem {
   id             String   @id @default(cuid())
@@ -353,8 +249,6 @@ model InventoryItem {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   card Card @relation(fields: [cardId], references: [id], onDelete: Restrict)
 
-  /// Also serves userId-only lookups as the leading column, so no separate
-  /// index on userId.
   @@unique([userId, cardId])
   @@index([cardId])
   @@map("inventory_items")
@@ -382,8 +276,6 @@ model PackOpening {
   templateId String
   /// The idempotency guard. A retried open with the same id cannot mint twice.
   openId     String   @unique
-  /// Hex of the 32-byte seed the pack was drawn from. Null only for openings
-  /// that predate PD-57.
   seed       String?
   createdAt  DateTime @default(now())
 
@@ -397,15 +289,11 @@ model PackOpening {
   @@map("pack_openings")
 }
 
-/// Rarity is stored as pulled rather than read back from Card, so the history
-/// stays true even if the catalog later reclassifies the card.
 model PackOpeningCard {
   id            String @id @default(cuid())
   packOpeningId String
   cardId        String
   rarity        String
-  /// Pull order, 0-based. A replay must reveal the cards in the order they
-  /// were first revealed.
   position      Int
 
   packOpening PackOpening @relation(fields: [packOpeningId], references: [id], onDelete: Cascade)
@@ -415,12 +303,10 @@ model PackOpeningCard {
   @@map("pack_opening_cards")
 }
 
-/// The ledger behind User.currency. Nothing in the schema keeps the two in
-/// agreement — that is the job of the transaction that writes both.
+/// The ledger behind User.currency; nothing in the schema keeps the two in agreement.
 model CurrencyTransaction {
   id        String          @id @default(cuid())
   userId    String
-  /// Signed: grants are positive, spends negative.
   amount    Int
   type      TransactionType
   refId     String?
@@ -428,46 +314,19 @@ model CurrencyTransaction {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  /// Makes a credit idempotent on its own reference rather than on a
-  /// read-then-write check, which at READ COMMITTED two concurrent writers
-  /// both pass. `refId` is nullable and PostgreSQL treats NULL as distinct
-  /// from NULL, so rows without a reference — every GRANT in the seed — are
-  /// unaffected.
-  ///
-  /// It generalises: (userId, PACK_SPEND, openId) is the idempotency a
-  /// retried pack open needs in PD-58, and (userId, TRADE, tradeId) the same
-  /// for trade settlement.
+  /// Idempotency by unique index, not a read-then-write check, which two concurrent writers
+  /// both pass at READ COMMITTED.
   @@unique([userId, type, refId])
   @@index([userId, createdAt])
   @@map("currency_transactions")
 }
 
-// ---------------------------------------------------------------------------
-// Decks and trades
-//
-// A trade is the one record here that belongs to two people at once, which is
-// why both of its user relations are Restrict rather than Cascade: deleting one
-// party would otherwise erase the other party's record of their own completed
-// trade, silently. Restrict fails loudly instead. Account deletion, when it
-// exists, has to anonymise rather than delete.
-//
-// A PENDING trade holds escrow — lockedQuantity on inventory rows. Nothing here
-// can enforce that removing or voiding such a trade releases those locks; that
-// belongs to the settlement and expiry jobs. Cards locked by a trade that no
-// longer exists stay locked forever.
-// ---------------------------------------------------------------------------
-
 model Deck {
   id        String   @id @default(cuid())
   userId    String
   name      String
-  /// Open string, not an enum: legality comes from the card's own `legalities`
-  /// map, which the provider extends with new formats over time.
   format    String
   isPublic  Boolean  @default(false)
-  /// Strict mode: a card beyond the owner's available copies is an error
-  /// rather than a warning. Read by the validation engine only; changing it
-  /// never touches the decklist.
   ownedOnly Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -479,9 +338,7 @@ model Deck {
   @@map("decks")
 }
 
-/// The max-copies rule is not a check constraint. Basic energy is exempt from
-/// it, and this table cannot see the card's supertype — a `count <= 4` here
-/// would simply be wrong. The deck validation engine owns that rule.
+/// No `count <= 4` check: basic Energy is exempt, and this table cannot see the supertype.
 model DeckCard {
   id     String @id @default(cuid())
   deckId String
@@ -504,12 +361,10 @@ model Trade {
   currencyFromInitiator Int         @default(0)
   currencyFromRecipient Int         @default(0)
   createdAt             DateTime    @default(now())
-  /// Null while PENDING.
   resolvedAt            DateTime?
 
-  /// The trade this one replaces. Unique, so a trade can be countered at most
-  /// once — which makes the chain a list rather than a tree, and turns a race
-  /// between two counter-offers into a constraint violation instead of a fork.
+  /// Unique: a trade is countered at most once, so a race between two counters is a constraint
+  /// violation rather than a fork.
   counteredTradeId String? @unique
   counteredTrade   Trade?  @relation("TradeCounter", fields: [counteredTradeId], references: [id], onDelete: SetNull)
   counterOffer     Trade?  @relation("TradeCounter")
@@ -541,19 +396,11 @@ model TradeItem {
   @@map("trade_items")
 }
 
-// ---------------------------------------------------------------------------
-// Notifications and audit
-// ---------------------------------------------------------------------------
-
-/// Ephemeral, and the user's own — so it cascades with them.
 model Notification {
   id        String    @id @default(cuid())
   userId    String
-  /// Open string rather than an enum: new notification kinds arrive with new
-  /// features, and an unknown one must not break a read.
   type      String
   payload   Json
-  /// Null until the user opens it. The unread badge counts these.
   readAt    DateTime?
   createdAt DateTime  @default(now())
 
@@ -563,14 +410,8 @@ model Notification {
   @@map("notifications")
 }
 
-/// Append-only by convention — nothing in application code updates or deletes
-/// these rows. The schema cannot enforce that; a trigger could, at the cost of
-/// a hand-written object Prisma would not know about.
-///
-/// `actorId` is nullable because not every audited action has a human behind
-/// it: the trade-expiry job cancels trades on its own. It is Restrict rather
-/// than SetNull precisely so that deleting a user can never quietly turn their
-/// actions into system actions — the two must stay distinguishable.
+/// Append-only by convention. `actorId` null is the system; Restrict, not SetNull, so deleting a
+/// user never turns their actions into the system's.
 model AuditLog {
   id        String   @id @default(cuid())
   actorId   String?
@@ -588,23 +429,16 @@ model AuditLog {
   @@map("audit_logs")
 }
 
-/// One execution of a background sync. Durable because four consumers need it:
-/// PD-42 resumes from `cursor`, PD-43 records which provider served a run,
-/// PD-49 reports per-run counts, and PD-81 and PD-82 read all of it.
 model SyncRun {
   id   String   @id @default(cuid())
   kind SyncKind
 
-  /// A string rather than an enum. It records which source served the run, and
-  /// a closed enum would need a migration every time a provider is added -
-  /// exactly the coupling the CardSourceProvider adapter removes.
   provider String
 
   status SyncStatus @default(RUNNING)
 
-  /// The BullMQ job that owns this run. Resumption is only safe when it
-  /// matches: without it a fresh processor would adopt any RUNNING row it
-  /// found, including one abandoned by a process that was killed a week ago.
+  /// Resume only when this matches: otherwise a processor would adopt a run abandoned by a killed
+  /// process.
   jobId String?
 
   startedAt  DateTime  @default(now())
@@ -613,7 +447,6 @@ model SyncRun {
   processed Int @default(0)
   failed    Int @default(0)
 
-  /// Resume point. `{ "page": 12 }` for a catalog run.
   cursor Json?
   error  String?
 

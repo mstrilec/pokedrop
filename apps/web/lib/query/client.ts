@@ -22,8 +22,6 @@ const STALE_TIMES: [QueryKey, number][] = [
   [keys.notifications.all, 15 * SECOND],
 ];
 
-// A public page may hold a query that needs a session; losing the session
-// there is not a reason to leave the page.
 function onError(error: unknown): void {
   if (
     !isServer &&
@@ -44,7 +42,6 @@ export function makeQueryClient(): QueryClient {
     },
     queryCache: new QueryCache({ onError }),
     mutationCache: new MutationCache({
-      // A failed mutation always tells the user, unless it opts out with meta.toast = false.
       onError: (error, _variables, _result, mutation) => {
         onError(error);
         if (mutation.meta?.toast !== false) toastApiError(error);

@@ -15,7 +15,6 @@ export function SectionHeading({
   id: string;
   eyebrow: string;
   icon: LucideIcon;
-  /** A text colour class for the eyebrow, e.g. `text-energy-fire`. */
   tone: string;
   title: ReactNode;
   lead?: ReactNode;

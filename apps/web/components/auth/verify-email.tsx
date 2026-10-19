@@ -19,7 +19,6 @@ import {
 import { apiErrorMessage } from '@/lib/toast';
 import { AuthNotice } from './auth-card';
 
-/** Seconds left until `deadline`, and a setter for the clock when the deadline moves. */
 function useSecondsUntil(deadline: number): [number, (now: number) => void] {
   const [now, setNow] = useState(() => Date.now());
   const remaining = Math.max(0, Math.ceil((deadline - now) / 1000));
@@ -36,7 +35,6 @@ async function resend(email: string): Promise<void> {
   rememberPendingVerification(email);
 }
 
-/** The address is known from this tab's sign-up or sign-in: one button, on a cooldown. */
 function ResendButton({ email, sentAt }: { email: string; sentAt: number }) {
   const [lastSent, setLastSent] = useState(sentAt);
   const [state, setState] = useState<'idle' | 'sending' | 'sent' | { error: string }>('idle');
@@ -72,7 +70,6 @@ function ResendButton({ email, sentAt }: { email: string; sentAt: number }) {
   );
 }
 
-/** Opened in another tab or browser, the address is unknown: ask for it. */
 function ResendForm() {
   const [sentTo, setSentTo] = useState<string | null>(null);
   const form = useForm<ForgotPassword>({

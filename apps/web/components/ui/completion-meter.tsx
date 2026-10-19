@@ -4,11 +4,8 @@ type CompletionMeterProps = {
   label: string;
   value: number;
   max: number;
-  /** A CSS color, usually a token: `var(--e-fire)` for a set-themed bar. */
   color?: string;
-  /** Track thickness in px. */
   height?: number;
-  /** Hide the label and count row when the surrounding layout already shows them. */
   showHeader?: boolean;
   unit?: string;
   className?: string;

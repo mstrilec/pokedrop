@@ -34,7 +34,6 @@ const JOBS: Record<
   },
 };
 
-// A second's clock while something runs, for the elapsed time; nothing ticks otherwise.
 function subscribeSeconds(notify: () => void) {
   const timer = setInterval(notify, 1_000);
   return () => clearInterval(timer);
@@ -114,7 +113,6 @@ function JobCard({
   kind: Kind;
   status: SyncStatusResponse;
   busy: string | null;
-  /** The job this page queued for this kind, until its run appears. */
   queued: string | null;
   starting: boolean;
   refused: string | null;
@@ -174,7 +172,6 @@ function JobCard({
   );
 }
 
-/** Why neither button may start a run now: the two share one daily budget and run one at a time. */
 function busyReason(
   status: SyncStatusResponse,
   starting: boolean,
@@ -266,7 +263,6 @@ export function SyncControl() {
   const data = status.data;
   const busy = data ? syncBusy(data) : false;
   const now = useSeconds(busy);
-  // The job this page queued, until a run carrying its id shows up in the status.
   const sent = trigger.data;
   const queued =
     sent && data && !(data.runs ?? []).some((run) => run.jobId === sent.jobId) ? sent : null;

@@ -2,7 +2,6 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 
-/* Light when chosen, or when the OS prefers it and dark was not chosen (docs/Frontend.md). */
 @custom-variant light {
   &:where([data-theme='light'], [data-theme='light'] *) {
     @slot;
@@ -14,11 +13,7 @@
   }
 }
 
-/*
- * docs/DesignSystem.md, value for value. This file is the only place a raw
- * color, shadow or easing may be written; everything else uses the utilities
- * the @theme block below derives from it.
- */
+/* The only place a raw color, shadow or easing may be written (docs/DesignSystem.md). */
 :root {
   color-scheme: dark;
 
@@ -79,7 +74,6 @@
   --e-dragon: #cf9b2e;
   --e-fairy: #e987bd;
   --e-colorless: #b9bec9;
-  /* Ink: an energy colour used as text or a UI fill. The art above stays the same in both themes. */
   --ink-fire: var(--e-fire);
   --ink-water: var(--e-water);
   --ink-grass: var(--e-grass);
@@ -96,7 +90,6 @@
   --booster-ink: #fff;
   --booster-shade: rgba(0, 0, 0, 0.28);
   --booster-sheen: rgba(255, 255, 255, 0.5);
-  /* Art: the same in both themes, for whatever sits on card art or 3D. */
   --art-com: #9aa1ad;
   --art-unc: #4fc98a;
   --art-rare: #4c8dff;
@@ -120,7 +113,6 @@
   --skeleton-highlight: #262a34;
   --backdrop: radial-gradient(1000px 500px at 85% -10%, rgba(76, 141, 255, 0.05), transparent 60%);
 
-  /* shadcn/ui's semantic names, pointed at the tokens above. */
   --background: var(--bg);
   --foreground: var(--tx);
   --card: var(--surface);
@@ -228,7 +220,6 @@
 }
 
 @theme inline {
-  /* The default palette is switched off, so a color outside the system has no utility. */
   --color-*: initial;
 
   --color-bg: var(--bg);
@@ -516,9 +507,7 @@
       opacity: 1;
     }
   }
-  /* Landing micro-animations (PD-138). The looping ones have no fill mode: when
-     the reduced-motion rule below ends them at once, each element shows its own
-     style, the resting state. */
+  /* The looping animations have no fill mode, so reduced motion ends them in their resting state. */
   @keyframes coin-drop {
     0% {
       transform: translateY(-46px);
@@ -630,7 +619,6 @@
   background-size: 200% 100%;
 }
 
-/* The keyboard focus ring every interactive element uses. */
 @utility focus-ring {
   @apply outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-bg;
 }
@@ -653,7 +641,6 @@
   );
 }
 
-/* The crimped seal: small teeth along the top and bottom edges. */
 @utility booster-crimp {
   mask:
     conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) top / 8px 51% repeat-x,
@@ -673,10 +660,7 @@
   }
 }
 
-/*
- * One switch for every animation and transition, including those inside
- * third-party components: a reduced-motion user sees end states, instantly.
- */
+/* Reduced motion everywhere, third-party components included: end states, instantly. */
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,
@@ -690,7 +674,6 @@
   }
 }
 
-/* ThemeProvider sets this for one frame while the theme changes. */
 :root[data-theme-switching] *,
 :root[data-theme-switching] *::before,
 :root[data-theme-switching] *::after {

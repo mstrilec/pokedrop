@@ -5,21 +5,8 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 /**
- * One flat config for the whole workspace.
- *
- * typescript-eslint's `projectService` resolves every file to its owning
- * tsconfig.json on its own, so a single root pass is both simpler and faster
- * than running ESLint once per package with three separate TS programs.
- *
- * Formatting is Prettier's job alone: `eslint-config-prettier` goes last and
- * switches off every stylistic rule the two would otherwise fight over.
- */
-
-/**
- * Shared so the two `apps/api` blocks below cannot drift. Flat config resolves
- * a rule by last match rather than by merging, so the block that re-states
- * `no-restricted-imports` for the providers folder has to repeat this group or
- * it would silently switch the workspace boundary off for those files.
+ * Shared by both `apps/api` blocks: flat config takes the last match, so the providers block
+ * must repeat this group or it silently drops the workspace boundary.
  */
 const apiMustNotImportWeb = {
   // These match the import specifier as written, not the resolved path, so the
@@ -29,15 +16,6 @@ const apiMustNotImportWeb = {
     'apps/api must not import from apps/web. Share types and schemas through @pokedrop/shared.',
 };
 
-/**
- * PD-38's provider seam. Everything outside sync/providers/ goes through the
- * folder's index.ts, which exports the interface, the DTOs, the errors and the
- * tokens - never a provider's own client, raw schema or mapper.
- *
- * Same caveat as above: the patterns match the specifier as written, so both
- * the `./providers/...` form used from inside sync/ and the
- * `.../sync/providers/...` form used from elsewhere are listed.
- */
 const providerInternalsAreSealed = {
   group: [
     '**/sync/providers/*/**',
@@ -63,12 +41,6 @@ export default tseslint.config(
 
   js.configs.recommended,
 
-  // Backend and shared contracts: type-aware linting.
-  //
-  // no-floating-promises and no-misused-promises are the reason this is worth
-  // the extra seconds. A forgotten await inside a Prisma transaction or a
-  // BullMQ processor fails silently, and with no test suite there is nothing
-  // else that would catch it.
   {
     files: ['apps/api/**/*.ts', 'packages/shared/**/*.ts'],
     extends: [tseslint.configs.recommendedTypeChecked],
@@ -81,7 +53,6 @@ export default tseslint.config(
     },
   },
 
-  // Frontend: Next's own rules plus plain (non type-aware) TypeScript rules.
   {
     files: ['apps/web/**/*.{ts,tsx}'],
     extends: [tseslint.configs.recommended, next],
@@ -89,13 +60,8 @@ export default tseslint.config(
       globals: { ...globals.browser, ...globals.node },
     },
     rules: {
-      // Pages Router only, and it resolves 'pages/' against the ESLint root
-      // rather than apps/web, so in this monorepo it can do nothing but warn
-      // that a directory we deliberately do not have is missing.
       '@next/next/no-html-link-for-pages': 'off',
 
-      // PD-85: colors and spacing come from the tokens in app/globals.css. A
-      // hex value or an arbitrary px/rem gap in a component bypasses them.
       'no-restricted-syntax': [
         'error',
         ...['Literal[value', 'TemplateElement[value.raw'].flatMap((node) => [
@@ -112,15 +78,11 @@ export default tseslint.config(
     },
   },
 
-  // Root-level config files (this one, commitlint, next.config.ts).
   {
     files: ['*.mjs', '*.js', 'apps/*/*.{mjs,js,ts}'],
     languageOptions: { globals: globals.node },
   },
 
-  // The workspace boundary promised in PD-10: the two apps talk only through
-  // @pokedrop/shared. Until now this held only because no dependency edge
-  // existed; this makes a violation fail loudly.
   {
     files: ['apps/web/**/*.{ts,tsx}'],
     rules: {

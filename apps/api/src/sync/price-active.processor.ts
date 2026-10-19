@@ -17,10 +17,8 @@ import { ActiveCardSelector } from './active-card.selector.js';
 import { PriceBatchService } from './price-batch.service.js';
 import { SyncRunService } from './sync-run.service.js';
 
-/** The same 250 PD-49 measured: 100 cards cost 4.53 s and 250 cost 12.57 s. */
 const BATCH_SIZE = 250;
 
-/** As in the sweep: sized against a ceiling of 30 requests a minute. */
 const STALL_BASE_MS = 30_000;
 const STALL_CAP_MS = 300_000;
 
@@ -88,19 +86,11 @@ export class PriceActiveProcessor extends WorkerHost {
     const log = (message: string): void =>
       this.logger.log(`run ${run.id} job ${job.id}: ${message}`);
 
-    // Re-selected on every run, including a BullMQ retry. There is no cursor
-    // because there is nothing to resume: the set is derived fresh and bounded,
-    // and cards a failed attempt did not reach are staler now and therefore
-    // sort higher in the next selection.
     const selection = await this.active.select();
     log(
       `${selection.cardIds.length} active cards selected${selection.truncated ? ' (truncated by the bound)' : ''}`,
     );
 
-    // Starts at 0 rather than resuming from `run.processed` / `run.failed` as
-    // the sweep does: this job re-selects its entire set on every attempt,
-    // including a BullMQ retry, so there is no earlier attempt's count to
-    // carry forward - attempt 2's counters describe attempt 2's work.
     let processed = 0;
     let failed = 0;
     let stalls = 0;
@@ -120,8 +110,6 @@ export class PriceActiveProcessor extends WorkerHost {
       try {
         outcome = await this.runBatch(ids, choice, run.id, stalls);
       } catch (error) {
-        // Only a contract error escapes runBatch: the upstream changed shape.
-        // PriceBatchService has already recorded the breaker failure.
         await this.runs.close(run.id, SyncStatus.FAILED, describe(error));
         throw error;
       }
@@ -134,8 +122,6 @@ export class PriceActiveProcessor extends WorkerHost {
           break;
         }
 
-        // `offset` does not advance. The same batch is asked for again after
-        // the wait runBatch already took.
         continue;
       }
 
@@ -155,16 +141,6 @@ export class PriceActiveProcessor extends WorkerHost {
       }
     }
 
-    // A truncated selection is not a complete piece of work even when every
-    // batch succeeded: cards were eligible and went unpriced.
-    //
-    // Neither is a selection the loop ran to completion on. `processed` is
-    // `result.priced` summed across batches - the count the provider actually
-    // returned prices for - not the count of ids asked for. A batch that
-    // fails outright is caught above and counted into `failed`, but a batch
-    // the provider answers with fewer cards than it was asked for is not a
-    // failure at all, so it leaves a gap that neither `failed` nor
-    // `stoppedBecause` explains on its own.
     const notes = [
       choice.isFallback ? `fallback via ${provider.name} (${choice.reason})` : null,
       stoppedBecause,
@@ -187,14 +163,6 @@ export class PriceActiveProcessor extends WorkerHost {
     await this.runs.closeIfFinallyFailed(SyncKind.PRICE_ACTIVE, job, error);
   }
 
-  /**
-   * One batch, plus the 429 wait. Everything but a contract error becomes an
-   * outcome the loop can act on.
-   *
-   * A rate limit is not a failure: it says the provider is healthy and we are
-   * asking too fast. It is not counted into `failed`, it does not touch the
-   * breaker, and the caller does not advance past the batch.
-   */
   private async runBatch(
     ids: string[],
     choice: ProviderChoice,
@@ -206,9 +174,6 @@ export class PriceActiveProcessor extends WorkerHost {
       return { processed: result.priced, failed: 0, stalled: false, down: false };
     } catch (error) {
       if (error instanceof ProviderRateLimitError) {
-        // Honour a Retry-After when the provider sends one; this upstream never
-        // does, so in practice this is the escalation. `stalls` is the count
-        // before this one, so the first wait is the base rather than double it.
         const wait = Math.min(error.retryAfterMs ?? STALL_BASE_MS * 2 ** stalls, STALL_CAP_MS);
         this.logger.warn(`run ${runId}: rate limited, waiting ${wait}ms - ${describe(error)}`);
         await sleep(wait);

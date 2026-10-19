@@ -6,7 +6,6 @@ import { PrismaService } from '../prisma/index.js';
 
 const DAY = 24 * 60 * 60 * 1000;
 
-/** Reads only: the log is append-only, and nothing here writes it. */
 @Injectable()
 export class AdminAuditService {
   constructor(private readonly prisma: PrismaService) {}
@@ -68,7 +67,6 @@ export class AdminAuditService {
     });
   }
 
-  /** One read per kind for the whole page: users by id, templates by id. */
   private async subjects(rows: { entity: string; entityId: string }[]) {
     const ids = (entity: string) => [
       ...new Set(rows.filter((r) => r.entity === entity).map((r) => r.entityId)),

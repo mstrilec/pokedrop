@@ -12,7 +12,6 @@ const OPTIONS: { value: ThemePreference; label: string; icon: LucideIcon }[] = [
   { value: 'dark', label: 'Dark', icon: Moon },
 ];
 
-/** System · Light · Dark as native radios, so arrow keys move between them. */
 export function ThemeSwitch({ size }: { size: 'labelled' | 'icon' }) {
   const { preference, setPreference } = useTheme();
   const name = useId();

@@ -37,7 +37,6 @@ export function ForgotPasswordForm() {
     }
   }
 
-  // The API answers the same for any address, so the page does too.
   if (sent) {
     return (
       <AuthNotice tone="success">

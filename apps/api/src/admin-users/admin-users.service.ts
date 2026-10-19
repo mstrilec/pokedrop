@@ -169,9 +169,8 @@ export class AdminUsersService {
   }
 
   /**
-   * Trades are closed before `users` is touched: an accept takes the trade's
-   * row and then the user rows, and taking them in the same order here makes
-   * the two queue instead of deadlocking.
+   * Trades are closed before `users` is touched: the same order an accept takes them, so the
+   * two queue instead of deadlocking.
    */
   async suspend(admin: AuthUser, id: string, reason: string): Promise<AdminUserRow> {
     this.assertNotSelf(admin, id);
@@ -275,13 +274,9 @@ export class AdminUsersService {
   }
 
   /**
-   * Locks every active admin in id order before counting them. A concurrent
-   * change waits here, and once the first commits PostgreSQL re-checks the
-   * waiting rows against the WHERE, so it counts what is really left. NO KEY
-   * UPDATE, not UPDATE: it still conflicts with itself, but not with the KEY
-   * SHARE an audit or session insert takes on its actor's row - with FOR
-   * UPDATE a suspension that had already audited a void could deadlock
-   * against another admin's lock.
+   * Locks every active admin in id order before counting them. NO KEY UPDATE, not UPDATE: FOR
+   * UPDATE would conflict with the KEY SHARE an audit or session insert takes on its actor's row
+   * and can deadlock a suspension against another admin.
    */
   private async assertNotLastAdmin(tx: TransactionClient, targetId: string): Promise<void> {
     const admins = await tx.$queryRaw<{ id: string }[]>`
@@ -304,5 +299,4 @@ export class AdminUsersService {
   }
 }
 
-/** Thrown to roll back a suspension that finds the account already suspended. */
 class Unchanged extends Error {}

@@ -52,7 +52,6 @@ export class DecksController {
     return this.decks.create(user, body);
   }
 
-  /** Public so a shared deck page renders signed out; the service hides private decks. */
   @Public()
   @Doc(
     'One deck with its cards: public decks for anyone, private ones for their owner',

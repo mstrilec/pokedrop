@@ -37,7 +37,6 @@ export class UsersService {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
-  /** Four existence checks, each on an index; nothing about the checklist is stored. */
   async progress(userId: string): Promise<OnboardingProgress> {
     const [user, opening, trade, decks] = await Promise.all([
       this.prisma.user.findUniqueOrThrow({
@@ -65,10 +64,6 @@ export class UsersService {
     };
   }
 
-  /**
-   * Collectors whose display name contains `q`, an exact name first. Never the caller, never a
-   * suspended account, and only the public fields — the trade composer's counterparty search.
-   */
   async search(viewerId: string, q: string): Promise<UserSearchResult> {
     const where = { id: { not: viewerId }, suspendedAt: null };
     const select = { id: true, displayName: true, avatarUrl: true } as const;
@@ -173,7 +168,6 @@ export class UsersService {
     });
   }
 
-  /** The chosen cards the user still owns, in the chosen order. */
   private async showcase(userId: string, cardIds: string[]) {
     if (cardIds.length === 0) {
       return [];

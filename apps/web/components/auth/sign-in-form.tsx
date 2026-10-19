@@ -25,7 +25,6 @@ export function SignInForm({ next }: { next?: string }) {
     try {
       await authApi.call(signIn({ ...values, callbackURL: verifiedCallbackUrl() }));
     } catch (error) {
-      // Refused only after the password matched, and a fresh link is already on its way.
       if (error instanceof ApiError && error.code === 'EMAIL_NOT_VERIFIED') {
         rememberPendingVerification(values.email);
         router.push('/verify-email');

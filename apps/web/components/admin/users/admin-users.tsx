@@ -52,7 +52,6 @@ const column = createColumnHelper<AdminUserRow>();
 export function AdminUsers() {
   const session = useSession();
   const params = useSearchParams();
-  // `?q=` from the audit log's and the trade page's links.
   const [q, setQ] = useState(() => params.get('q')?.trim() ?? '');
   const [role, setRole] = useState<RoleFilter>('all');
   const [status, setStatus] = useState<StatusFilter>('all');
@@ -69,7 +68,6 @@ export function AdminUsers() {
   const data = users.data;
 
   const confirm = (action: UserAction) => {
-    // Optimistic: the row changes now and the dialog closes; a refusal puts it back with a toast.
     setAsking(null);
     act.mutate(action, { onSuccess: () => toastSuccess(done(action)) });
   };

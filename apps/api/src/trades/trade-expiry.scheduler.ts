@@ -4,11 +4,6 @@ import { Cron } from '@nestjs/schedule';
 import type { Queue } from 'bullmq';
 import { QUEUE } from '../queue/index.js';
 
-/**
- * Hourly, so an expired trade's cards come back within the hour. Registered in
- * the worker and not the API: two processes running this cron would enqueue
- * two runs each time.
- */
 @Injectable()
 export class TradeExpiryScheduler {
   private readonly logger = new Logger(TradeExpiryScheduler.name);

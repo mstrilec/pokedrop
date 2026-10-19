@@ -23,15 +23,11 @@ type DialogProps = {
   description?: ReactNode;
   icon?: LucideIcon;
   tone?: Tone;
-  /** Opens the dialog and gets focus back when it closes. Without one, focus returns to
-   * whatever had it when the dialog opened. */
   trigger?: ReactElement;
   children?: ReactNode;
-  /** The footer: Cancel plus a confirm button, when `onConfirm` is given. */
   confirmLabel?: string;
   cancelLabel?: string;
   onConfirm?: () => void;
-  /** The confirm action is in flight: its button spins, and the dialog cannot be dismissed. */
   confirming?: boolean;
   className?: string;
 };

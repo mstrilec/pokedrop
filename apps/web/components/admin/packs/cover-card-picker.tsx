@@ -10,7 +10,6 @@ import { SearchInput } from '@/components/ui/search-input';
 import { useCatalogBrowse, useSets } from '@/lib/query/catalog';
 import { cn } from '@/lib/utils';
 
-/** Picks a pack's featured card from the template's own sets. */
 export function CoverCardPicker({
   open,
   setIds,

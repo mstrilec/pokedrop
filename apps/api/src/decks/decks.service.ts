@@ -55,7 +55,6 @@ export class DecksService {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
-  /** The owner's decks, each with the verdict on it as saved — computed now, never stored. */
   async list(userId: string, query: DeckListQuery): Promise<OwnDeckPage> {
     const page = await this.page({ userId }, query);
     const verdicts = await Promise.all(
@@ -70,13 +69,11 @@ export class DecksService {
       ...page,
       items: page.items
         .map((deck, index) => ({ deck, verdict: verdicts[index] }))
-        // A deck deleted between the page read and its validation is left out, not failed.
         .filter(({ verdict }) => verdict !== null && verdict !== undefined)
         .map(({ deck, verdict }) => ({ ...deck, valid: verdict?.valid ?? false })),
     });
   }
 
-  /** Another user's shelf: public decks only, and a 404 for a user that does not exist. */
   async listPublic(userId: string, query: DeckListQuery): Promise<DeckPage> {
     const owner = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -201,11 +198,6 @@ export class DecksService {
     });
   }
 
-  /**
-   * Any deck the caller can see, so a stranger's public deck too. The copy is
-   * private and asks nothing of the caller's inventory: owning its cards is
-   * the validator's question, answered against the cloner's copies.
-   */
   clone(user: AuthUser, id: string): Promise<DeckSaveResult> {
     return this.prisma.withTransaction(async (tx) => {
       const source = await tx.deck.findUnique({
@@ -237,7 +229,6 @@ export class DecksService {
     });
   }
 
-  /** Owner only: the result states the owner's available copies, which is private. */
   async validate(user: AuthUser, id: string): Promise<DeckValidation> {
     const deck = await this.prisma.deck.findUnique({
       where: { id },
@@ -261,11 +252,6 @@ export class DecksService {
   }
 }
 
-/**
- * A private deck is a 404 to everyone but its owner, never a 403, so a deck id
- * cannot be probed for existence. A public deck exists for anyone to see, so a
- * stranger's edit to it is refused by `assertOwner` with an honest 403.
- */
 function assertVisible<T extends Visibility>(
   deck: T | null,
   viewer: AuthUser | undefined,

@@ -13,14 +13,6 @@ import { ProviderSelectorService } from './provider-selector.service.js';
 import { RequestBudgetService } from './request-budget.service.js';
 import { TcgdexClient } from './tcgdex/tcgdex.client.js';
 
-/**
- * Registration lives inside this folder on purpose.
- *
- * Naming a concrete provider is unavoidable somewhere, and the lint rule that
- * seals this folder refuses it anywhere else - correctly. Keeping it here is
- * also what makes PD-38's first acceptance criterion literally true: adding or
- * swapping a provider changes no file outside `sync/providers/`.
- */
 @Module({
   providers: [
     PokemonTcgClient,

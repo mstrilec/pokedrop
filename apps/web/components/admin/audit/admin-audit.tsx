@@ -104,7 +104,6 @@ const CLEARED = {
   to: undefined,
 };
 
-/** The log, newest first. Read-only: no control here changes or removes an entry. */
 export function AdminAudit() {
   const [filters, setFilters] = useUrlState(FiltersSchema);
   const range =
