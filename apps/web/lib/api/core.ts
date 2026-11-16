@@ -58,6 +58,8 @@ export interface Transport {
   baseUrl: string;
   headers: () => Record<string, string> | Promise<Record<string, string>>;
   init?: RequestInit;
+  /** GETs only: unanswered after this long fails as `network`, with no retry. */
+  getTimeoutMs?: number;
 }
 
 const RETRYABLE_STATUSES = new Set([502, 503, 504]);
@@ -74,19 +76,32 @@ export function createClient(transport: Transport) {
       init.body = JSON.stringify(request.body);
     }
     const url = `${transport.baseUrl}${request.path}${searchOf(request.query)}`;
-    const response = await send(url, init, request.method === 'GET' ? 1 : 0);
+    const isGet = request.method === 'GET';
+    const response = await send(
+      url,
+      init,
+      isGet ? 1 : 0,
+      isGet ? transport.getTimeoutMs : undefined,
+    );
     return parse(response, request.response);
   }
 
   return { call };
 }
 
-async function send(url: string, init: RequestInit, retries: number): Promise<Response> {
+async function send(
+  url: string,
+  init: RequestInit,
+  retries: number,
+  timeoutMs: number | undefined,
+): Promise<Response> {
   let response: Response;
   try {
-    response = await fetch(url, init);
+    response = await withTimeout(fetch(url, init), timeoutMs);
   } catch (error) {
-    if (retries > 0) return delay().then(() => send(url, unmemoized(init), retries - 1));
+    if (retries > 0 && !(error instanceof TimeoutError)) {
+      return delay().then(() => send(url, unmemoized(init), retries - 1, timeoutMs));
+    }
     throw new ApiError({
       kind: 'network',
       statusCode: 0,
@@ -94,9 +109,22 @@ async function send(url: string, init: RequestInit, retries: number): Promise<Re
     });
   }
   if (retries > 0 && RETRYABLE_STATUSES.has(response.status)) {
-    return delay().then(() => send(url, unmemoized(init), retries - 1));
+    return delay().then(() => send(url, unmemoized(init), retries - 1, timeoutMs));
   }
   return response;
+}
+
+class TimeoutError extends Error {}
+
+// A race, not an AbortSignal: React does not memoize a fetch that carries a signal, so a signal
+// on every GET would send each duplicate GET of a render to the API again.
+function withTimeout<T>(promise: Promise<T>, ms: number | undefined): Promise<T> {
+  if (ms === undefined) return promise;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new TimeoutError(`No answer within ${ms} ms`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
 async function parse<S extends z.ZodType>(response: Response, schema: S): Promise<z.output<S>> {

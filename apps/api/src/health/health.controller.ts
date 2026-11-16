@@ -2,10 +2,11 @@ import { Controller, Get, UseFilters } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import { Public } from '../common/decorators/public.decorator.js';
-import { HealthCheck, HealthCheckService, PrismaHealthIndicator } from '@nestjs/terminus';
+import { HealthCheck, HealthCheckService } from '@nestjs/terminus';
 import type { HealthCheckResult } from '@nestjs/terminus';
 import { PrismaService } from '../prisma/index.js';
 import { HealthCheckFilter } from './health-check.filter.js';
+import { probe } from './probe.js';
 import { RedisHealthIndicator } from './redis.health.js';
 import { Doc } from '../common/openapi.js';
 
@@ -19,7 +20,6 @@ const DEPENDENCY_TIMEOUT_MS = 1500;
 export class HealthController {
   constructor(
     private readonly health: HealthCheckService,
-    private readonly database: PrismaHealthIndicator,
     private readonly prisma: PrismaService,
     private readonly redis: RedisHealthIndicator,
   ) {}
@@ -36,7 +36,7 @@ export class HealthController {
   @HealthCheck()
   ready(): Promise<HealthCheckResult> {
     return this.health.check([
-      () => this.database.pingCheck('database', this.prisma).withTimeout(DEPENDENCY_TIMEOUT_MS),
+      () => probe('database', () => this.prisma.$queryRaw`SELECT 1`, DEPENDENCY_TIMEOUT_MS),
       () => this.redis.pingCheck('redis', DEPENDENCY_TIMEOUT_MS),
     ]);
   }

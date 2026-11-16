@@ -4,6 +4,9 @@ name: pokedrop-prod
 
 x-defaults: &defaults
   restart: unless-stopped
+  # tini as PID 1. Node as PID 1 ignores its own SIGABRT: after a heap OOM it printed the
+  # fatal error and spun at 100% CPU for days instead of exiting, so restart never fired.
+  init: true
   cpu_shares: 512
   logging:
     driver: json-file

@@ -17,4 +17,6 @@ export const serverApi = createClient({
   baseUrl: `${env.API_INTERNAL_URL}/api/v1`,
   headers: serverHeaders,
   init: { cache: 'no-store' },
+  // A hung API otherwise holds every server render for undici's 10 s connect timeout, twice.
+  getTimeoutMs: 5000,
 });
